@@ -59,7 +59,7 @@ our $NODENAME      = qq(default);
 our $NETGROUP      = qq(EXT_NET);
 our $CXTDIR        = qq(/var/lib/cxtracker/$NODENAME/);
 our $CXTDIRFAIL    = qq($CXTDIR/failed/);
-our $CHECKFILES    = 1000;
+our $CHECKFILES    = 10;
 our $PINGSERVER    = 5000;
 our $LOGFILE       = qq(/var/log/nsmf-node/cxtracker-$NODENAME.log);
 our $PIDFILE       = qq(/var/run/nsmf-cxtracker-$NODENAME.pid);
@@ -208,15 +208,19 @@ sub send_data_to_server {
     if (defined $socket) {
         print $socket "POST CXTRACKER NSMF/1.0\r\n";
         $socket->flush();
-        my ($buf) = $socket->getline;
-        print "read: '$buf'.\n";
-        if ( $buf =~ /200 OK ACCEPTED/ ) {
+        my ($line) = $socket->getline;
+        chomp $line;
+        $line =~ s/\r//;
+        print "read: '$line'.\n";
+        if ( $line =~ /200 OK ACCEPTED/ ) {
             #ID KEY NODENAME NETGROUP
             print $socket "ID KEY NODENAME NETGROUP\n";
             $socket->flush();
-            $buf = $socket->getline;
-            print "read: '$buf'.\n";
-            if ( $buf =~ /200 OK ACCEPTED/ ) {
+            $line = $socket->getline;
+            chomp $line;
+            $line =~ s/\r//;
+            print "read: '$line'.\n";
+            if ( $line =~ /200 OK ACCEPTED/ ) {
                 print $socket "$DATA\n";
                 $socket->flush();
             }

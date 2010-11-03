@@ -195,14 +195,15 @@ sub open_server_socket {
 sub nodequeue {
     my $DEBUG = shift;
     while (1) {
-        my $REQ=$TQ->dequeue_nb();
-        if (defined $REQ) {
+        if (defined(my $REQ = $TQ->dequeue_nb())) {
             # send of to right module that will handle the request
             # $REQ->{'module'}
             # for now:
-            #print "[*] Request past on to module: " . %REQ->{'module'} . "\n";
-            my $module = $REQ->{'module'};
-            print "[*] Request past on to module $module from nodequeue\n";
+            print "[*] Request past on to module: " . $REQ->{'module'} . "\n";
+            #my $module = %REQ{'module'};
+            #print "[*] Request past on to module from nodequeue\n";
+            print "[*] Pending requests: ". $TQ->pending() ."\n";
+            undef $REQ;
         }
         sleep (1); # Give the CPU a break ?
     }
@@ -218,14 +219,15 @@ sub requesthandle {
     my ($DEBUG,$RS) = @_; # Request Socket, $DEBUG
     my $client_ip = $RS->peerhost;
 
-    my %request=(   'method'   =>     0,
-                    'module'   =>     0,
-                    'protocol' =>     0,
-                    'key'      =>     0,
-                    'node'     =>     0,
-                    'netgroup' =>     0,        
-                    'data'     =>     0,
-                );
+    my $request = {};
+    #my %request=(   'method'   =>     0,
+    #                'module'   =>     0,
+    #                'protocol' =>     0,
+    #                'key'      =>     0,
+    #                'node'     =>     0,
+    #                'netgroup' =>     0,        
+    #                'data'     =>     0,
+    #            );
 
     #print $RS "Hello $client_ip\n";
     my ($line) = $RS->getline;
@@ -275,9 +277,9 @@ sub requesthandle {
     # "ID KEY NODENAME NETGROUP"
     print "[*] Client $client_ip sent ID header: $line\n" if $DEBUG;
     if ( $line =~ /ID\s(\w+)\s(\w+)\s(\w+).*/ ) {
-        $request{'key'}      = $1;
-        $request{'node'}     = $2;
-        $request{'netgroup'} = $3;
+        $request->{'key'}      = $1;
+        $request->{'node'}     = $2;
+        $request->{'netgroup'} = $3;
         print "[*] Got ID OK header from client: $line\n" if $DEBUG;
     } else {
         print "[E] Client $client_ip sent a bogus ID header, closing connection...\n" if $DEBUG;
@@ -285,9 +287,9 @@ sub requesthandle {
         return;
     }
 
-    $request{'method'}   = $METHOD;
-    $request{'module'}   = $MODULE;
-    $request{'protocol'} = $PROTOCOL;
+    $request->{'method'}   = $METHOD;
+    $request->{'module'}   = $MODULE;
+    $request->{'protocol'} = $PROTOCOL;
     # SERVER> 200 OK ACCEPTED
     print $RS "200 OK ACCEPTED\n";
     $RS->flush();
@@ -296,13 +298,13 @@ sub requesthandle {
         # Should this be done in the module? as the module might have som
         # extra headers that it wants to verify, befor it accepts lots of data?
         binmode($RS);
-        ($request{'data'}) = $RS->getlines;
+        ($request->{'data'}) = $RS->getlines;
         # Does this stop when client ends conversation? DOS possible?
     }
     # CLOSE CONNECTION
     $RS->shutdown(2);
     # SEND THE REQUEST TO global Thread Queue, TQ.
-    $TQ->enqueue(%request);
+    $TQ->enqueue($request);
     return;
 }
 
