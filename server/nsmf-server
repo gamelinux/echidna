@@ -291,7 +291,7 @@ sub requesthandle {
     # SERVER> 200 OK ACCEPTED
     print $RS "200 OK ACCEPTED\n";
     $RS->flush();
-    if ( $METHOD =~ /(PUT|GET)/ ) {
+    if ( $METHOD =~ /(POST|GET)/ ) {
         # GET DATA FROM CLIENT
         # Should this be done in the module? as the module might have som
         # extra headers that it wants to verify, befor it accepts lots of data?
@@ -325,7 +325,7 @@ sub verify_client_header {
         $METHOD   = $1;
         $MODULE   = $2;
         $PROTOCOL = $3;
-        if ( $METHOD =~ /(PING|GET|PUT)/ ) {
+        if ( $METHOD =~ /(PING|GET|POST)/ ) {
             # Method exepted...
             return (0,$METHOD,$MODULE,$PROTOCOL);# OK
         }

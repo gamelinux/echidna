@@ -77,10 +77,10 @@ NSMFcommon::Config::load_config("$CONFIGFILE",$DEBUG);
 # Signal handlers
 use vars qw(%sources);
 #$SIG{"HUP"}   = \&recreate_merge_table;
-$SIG{"INT"}   = sub { game_over() };
-$SIG{"TERM"}  = sub { game_over() };
-$SIG{"QUIT"}  = sub { game_over() };
-$SIG{"KILL"}  = sub { game_over() };
+$SIG{"INT"}   = sub { gameover($DEBUG, "INT" ) };
+$SIG{"TERM"}  = sub { gameover($DEBUG, "TERM") };
+$SIG{"QUIT"}  = sub { gameover($DEBUG, "QUIT") };
+$SIG{"KILL"}  = sub { gameover($DEBUG, "KILL") };
 #$SIG{"ALRM"}  = sub { dir_watch(); alarm $TIMEOUT; };
 
 # Main program
@@ -128,12 +128,12 @@ sub dir_watch {
       foreach my $FILE ( @FILES ) {
          my $starttime=time();
          print "[*] Found file: $CXTDIR/$FILE\n" if ($DEBUG);
-         my $SESSIONSDATA = get_session ("$CXTDIR/$FILE");
+         my $SESSIONSDATA = get_sessions("$CXTDIR/$FILE");
          my $endtime=time();
          my $processtime=$endtime-$starttime;
          print "[*] File $CXTDIR/$FILE processed in $processtime seconds\n" if ($DEBUG);
          $starttime=$endtime;
-         my $result = send_sessiondata_to_server ($DEBUG,$SESSIONSDATA,$SERVER,$PORT);
+         my $result = send_data_to_server ($DEBUG,$SESSIONSDATA,$SERVER,$PORT);
          if ($result >= 1) {
             print "[E] Error while sending sessiondata to server: $CXTDIR/$FILE -> $SERVER:$PORT\n";
             print "[*] Skipping deletion of file: $CXTDIR/$FILE\n";
@@ -142,7 +142,8 @@ sub dir_watch {
          $processtime=$endtime-$starttime;
          if ($result == 0) {
             print "[*] Sessiondata sent in $processtime seconds\n" if ($DEBUG);
-            unlink("$CXTDIR/$FILE") if $result == 0;
+            print "[A] Would have deleted file...\n";
+            #unlink("$CXTDIR/$FILE") if $result == 0;
          }
       }
       # Dont pool files to often, or to seldom...
@@ -182,7 +183,7 @@ sub get_sessions {
                 next LINE;
             }
             # Things should be OK now to send to the SERVER
-            $sessionsdata += $line;
+            $sessionsdata = "$sessionsdata$line";
       }
       close FILE;
       print "Sessionsdata:\n$sessionsdata\n" if $DEBUG;
@@ -200,14 +201,26 @@ sub get_sessions {
 sub send_data_to_server {
     my ($DEBUG, $DATA, $SERVER, $PORT) = @_;
    
-    $IO::Socket::SSL::DEBUG = 1 if $DEBUG;
+    #$IO::Socket::SSL::DEBUG = 1 if $DEBUG;
 
     my $socket = new IO::Socket::SSL("$SERVER:$PORT");
 
     if (defined $socket) {
-        print $socket "POST cxtracker NSMF/1.0\r\n\r\n";
-        my ($buf) = $socket->getlines;
+        print $socket "POST CXTRACKER NSMF/1.0\r\n";
+        $socket->flush();
+        my ($buf) = $socket->getline;
         print "read: '$buf'.\n";
+        if ( $buf =~ /200 OK ACCEPTED/ ) {
+            #ID KEY NODENAME NETGROUP
+            print $socket "ID KEY NODENAME NETGROUP\n";
+            $socket->flush();
+            $buf = $socket->getline;
+            print "read: '$buf'.\n";
+            if ( $buf =~ /200 OK ACCEPTED/ ) {
+                print $socket "$DATA\n";
+                $socket->flush();
+            }
+        }
         $socket->close();
         close $socket;
     } else {
@@ -223,4 +236,16 @@ sub send_data_to_server {
 ### close connection.
 
 
+=head2 gameover
+  Shutdown in a clean way.
+=cut
+
+sub gameover{
+    my ($DAEMON, $sig) = @_;
+    print "[*] Got $sig, Ending.\n";
+    #File::Temp::cleanup();
+    unlink($PIDFILE) if $DEBUG;
+    #threads->exit();
+    exit 0;
+}
 
