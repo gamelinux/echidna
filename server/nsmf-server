@@ -200,6 +200,8 @@ sub nodequeue {
             # $REQ->{'module'}
             # for now:
             print "[*] Request past on to module: " . $REQ->{'module'} . "\n";
+            print "[*] Got data:\n";
+            print "    ". $REQ->{'data'} . "\n";
             #my $module = %REQ{'module'};
             #print "[*] Request past on to module from nodequeue\n";
             print "[*] Pending requests: ". $TQ->pending() ."\n";

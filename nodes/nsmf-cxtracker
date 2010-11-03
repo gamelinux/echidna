@@ -183,7 +183,11 @@ sub get_sessions {
                 next LINE;
             }
             # Things should be OK now to send to the SERVER
-            $sessionsdata = "$sessionsdata$line";
+            if ( $sessionsdata eq "" ) {
+                $sessionsdata = "$line";
+            } else {
+                $sessionsdata = "$sessionsdata\n$line";
+            }
       }
       close FILE;
       print "Sessionsdata:\n$sessionsdata\n" if $DEBUG;
@@ -206,30 +210,38 @@ sub send_data_to_server {
     my $socket = new IO::Socket::SSL("$SERVER:$PORT");
 
     if (defined $socket) {
-        print $socket "POST CXTRACKER NSMF/1.0\r\n";
+        my $HEADER = "POST CXTRACKER NSMF/1.0";
+        print $socket "$HEADER\n";
+        print "[*] Sent HEADER: '$HEADER'.\n" if $DEBUG;
         $socket->flush();
         my ($line) = $socket->getline;
         chomp $line;
         $line =~ s/\r//;
-        print "read: '$line'.\n";
         if ( $line =~ /200 OK ACCEPTED/ ) {
+            print "[*] Server $SERVER sent response: '$line'.\n" if $DEBUG;
             #ID KEY NODENAME NETGROUP
-            print $socket "ID KEY NODENAME NETGROUP\n";
+            my $ID = "ID SHA256SECRETKEY NODENAME NETGROUP";
+            print $socket "$ID\n";
+            print "[*] Sent ID: '$ID'.\n" if $DEBUG;
             $socket->flush();
             $line = $socket->getline;
             chomp $line;
             $line =~ s/\r//;
-            print "read: '$line'.\n";
             if ( $line =~ /200 OK ACCEPTED/ ) {
+                print "[*] Server $SERVER sent response: '$line'.\n" if $DEBUG;
                 print $socket "$DATA\n";
                 $socket->flush();
+            } else {
+                print "[*] Server $SERVER sent bogus response: '$line'.\n" if $DEBUG;
             }
+        } else {
+            print "[*] Server $SERVER sent bogus response: '$line'.\n" if $DEBUG;
         }
         $socket->close();
         close $socket;
     } else {
-        print "[E] Error opening socket: ", IO::Socket::SSL::errstr();
-        print "[E] Error connect ($socket).\n" if ($IO::Socket::SSL::DEBUG);
+        print "[E] Error opening socket: ". IO::Socket::SSL::errstr() ."\n";
+        #print "[E] Error connect ($socket).\n" if ($IO::Socket::SSL::DEBUG);
         return 1;
     }
     return 0;
