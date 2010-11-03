@@ -1,0 +1,226 @@
+#!/usr/bin/perl -w -I../common/NSMFcommon/
+# ----------------------------------------------------------------------
+# This file is a part of The NSMFramework
+# Copyright (C) 2010, Edward Fjellskål <edwardfjellskaal@gmail.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# ----------------------------------------------------------------------
+
+use strict;
+use warnings;
+use POSIX qw(setsid);
+use IO::Socket::SSL;
+use Getopt::Long;
+use DateTime;
+use NSMFcommon::Config;
+use NSMFcommon::Dirs;
+use NSMFcommon::Daemon;
+
+=head1 NAME
+
+ nsmf-cxtracker
+
+=head1 VERSION
+
+ 0.1
+
+=head1 SYNOPSIS
+
+ $ nsmf-cxtracker [options]
+
+ OPTIONS:
+
+ -c|--configfile : spesify path to configfile
+ -h|--help       : this help message
+ --version       : show version
+
+=cut
+
+# default config
+
+our $CONFIGFILE    = qq(/etc/nsmf-node/cxtracker.conf);
+our $DEBUG         = 1;
+our $DAEMON        = 0;
+our $SERVER        = qq(127.0.0.1);
+our $PORT          = qq(10101);
+our $NODENAME      = qq(default);
+our $NETGROUP      = qq(EXT_NET);
+our $CXTDIR        = qq(/var/lib/cxtracker/$NODENAME/);
+our $CXTDIRFAIL    = qq($CXTDIR/failed/);
+our $CHECKFILES    = 1000;
+our $PINGSERVER    = 5000;
+our $LOGFILE       = qq(/var/log/nsmf-node/cxtracker-$NODENAME.log);
+our $PIDFILE       = qq(/var/run/nsmf-cxtracker-$NODENAME.pid);
+
+
+Getopt::Long::GetOptions(
+    'configfile|c=s'        => \$CONFIGFILE,
+);
+
+# read config
+NSMFcommon::Config::load_config("$CONFIGFILE",$DEBUG);
+
+# Prepare
+
+# Signal handlers
+use vars qw(%sources);
+#$SIG{"HUP"}   = \&recreate_merge_table;
+$SIG{"INT"}   = sub { game_over() };
+$SIG{"TERM"}  = sub { game_over() };
+$SIG{"QUIT"}  = sub { game_over() };
+$SIG{"KILL"}  = sub { game_over() };
+#$SIG{"ALRM"}  = sub { dir_watch(); alarm $TIMEOUT; };
+
+# Main program
+
+# Check that all needed dirs exists
+NSMFcommon::Dirs::check_dir_create_w ($CXTDIR);
+NSMFcommon::Dirs::check_dir_create_w ($CXTDIRFAIL);
+NSMFcommon::Dirs::check_dir_create_w ("/var/log/nsmf-node/");  # Needs to be fixed: Should find dir from $LOGFILE 
+#NSMFcommon::Dirs::check_dir_create_w ("/var/run/");            # Needs to be fixed: Should find dir from $PIDFILE
+
+NSMFcommon::Daemon::go_daemon ($LOGFILE,$PIDFILE) if $DAEMON;;
+
+## if new file; try to connect to server (loop)...
+# Start dir_watch() which looks for new session files and tries to send them to server.
+warn "[*] Looking for session data in: $CXTDIR \n" if $DEBUG;
+dir_watch();
+exit;
+
+=head1 FUNCTIONS
+
+=head2 dir_watch
+
+ This sub looks for new session data in a dir.
+ Takes $dir to watch as input.
+ If a new session files i found, it will try to connect to server,
+ and push over the data.
+
+=cut
+
+sub dir_watch {
+   #infinite loop
+   while (1) {
+      my @FILES;
+      # Open the directory
+      if( opendir( DIR, $CXTDIR ) ) {
+         # Find session files in dir (stats.eth0.1229062136)
+         while( my $FILE = readdir( DIR ) ) {
+            next if( ( "." eq $FILE ) || ( ".." eq $FILE ) );
+            next unless ($FILE =~ /^stats\..*\.\d{10}$/);
+            push( @FILES, $FILE ) if( -f "$CXTDIR/$FILE" );
+         }
+         closedir( DIR );
+      }
+      # If we find any files, proccess...
+      foreach my $FILE ( @FILES ) {
+         my $starttime=time();
+         print "[*] Found file: $CXTDIR/$FILE\n" if ($DEBUG);
+         my $SESSIONSDATA = get_session ("$CXTDIR/$FILE");
+         my $endtime=time();
+         my $processtime=$endtime-$starttime;
+         print "[*] File $CXTDIR/$FILE processed in $processtime seconds\n" if ($DEBUG);
+         $starttime=$endtime;
+         my $result = send_sessiondata_to_server ($DEBUG,$SESSIONSDATA,$SERVER,$PORT);
+         if ($result >= 1) {
+            print "[E] Error while sending sessiondata to server: $CXTDIR/$FILE -> $SERVER:$PORT\n";
+            print "[*] Skipping deletion of file: $CXTDIR/$FILE\n";
+         }
+         $endtime=time();
+         $processtime=$endtime-$starttime;
+         if ($result == 0) {
+            print "[*] Sessiondata sent in $processtime seconds\n" if ($DEBUG);
+            unlink("$CXTDIR/$FILE") if $result == 0;
+         }
+      }
+      # Dont pool files to often, or to seldom...
+      sleep $CHECKFILES;
+   }
+}
+
+=head2 get_sessions
+
+ This sub extracts the session data from a session data file.
+ Takes $file as input parameter.
+
+=cut
+
+sub get_sessions {
+    my $SFILE = shift;
+    my $sessionsdata = q();
+
+    if (open (FILE, $SFILE)) {
+        my $filelen=`wc -l $SFILE |awk '{print \$1'}`;
+        my $filesize=`ls -lh $SFILE |awk '{print \$5}'`;
+        chomp $filelen;
+        chomp $filesize;
+        print "[*] File:$SFILE, Lines:$filelen, Size:$filesize\n" if $DEBUG;
+        # Verify the data in the session files
+        LINE:
+        while (my $line = readline FILE) {
+            chomp $line;
+            $line =~ /^\d{19}/;
+            unless($line) {
+                warn "[*] Error: Not valid session start format in: '$SFILE'";
+                next LINE;
+            }
+            my @elements = split/\|/,$line;
+            unless(@elements == 15) {
+                warn "[*] Error: Not valid Nr. of session args format in: '$SFILE'";
+                next LINE;
+            }
+            # Things should be OK now to send to the SERVER
+            $sessionsdata += $line;
+      }
+      close FILE;
+      print "Sessionsdata:\n$sessionsdata\n" if $DEBUG;
+      return $sessionsdata;
+      }
+}
+
+=head2 send_data_to_server
+
+ Sends a chunck of $DATA to $SERVER:$PORT
+ Returns 0 on success;
+
+=cut
+
+sub send_data_to_server {
+    my ($DEBUG, $DATA, $SERVER, $PORT) = @_;
+   
+    $IO::Socket::SSL::DEBUG = 1 if $DEBUG;
+
+    my $socket = new IO::Socket::SSL("$SERVER:$PORT");
+
+    if (defined $socket) {
+        print $socket "POST cxtracker NSMF/1.0\r\n\r\n";
+        my ($buf) = $socket->getlines;
+        print "read: '$buf'.\n";
+        $socket->close();
+        close $socket;
+    } else {
+        print "[E] Error opening socket: ", IO::Socket::SSL::errstr();
+        print "[E] Error connect ($socket).\n" if ($IO::Socket::SSL::DEBUG);
+        return 1;
+    }
+    return 0;
+}
+### Identify module (cxtracker)
+### read file, put to server....
+### confirm
+### close connection.
+
+
+

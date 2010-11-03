@@ -1,0 +1,29 @@
+# CLIENT <-> SERVER
+
+SERVER Listens....
+
+CLIENT Connects...
+IF Connect (OK); CLIENT SENDS: METHOD,MODULE,PROTOCOL:
+   POST CXTRACKER NSMF/1.0\r\n\r\n
+
+SERVER RESPONDS IF IT SUPPORTS/NOT SUPPORTS METHOD,MODULE,PROTOCOL:
+   200 OK ACCEPTED                  (ALL OK)
+   201 METHOD NOT SUPPORTED         (Else reply the first error it sees)
+   202 MODULE NOT SUPPORTED         ....
+   203 PROTOCOL NOT SUPPORTED       ....
+   210 UNKNOWN ERROR                (When its an unknown error
+
+CLIENT SENDS ID IF SERVER SENDS "200 OK ACCEPTED"
+   ID STRING IS: ID KEY NODENAME NETGROUP
+CLIENT SENDS DATA IF SERVER SENDS "200 OK ACCEPTED"
+CLIENT ENDS COMMUNICAION with a line containing only a periode "." ?
+
+(DO WE NEED TO SEND REPLY FROM SERVER??? 300 OK PROCCESSED, 310 ERROR PROCCESSING?)
+
+CLIENT/SERVER CLOSE CONNECTIONS
+
+From this time on, the SERVER is responsable for the DATA. So if it for some
+reasesons cant process it, and the SERVER dies, the data will be lost :/
+(Or might be stored in a tmp-file, process, then delete file if OK, or move
+to failed dir if ERROR).
+
