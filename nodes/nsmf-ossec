@@ -1,0 +1,52 @@
+
+
+my $STATEFILE   = q(/var/lib/nsmframework/ossec.state);
+my $LOGDIR      = q(/var/log);
+my $LOGFILE     = q(ossec.log);  # or what ever :)
+my $ROTEDEDFILE = q(ossec.log.0);
+
+my $logfile        = "$LOGDIR/$LOGFILE";
+my $rotededlogfile = "$LOGDIR/$ROTEDEDFILE";
+
+my $pos = undef;
+$pos    = load_state($DEBUG, $STATEFILE);
+
+my $startsize = (stat $)[7];
+
+if (!defined $pos) {
+    # Initial run.
+    $pos = $startsize;
+}
+
+if ($startsize < $pos) {
+    # Log rotated
+    parseLogfile ($rotededlogfile, $pos, (stat $rotededlogfile)[7]);
+    $pos = 0;
+}
+
+parseLogfile ($logfile, $pos, $startsize);
+$pos = $startsize;
+
+if (-l $STATEFILE) {
+    die("$statefile is a symbolic link, refusing to touch it.");
+}
+
+save_state($DEBUG, $STATEFILE, $pos);
+
+
+sub parseLogfile {    
+    my ($fname, $start, $stop) = @_;
+    open (LOGFILE, $fname) or exit 3;
+    seek (LOGFILE, $start, 0) or exit 2;
+
+    my $data;
+    while (tell (LOGFILE) < $stop) {
+        my $line =<LOGFILE>;
+        chomp ($line);
+        if ($line =~ /WORK ON THE LINE?/) {
+            $data = "$data$line";
+        } 
+    }
+    close(LOGFILE);
+    return $data;
+}
