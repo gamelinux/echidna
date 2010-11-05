@@ -5,6 +5,7 @@ use warnings;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK);
 use DateTime;
 use DBI;
+use NSMFcommon/IP.pm;
 require Exporter;
 @EXPORT = qw(CXTRACKER);
 $VERSION = '0.1';
