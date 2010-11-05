@@ -153,9 +153,15 @@ sub open_server_socket {
 
     # Starts the sub nodequeue in a thread, which waits for elements
     # that are added by the sub requesthandle
-    my $TA = threads->create(\&nodequeue,$DEBUG);
-    $TA->detach; # We dont expect any return value :)
+    my $TN = threads->create(\&nodequeue,$DEBUG);
+    $TN->detach; # We dont expect any return value :)
                  # And it will clean up it self on exit...
+
+    # Start the sub clientqueue in a thread, which handles the
+    # clients communication with the server.
+    #my $TC = threads->create(\&clientqueue,$DEBUG); 
+    #$TC->detach; # We dont expect any return value :)
+                  # And it will clean up it self on exit...
 
     while (1) {
         warn "waiting for next connection.\n";
@@ -199,18 +205,36 @@ sub nodequeue {
             # send of to right module that will handle the request
             # $REQ->{'module'}
             # for now:
-            print "[*] Request past on to module: " . $REQ->{'module'} . "\n";
+            print "[*] Gpt request to module: ". $REQ->{'module'} ."\n";
             print "[*] Got data start:\n";
             print $REQ->{'data'};
             print "[*] Got data end:\n";
-            #my $module = %REQ{'module'};
-            #print "[*] Request past on to module from nodequeue\n";
+
+            print "[*] Sending request to module " . $REQ->{'module'} . "\n";
+            my $module = $REQ->{'module'};
+            eval("$module \(\"$REQ\"\)");
+            if ($@) {
+                print "[E] Ohhh crap: $@ \n";
+                # Putt it back on the queue ?
+                # or dropp it - as queueing it would just eat memory...
+                # Guess we should store the request to a file! - Persistence!
+                # SEND THE REQUEST TO global Thread Queue, TQ.
+                $TQ->enqueue($REQ);
+            }
             print "[*] Pending requests: ". $TQ->pending() ."\n\n";
-            undef $REQ;
         }
         sleep (1); # Give the CPU a break ?
     }
 }
+
+sub CXTRACKER {
+    my $REQ = shift;
+    print "[*] Huston - we got packet!\n";
+    undef $REQ;
+    return;
+}
+
+
 =head2 requesthandle
 
  Handles reqests to the server from nodes.
