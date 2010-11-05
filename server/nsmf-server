@@ -21,6 +21,7 @@
 use strict;
 use warnings;
 use POSIX qw(setsid);
+use FindBin;
 use IO::Socket::SSL;
 use threads;
 use threads::shared;
@@ -30,6 +31,26 @@ use DateTime;
 use NSMFcommon::Config;
 use NSMFcommon::Dirs;
 use NSMFcommon::Daemon;
+
+
+BEGIN {
+    # list of NSMFmodules:: modules
+    my @modules = map { "NSMFmodules::$_" } qw/SNORT CXTRACKER/;
+
+    MODULE:
+    for my $module (@modules) {
+        local @INC = ("$FindBin::Bin/modules/");
+        eval { require $module };
+        if ($@ =~ /t locate NSM/) {
+            print "Module $module not found: $@\n";
+        } else {
+            print "Found module: $module - $@\n";
+        }
+
+        #eval "use $module";
+        #die $@ if($@);
+    }
+}
 
 =head1 NAME
 
@@ -202,6 +223,8 @@ sub nodequeue {
     my $DEBUG = shift;
     while (1) {
         if (defined(my $REQ = $TQ->dequeue_nb())) {
+            # Added $DEBUG to $REQ
+            $REQ->{'debug'} = $DEBUG;
             # send of to right module that will handle the request
             # $REQ->{'module'}
             # for now:
@@ -218,8 +241,9 @@ sub nodequeue {
                 # Putt it back on the queue ?
                 # or dropp it - as queueing it would just eat memory...
                 # Guess we should store the request to a file! - Persistence!
-                # SEND THE REQUEST TO global Thread Queue, TQ.
+                # SEND THE REQUEST BACK TO global Thread Queue, TQ for now (testing).
                 $TQ->enqueue($REQ);
+                # write_req_to_failed_dir($REQ);
             }
             print "[*] Pending requests: ". $TQ->pending() ."\n\n";
         }
@@ -229,7 +253,7 @@ sub nodequeue {
 
 sub CXTRACKER {
     my $REQ = shift;
-    print "[*] Huston - we got packet!\n";
+    print "[*] Huston - we got packet! Best regards, your CXTRACKER module!\n";
     undef $REQ;
     return;
 }
@@ -254,6 +278,7 @@ sub requesthandle {
     #                'node'     =>     0,
     #                'netgroup' =>     0,        
     #                'data'     =>     0,
+    #                'debug'    =>     0,
     #            );
 
     #print $RS "Hello $client_ip\n";
