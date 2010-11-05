@@ -200,11 +200,12 @@ sub nodequeue {
             # $REQ->{'module'}
             # for now:
             print "[*] Request past on to module: " . $REQ->{'module'} . "\n";
-            print "[*] Got data:\n";
-            print "    ". $REQ->{'data'} . "\n";
+            print "[*] Got data start:\n";
+            print $REQ->{'data'};
+            print "[*] Got data end:\n";
             #my $module = %REQ{'module'};
             #print "[*] Request past on to module from nodequeue\n";
-            print "[*] Pending requests: ". $TQ->pending() ."\n";
+            print "[*] Pending requests: ". $TQ->pending() ."\n\n";
             undef $REQ;
         }
         sleep (1); # Give the CPU a break ?
@@ -295,12 +296,11 @@ sub requesthandle {
     # SERVER> 200 OK ACCEPTED
     print $RS "200 OK ACCEPTED\n";
     $RS->flush();
-    if ( $METHOD =~ /(POST|GET)/ ) {
+    if ( $METHOD =~ /POST/ ) {
         # GET DATA FROM CLIENT
         # Should this be done in the module? as the module might have som
         # extra headers that it wants to verify, befor it accepts lots of data?
-        binmode($RS);
-        ($request->{'data'}) = $RS->getlines;
+        ($request->{'data'}) = read_socket_data($RS);
         # Does this stop when client ends conversation? DOS possible?
     }
     # CLOSE CONNECTION
@@ -309,6 +309,30 @@ sub requesthandle {
     $TQ->enqueue($request);
     return;
 }
+
+=head2 read_socket_data
+
+ Read data from a socket.
+ Input the $socket descriptor.
+ Output is the data collected?
+
+=cut
+
+sub read_socket_data {
+  my $SOCK = shift;
+  my $data = q();
+
+  binmode($SOCK);
+  while (defined(my $Line = <$SOCK>)) {
+    #chomp $Line;
+    #$Line =~ s/\r//;
+    #last unless length $data;
+    $data = "$data$Line";
+  }
+
+  return $data;
+}
+
 
 =head2 verify_client_header
 
