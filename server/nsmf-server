@@ -40,8 +40,9 @@ BEGIN {
     MODULE:
     for my $module (@modules) {
         local @INC = ("$FindBin::Bin/modules/");
-        eval { require $module };
-        if ($@ =~ /t locate NSM/) {
+        #eval { require $module };
+        eval "use $module";
+        if ($@) {
             print "Module $module not found: $@\n";
         } else {
             print "Found module: $module - $@\n";
