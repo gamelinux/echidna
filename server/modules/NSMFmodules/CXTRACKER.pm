@@ -5,12 +5,16 @@ use warnings;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK);
 use DateTime;
 use DBI;
-use NSMFcommon/IP.pm;
+use Carp::Heavy;
+#use NSMFcommon::IP;
 require Exporter;
 @EXPORT = qw(CXTRACKER);
 $VERSION = '0.1';
 
-our 
+our $DBI = q();
+our $DB_USERNAME = q();
+our $DB_PASSWORD = q();
+our $NODENAME = q();
 
 sub CXTRACKER {
     my $REQ = shift;
@@ -22,7 +26,7 @@ sub CXTRACKER {
 
 sub import {
     # automatic happens when its imported
-    warn "[*] Connecting to database...\n";
+    print "[*] Connecting to database...\n";
     my $dbh = DBI->connect($DBI,$DB_USERNAME,$DB_PASSWORD, {RaiseError => 1}) or die "$DBI::errstr";
     # Make todays table, and initialize the session merged table
     setup_db($dbh);
@@ -43,26 +47,27 @@ sub put_cxdata_to_db {
     my $REQ = shift;
     my $DEBUG = $REQ->{'debug'};
     LINE:
-    while (my $line = readlien $REQ->{'data'}) {
-        #while (my $line = readline FILE) {
-        chomp $line;
-        $line =~ /^\d{19}/;
-        unless($line) {
-            print "[*] Error: Not valid session start format in: '$SFILE'";
-            next LINE;
+    while (my @lines = split /\n/, $REQ->{'data'}) {
+        foreach my $line (@lines) {
+            chomp $line;
+            $line =~ /^\d{19}/;
+            unless($line) {
+                print "[*] Error: Not valid session start format in: '$line'";
+                next LINE;
+            }
+            my @elements = split /\|/,$line;
+            unless(@elements == 15) {
+                print "[*] Error: Not valid Nr. of session args format in: '$line'";
+                next LINE;
+            }
+            # Things should be OK now to send to the DB
+            my $result = put_session2db($line);
         }
-        my @elements = split/\|/,$line;
-        unless(@elements == 15) {
-            print "[*] Error: Not valid Nr. of session args format in: '$SFILE'";
-            next LINE;
-        }
-        # Things should be OK now to send to the DB
-        $result = put_session2db($line);
     }
 }
 
 sub put_session2db {
-   my $SESSION = shift;
+   my ($SESSION, $dbh) = @_;
    my $tablename = get_table_name();
    my $ip_version = 2; # AF_INET
 
@@ -93,7 +98,7 @@ sub put_session2db {
                 src_ip,src_port,dst_ip,dst_port,src_pkts,src_bytes,
                 dst_pkts,dst_bytes,src_flags,dst_flags,ip_version
              ) VALUES (
-                '$HOSTNAME','$cx_id','$s_t','$e_t','$tot_time',
+                '$NODENAME','$cx_id','$s_t','$e_t','$tot_time',
                 '$ip_type',$src_dip,'$src_port',$dst_dip,'$dst_port',
                 '$src_packets','$src_byte','$dst_packets','$dst_byte',
                 '$src_flags','$dst_flags','$ip_version'
@@ -122,7 +127,7 @@ sub setup_db {
 
 =head2 get_table_name
 
- makes a table name, format: session_$HOSTNAME_$DATE
+ makes a table name, format: session_$NODENAME_$DATE
 
 =cut
 
@@ -193,6 +198,7 @@ sub new_session_table {
 
 sub delete_merged_session_table {
     my $dbh = shift;
+    my $DEBUG = 1;
     my ($sql, $sth);
     eval{
         $sql = "DROP TABLE IF EXISTS session";
@@ -245,6 +251,7 @@ sub recreate_merge_table {
 
 
 END {
+    my $dbh = q(); # fake fake fake : FIXME
     # Stuff to do when we die
     warn "[*] Terminating module CXTRACKER...\n";
     $dbh->disconnect;

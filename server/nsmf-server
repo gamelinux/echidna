@@ -31,6 +31,8 @@ use DateTime;
 use NSMFcommon::Config;
 use NSMFcommon::Dirs;
 use NSMFcommon::Daemon;
+use DBI;
+use Carp::Heavy;
 
 
 BEGIN {
