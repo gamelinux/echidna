@@ -32,6 +32,7 @@ use NSMFcommon::Config;
 use NSMFcommon::Dirs;
 use NSMFcommon::Daemon;
 use DBI;
+use DBD::mysql;
 use Carp::Heavy;
 
 
@@ -43,11 +44,12 @@ BEGIN {
     for my $module (@modules) {
         local @INC = ("$FindBin::Bin/modules/");
         #eval { require $module };
+        print "[*] Trying to load module: $module\n";
         eval "use $module";
         if ($@) {
-            print "Module $module not found: $@\n";
+            print "[E] Module $module not loaded/found: $@\n";
         } else {
-            print "Found module: $module - $@\n";
+            print "[*] Finished loading module: $module $@\n";
         }
 
         #eval "use $module";
@@ -231,14 +233,17 @@ sub nodequeue {
             # send of to right module that will handle the request
             # $REQ->{'module'}
             # for now:
-            print "[*] Gpt request to module: ". $REQ->{'module'} ."\n";
+            print "[*] Got request to module: ". $REQ->{'module'} ."\n";
             print "[*] Got data start:\n";
             print $REQ->{'data'};
             print "[*] Got data end:\n";
 
             print "[*] Sending request to module " . $REQ->{'module'} . "\n";
-            my $module = $REQ->{'module'};
-            eval("$module \(\"$REQ\"\)");
+            my $module = "NSMFmodules::$REQ->{'module'}::$REQ->{'module'}";
+            print "$module\n";
+            eval "$module \$REQ" ;
+            #@{[ $module ($REQ) ]}
+            #eval "use $module";
             if ($@) {
                 print "[E] Ohhh crap: $@ \n";
                 # Putt it back on the queue ?
@@ -248,18 +253,18 @@ sub nodequeue {
                 $TQ->enqueue($REQ);
                 # write_req_to_failed_dir($REQ);
             }
-            print "[*] Pending requests: ". $TQ->pending() ."\n\n";
+            print "[*] Pending requests: $@ ". $TQ->pending() ."\n\n";
         }
         sleep (1); # Give the CPU a break ?
     }
 }
 
-sub CXTRACKER {
-    my $REQ = shift;
-    print "[*] Huston - we got packet! Best regards, your CXTRACKER module!\n";
-    undef $REQ;
-    return;
-}
+#sub CXTRACKER {
+#    my $REQ = shift;
+#    print "[*] Huston - we got packet! Best regards, your CXTRACKER module!\n";
+#    undef $REQ;
+#    return;
+#}
 
 
 =head2 requesthandle

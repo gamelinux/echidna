@@ -5,35 +5,65 @@ use warnings;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK);
 use DateTime;
 use DBI;
+use DBD::mysql;
 use Carp::Heavy;
 #use NSMFcommon::IP;
 require Exporter;
 @EXPORT = qw(CXTRACKER);
 $VERSION = '0.1';
 
-our $DBI = q();
-our $DB_USERNAME = q();
-our $DB_PASSWORD = q();
-our $NODENAME = q();
+# Default config
+my $DB_USERNAME = q(nsmf);
+my $DB_PASSWORD = q(nsmf);
+my $DB_NAME = q(nsmf);
+my $DB_HOST = q(127.0.0.1);
+my $DB_PORT = q(3306);
+
+# Load config file, and overwrite defaults
+
+# Globals for this module
+our $NODENAME = q(default);
+our $DEBUG = 1;
+our $DBI = "DBI:mysql:$DB_NAME:$DB_HOST:$DB_PORT";
+our $dbh = undef;
+
+=head2 CXTRACKER
+
+ This is the module that the nsmf-server calls when it passes
+ a $REQ (request) to this module. This is the only module that
+ we export and is used by nsmf.
+
+=cut
 
 sub CXTRACKER {
     my $REQ = shift;
-    print "[*] Huston - we got packet! Best regards, your CXTRACKER module!\n" if $REQ->{'debug'};
-    put_cxdata_to_db($REQ);
+    $DEBUG = $REQ->{'debug'};
+    $NODENAME = $REQ->{'node'};
+    print "[**] CXTRACKER: Huston - we got a request for $NODENAME.\n" if $DEBUG;
+    print "OK\n" if not (NSMFmodules::CXTRACKER::put_cxdata_to_db($REQ));
     undef $REQ;
     return;
 }
 
+=head2 import
+
+ When perl loads a perl-module, the sub import gets executed.
+ We take advantage of this to initialize the database connection
+ and set up the DB.
+
+=cut
+
 sub import {
     # automatic happens when its imported
-    print "[*] Connecting to database...\n";
-    my $dbh = DBI->connect($DBI,$DB_USERNAME,$DB_PASSWORD, {RaiseError => 1}) or die "$DBI::errstr";
+    print "[**] CXTRACKER: Connecting to database...\n";
+    $dbh = DBI->connect($DBI,$DB_USERNAME,$DB_PASSWORD, {RaiseError => 1}) or die "$DBI::errstr";
+    print "[**] CXTRACKER: Connection OK...\n";
     # Make todays table, and initialize the session merged table
-    setup_db($dbh);
+    setup_db();
 }
 
 sub DESTROY {
-    print "Dead on arrival!\n";
+    print "CXTRACKER: Dead on arrival!\n";
 }
 
 =head2 put_cxdata_to_db
@@ -45,7 +75,8 @@ sub DESTROY {
 
 sub put_cxdata_to_db {
     my $REQ = shift;
-    my $DEBUG = $REQ->{'debug'};
+    my $result = 1;
+    print "put_cxdata_to_db\n";
     LINE:
     while (my @lines = split /\n/, $REQ->{'data'}) {
         foreach my $line (@lines) {
@@ -61,13 +92,38 @@ sub put_cxdata_to_db {
                 next LINE;
             }
             # Things should be OK now to send to the DB
-            my $result = put_session2db($line);
+            print "$line\n";
+            $result = put_session2db($line);
         }
+    }
+    return $result;
+}
+
+=head2 checkif_table_exist
+
+ Checks if a table exists. Takes $tablename as input and
+ returns 1 if $tablename exists, and 0 if not.
+
+=cut
+
+sub checkif_table_exist {
+    my $tablename = shift;
+    my ($sql, $sth);
+    eval {
+       $sql = "select count(*) from $tablename where 1=0";
+       $dbh->do($sql);
+    };
+    if ($dbh->err) {
+       warn "Table $tablename does not exist.\n" if $DEBUG;
+       return 0;
+    }
+    else{
+       return 1;
     }
 }
 
 sub put_session2db {
-   my ($SESSION, $dbh) = @_;
+   my $SESSION = shift;
    my $tablename = get_table_name();
    my $ip_version = 2; # AF_INET
 
@@ -116,13 +172,65 @@ sub put_session2db {
 }
 
 sub setup_db {
-    my $dbh = shift;
-    #my $tablename = get_table_name();
-    #new_session_table($dbh, $tablename);
-    delete_merged_session_table($dbh);
-    my $sessiontables = find_session_tables($dbh);
-    merge_session_tables($dbh, $sessiontables);
+    #my $dbh = shift;
+    my $tablename = get_table_name();
+    new_session_table($tablename);
+    delete_merged_session_table();
+    my $sessiontables = find_session_tables();
+    merge_session_tables($sessiontables);
     return;
+}
+
+=head2 merge_session_tables
+
+ Creates a new session merge table
+
+=cut
+
+sub merge_session_tables {
+   my $tables = shift;
+   my ($sql, $sth);
+   eval {
+      # check for != MRG_MyISAM - exit
+      warn "[*] Creating session MERGE table\n" if $DEBUG;
+      my $sql = "                                        \
+      CREATE TABLE session                               \
+      (                                                  \
+      sid           INT(0) UNSIGNED            NOT NULL, \
+      sessionid       BIGINT(20) UNSIGNED      NOT NULL, \
+      start_time    DATETIME                   NOT NULL, \
+      end_time      DATETIME                   NOT NULL, \
+      duration      INT(10) UNSIGNED           NOT NULL, \
+      ip_proto      TINYINT(3) UNSIGNED        NOT NULL, \
+      ip_version    TINYINT(3) UNSIGNED        NOT NULL, \
+      src_ip        DECIMAL(39,0) UNSIGNED,              \
+      src_port      SMALLINT UNSIGNED,                   \
+      dst_ip        DECIMAL(39,0) UNSIGNED,              \
+      dst_port      SMALLINT UNSIGNED,                   \
+      src_pkts      INT UNSIGNED               NOT NULL, \
+      src_bytes     INT UNSIGNED               NOT NULL, \
+      dst_pkts      INT UNSIGNED               NOT NULL, \
+      dst_bytes     INT UNSIGNED               NOT NULL, \
+      src_flags     TINYINT UNSIGNED           NOT NULL, \
+      dst_flags     TINYINT UNSIGNED           NOT NULL, \
+      INDEX p_key (sid,sessionid),                       \
+      INDEX src_ip (src_ip),                             \
+      INDEX dst_ip (dst_ip),                             \
+      INDEX dst_port (dst_port),                         \
+      INDEX src_port (src_port),                         \
+      INDEX start_time (start_time)                      \
+      ) TYPE=MERGE UNION=($tables)                       \
+      ";
+      $sth = $dbh->prepare($sql);
+      $sth->execute;
+      $sth->finish;
+   };
+   if ($@) {
+      # Failed
+      warn "[*] Create session MERGE table failed!\n" if $DEBUG;
+      return 1;
+   }
+   return 0;
 }
 
 =head2 get_table_name
@@ -139,7 +247,6 @@ sub get_table_name {
     return $tablename;
 }
 
-
 =head2 new_session_table
 
  Creates a new session_$hostname_$date table
@@ -148,7 +255,7 @@ sub get_table_name {
 =cut
 
 sub new_session_table {
-   my ($dbh, $tablename) = shift;
+   my $tablename = shift;
    my ($sql, $sth);
    eval{
       $sql = "                                             \
@@ -197,8 +304,6 @@ sub new_session_table {
 =cut
 
 sub delete_merged_session_table {
-    my $dbh = shift;
-    my $DEBUG = 1;
     my ($sql, $sth);
     eval{
         $sql = "DROP TABLE IF EXISTS session";
@@ -222,7 +327,6 @@ sub delete_merged_session_table {
 =cut
 
 sub find_session_tables {
-    my $dbh = shift;
     my ($sql, $sth);
     my $tables = q();
     $sql = q(SHOW TABLES LIKE 'session_%');
@@ -251,7 +355,7 @@ sub recreate_merge_table {
 
 
 END {
-    my $dbh = q(); # fake fake fake : FIXME
+    #my $dbh = q(); # fake fake fake : FIXME
     # Stuff to do when we die
     warn "[*] Terminating module CXTRACKER...\n";
     $dbh->disconnect;
