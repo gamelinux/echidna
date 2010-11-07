@@ -35,6 +35,7 @@ use DBI;
 use DBD::mysql;
 use Carp::Heavy;
 
+#our %SV : shared =(); # Shared variables.
 
 BEGIN {
     # list of NSMFmodules:: modules
@@ -227,35 +228,35 @@ sub open_server_socket {
 sub nodequeue {
     my $DEBUG = shift;
     while (1) {
-        if (defined(my $REQ = $TQ->dequeue_nb())) {
+        while (defined(my $REQ = $TQ->dequeue_nb())) {
             # Added $DEBUG to $REQ
             $REQ->{'debug'} = $DEBUG;
-            # send of to right module that will handle the request
-            # $REQ->{'module'}
-            # for now:
-            print "[*] Got request to module: ". $REQ->{'module'} ."\n";
-            print "[*] Got data start:\n";
-            print $REQ->{'data'};
-            print "[*] Got data end:\n";
+            # Send it dynamic to right module that will handle the request
+            print "[*] Got request to module: ". $REQ->{'module'} ."\n" if $DEBUG;
+            print "[*] Got data start:\n" if $DEBUG;
+            print $REQ->{'data'} if $DEBUG;
+            print "[*] Got data end:\n" if $DEBUG;
+            print "[*] Sending request to module " . $REQ->{'module'} . "\n" if $DEBUG;
 
-            print "[*] Sending request to module " . $REQ->{'module'} . "\n";
             my $module = "NSMFmodules::$REQ->{'module'}::$REQ->{'module'}";
-            print "$module\n";
-            eval "$module \$REQ" ;
-            #@{[ $module ($REQ) ]}
-            #eval "use $module";
+            my $dynamicmodule = eval "sub { &$module }"; # Works...
+            $dynamicmodule->($REQ);                      # ...also
+            #eval "$module \$REQ" ;    # Works also
             if ($@) {
-                print "[E] Ohhh crap: $@ \n";
+                print "[E] Ohhh crap: $@\n" if $DEBUG;
                 # Putt it back on the queue ?
                 # or dropp it - as queueing it would just eat memory...
                 # Guess we should store the request to a file! - Persistence!
                 # SEND THE REQUEST BACK TO global Thread Queue, TQ for now (testing).
-                $TQ->enqueue($REQ);
-                # write_req_to_failed_dir($REQ);
+               # $TQ->enqueue($REQ);
+               # write_req_to_failed_dir($REQ);
             }
-            print "[*] Pending requests: $@ ". $TQ->pending() ."\n\n";
+            print "[*] Pending requests: ". $TQ->pending() ."\n\n";
         }
-        sleep (1); # Give the CPU a break ?
+        if ( $TQ->pending() == 0 ) {
+            sleep (1); # Give the CPU a break ?
+            #usleep (0.1); # use Time::HiRes;
+        }
     }
 }
 

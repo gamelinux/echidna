@@ -3,6 +3,8 @@ package NSMFmodules::CXTRACKER;
 use strict;
 use warnings;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK);
+#use threads;
+#use threads::shared;
 use DateTime;
 use DBI;
 use DBD::mysql;
@@ -40,7 +42,13 @@ sub CXTRACKER {
     $DEBUG = $REQ->{'debug'};
     $NODENAME = $REQ->{'node'};
     print "[**] CXTRACKER: Huston - we got a request for $NODENAME.\n" if $DEBUG;
-    print "OK\n" if not (NSMFmodules::CXTRACKER::put_cxdata_to_db($REQ));
+    if (not defined $dbh) {
+        print "[**] CXTRACKER: Connecting to database...\n";
+        $dbh = DBI->connect($DBI,$DB_USERNAME,$DB_PASSWORD, {RaiseError => 1}) or die "$DBI::errstr";
+        print "[**] CXTRACKER: Connection OK...\n";
+    }
+    #print "OK\n" if not (NSMFmodules::CXTRACKER::put_cxdata_to_db($REQ));
+    NSMFmodules::CXTRACKER::put_cxdata_to_db($REQ);
     undef $REQ;
     return;
 }
@@ -55,15 +63,19 @@ sub CXTRACKER {
 
 sub import {
     # automatic happens when its imported
+    # So we test that things work OK
     print "[**] CXTRACKER: Connecting to database...\n";
     $dbh = DBI->connect($DBI,$DB_USERNAME,$DB_PASSWORD, {RaiseError => 1}) or die "$DBI::errstr";
     print "[**] CXTRACKER: Connection OK...\n";
     # Make todays table, and initialize the session merged table
     setup_db();
+    $dbh->disconnect;
+    print "[**] CXTRACKER: Disconnected to DB...\n";
+    $dbh = undef; # undef it, or else there will be a threading issue...
 }
 
 sub DESTROY {
-    print "CXTRACKER: Dead on arrival!\n";
+    print "[**] CXTRACKER: Dead on arrival!\n";
 }
 
 =head2 put_cxdata_to_db
@@ -76,25 +88,23 @@ sub DESTROY {
 sub put_cxdata_to_db {
     my $REQ = shift;
     my $result = 1;
-    print "put_cxdata_to_db\n";
     LINE:
-    while (my @lines = split /\n/, $REQ->{'data'}) {
-        foreach my $line (@lines) {
-            chomp $line;
-            $line =~ /^\d{19}/;
-            unless($line) {
-                print "[*] Error: Not valid session start format in: '$line'";
-                next LINE;
-            }
-            my @elements = split /\|/,$line;
-            unless(@elements == 15) {
-                print "[*] Error: Not valid Nr. of session args format in: '$line'";
-                next LINE;
-            }
-            # Things should be OK now to send to the DB
-            print "$line\n";
-            $result = put_session2db($line);
+    my @lines = split /\n/, $REQ->{'data'};
+    foreach my $line (@lines) {
+        chomp $line;
+        $line =~ /^\d{19}/;
+        unless($line) {
+            print "[EE] CXTRACKER: Not valid session start format in: '$line'";
+            next LINE;
         }
+        my @elements = split /\|/,$line;
+        unless(@elements == 15) {
+            print "[EE] CXTRACKER: Not valid Nr. of session args format in: '$line'";
+            next LINE;
+        }
+        # Things should be OK now to send to the DB
+        print "$line\n";
+        $result = put_session2db($line);
     }
     return $result;
 }
@@ -114,7 +124,7 @@ sub checkif_table_exist {
        $dbh->do($sql);
     };
     if ($dbh->err) {
-       warn "Table $tablename does not exist.\n" if $DEBUG;
+       print "[EE] CXTRACKER: Table $tablename does not exist.\n" if $DEBUG;
        return 0;
     }
     else{
@@ -164,11 +174,16 @@ sub put_session2db {
       $sth->execute;
       $sth->finish;
    };
-   if ($@) {
-      # Failed
-      return 1;
+   #print "GOT - $@\n";
+   if ($@ =~ /Duplicate entry/) {
+      # OK - Just a dupe (we have the connection :)
+      print "[**] CXTRACKER: Got duplicate entry....\n";
+      return 0;
+   } elsif ($@) {
+        print "[EE] CXTRACKER: $@\n";
+      return 1; # something else wrong!
    }
-   return 0;
+   return 0; # all ok
 }
 
 sub setup_db {
@@ -192,7 +207,7 @@ sub merge_session_tables {
    my ($sql, $sth);
    eval {
       # check for != MRG_MyISAM - exit
-      warn "[*] Creating session MERGE table\n" if $DEBUG;
+      print "[**] CXTRACKER: Creating session MERGE table\n" if $DEBUG;
       my $sql = "                                        \
       CREATE TABLE session                               \
       (                                                  \
@@ -227,7 +242,7 @@ sub merge_session_tables {
    };
    if ($@) {
       # Failed
-      warn "[*] Create session MERGE table failed!\n" if $DEBUG;
+      print "[EE] CXTRACKER: Create session MERGE table failed!\n" if $DEBUG;
       return 1;
    }
    return 0;
@@ -313,10 +328,10 @@ sub delete_merged_session_table {
     };
     if ($@) {
         # Failed
-        warn "[*] Drop merge-table cxtracker failed...\n" if $DEBUG;
+        print "[**] CXTRACKER: Drop merge-table session failed...\n" if $DEBUG;
         return 1;
     }
-    warn "[*] Dropped merge-table cxtracker...\n" if $DEBUG;
+    print "[**] CXTRACKER: Dropped merge-table...\n" if $DEBUG;
     return 0;
 }
 
@@ -353,13 +368,123 @@ sub recreate_merge_table {
    merge_session_tables($sessiontables);
 }
 
+=head2 expand_ipv6
+
+ Expands a IPv6 address from short notation
+
+=cut
+
+sub expand_ipv6 {
+
+   my $ip = shift;
+
+   # Keep track of ::
+   $ip =~ s/::/:!:/;
+
+   # IP as an array
+   my @ip = split /:/, $ip;
+
+   # Number of octets
+   my $num = scalar(@ip);
+
+   # Now deal with '::' ('000!')
+   foreach (0 .. (scalar(@ip) - 1)) {
+
+      # Find the pattern
+      next unless ($ip[$_] eq '!');
+
+      # @empty is the IP address 0
+      my @empty = map { $_ = '0' x 4 } (0 .. 7);
+
+      # Replace :: with $num '0000' octets
+      $ip[$_] = join ':', @empty[ 0 .. 8 - $num ];
+      last;
+   }
+
+   # Now deal with octets where there are less then 4 enteries
+   my @ip_long = split /:/, (lc(join ':', @ip));
+   foreach (0 .. (scalar(@ip_long) -1 )) {
+
+      # Next if we have our 4 enteries
+      next if ( $ip_long[$_] =~ /^[a-f\d]{4}$/ );
+
+      # Push '0' until we match
+      while (!($ip_long[$_] =~ /[a-f\d]{4,}/)) {
+         $ip_long[$_] =~ s/^/0/;
+      }
+   }
+
+   return (lc(join ':', @ip_long));
+}
+
+=head2 ip_is_ipv6
+
+ Check if an IP address is version 6
+ returns 1 if true, 0 if false
+
+=cut
+
+sub ip_is_ipv6 {
+    my $ip = shift;
+
+    # Count octets
+    my $n = ($ip =~ tr/:/:/);
+    return (0) unless ($n > 0 and $n < 8);
+
+    # $k is a counter
+    my $k;
+
+    foreach (split /:/, $ip) {
+        $k++;
+
+        # Empty octet ?
+        next if ($_ eq '');
+
+        # Normal v6 octet ?
+        next if (/^[a-f\d]{1,4}$/i);
+
+        # Last octet - is it IPv4 ?
+        if ($k == $n + 1) {
+            next if (ip_is_ipv4($_));
+        }
+
+        print "[*] Invalid IP address $ip";
+        return 0;
+    }
+
+    # Does the IP address start with : ?
+    if ($ip =~ m/^:[^:]/) {
+        print "[*] Invalid address $ip (starts with :)";
+        return 0;
+    }
+
+    # Does the IP address finish with : ?
+    if ($ip =~ m/[^:]:$/) {
+        print "[*] Invalid address $ip (ends with :)";
+        return 0;
+    }
+
+    # Does the IP address have more than one '::' pattern ?
+    if ($ip =~ s/:(?=:)//g > 1) {
+        print "[*] Invalid address $ip (More than one :: pattern)";
+        return 0;
+    }
+
+    return 1;
+}
+
+
+
 
 END {
     #my $dbh = q(); # fake fake fake : FIXME
     # Stuff to do when we die
-    warn "[*] Terminating module CXTRACKER...\n";
-    $dbh->disconnect;
+    warn "[**] CXTRACKER: Terminating module...\n";
+    $dbh->disconnect if defined $dbh;
     exit 0;
 }
 
 1;
+
+
+
