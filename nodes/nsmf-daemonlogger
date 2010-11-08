@@ -1,0 +1,166 @@
+#!/usr/bin/perl -w -I../common/NSMFcommon/
+# ----------------------------------------------------------------------
+# This file is a part of The NSMFramework
+# Copyright (C) 2010, Edward Fjellskål <edwardfjellskaal@gmail.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# ----------------------------------------------------------------------
+
+use strict;
+use warnings;
+use POSIX qw(setsid);
+use IO::Socket::SSL;
+use threds;
+use Getopt::Long;
+use DateTime;
+use NSMFcommon::Config;
+use NSMFcommon::Dirs;
+use NSMFcommon::Daemon;
+
+=head1 NAME
+
+ nsmf-cxtracker
+
+=head1 VERSION
+
+ 0.1
+
+=head1 SYNOPSIS
+
+ $ nsmf-daemonlogger [options]
+
+ OPTIONS:
+
+ -c|--configfile : spesify path to configfile
+ -h|--help       : this help message
+ --version       : show version
+
+=cut
+
+# default config
+
+our $CONFIGFILE    = qq(/etc/nsmf-node/daemonlogger.conf);
+our $DEBUG         = 1;
+our $DAEMON        = 0;
+our $SERVER        = qq(127.0.0.1);
+our $PORT          = qq(10101);
+our $NODENAME      = qq(default);
+our $NETGROUP      = qq(EXT_NET);
+our $DLDIR         = qq(/var/lib/daemonlogger/$NODENAME/);
+our $DLDIRFAIL     = qq($DLDIR/failed/);
+our $CHECKFILES    = 30;
+our $PINGSERVER    = 5000;
+our $LOGFILE       = qq(/var/log/nsmf-node/daemonlogger-$NODENAME.log);
+our $PIDFILE       = qq(/var/run/nsmf-daemonlogger-$NODENAME.pid);
+
+
+Getopt::Long::GetOptions(
+    'configfile|c=s'        => \$CONFIGFILE,
+);
+
+# read config
+NSMFcommon::Config::load_config("$CONFIGFILE",$DEBUG);
+
+# Prepare
+
+# Signal handlers
+use vars qw(%sources);
+#$SIG{"HUP"}   = \&reload_something;
+$SIG{"INT"}   = sub { gameover($DEBUG, "INT" ) };
+$SIG{"TERM"}  = sub { gameover($DEBUG, "TERM") };
+$SIG{"QUIT"}  = sub { gameover($DEBUG, "QUIT") };
+$SIG{"KILL"}  = sub { gameover($DEBUG, "KILL") };
+#$SIG{"ALRM"}  = sub { ping_server(); alarm $TIMEOUT; };
+
+# Main program
+
+# Check that all needed dirs exists
+NSMFcommon::Dirs::check_dir_create_w ($DLDIR);
+NSMFcommon::Dirs::check_dir_create_w ($DLDIRFAIL);
+NSMFcommon::Dirs::check_dir_create_w ("/var/log/nsmf-node/");  # Needs to be fixed: Should find dir from $LOGFILE 
+#NSMFcommon::Dirs::check_dir_create_w ("/var/run/");            # Needs to be fixed: Should find dir from $PIDFILE
+
+NSMFcommon::Daemon::go_daemon ($LOGFILE,$PIDFILE) if $DAEMON;;
+
+## Connect to server (loop)...
+# Start the node which looks for pcap files and tries to send timestamp to server in a PING.
+print "[*] Looking for pcap files in: $DLDIR \n" if $DEBUG;
+start_node($DEBUG, $SERVER, $PORT);
+exit;
+
+# Start the node
+# watch in dir for stat on latest file.
+# also report buffer window of pcaps holding.
+
+sub start_node {
+    my ($DEBUG, $SERVER, $PORT) = @_;
+
+    # Starts the sub check_dir in a thread, which checks pcap status
+    # and adds the status to a que for sending to server.
+    my $CD = threads->create(\&check_dir,$DEBUG);
+    $CD->detach; # We dont expect any return value :)
+                 # And it will clean up it self on exit...
+ 
+    while (1) {
+        my $socket = new IO::Socket::SSL("$SERVER:$PORT");
+
+
+    }
+
+}
+
+sub check_dir {
+    my $DEBUG = shift;
+    # $DLDIR ?
+    # Check timestamp on pcapfiles and suff
+    # Add updated infor to the TQ queue, which sends
+    # it to the server.
+
+    #infinite loop
+    while (1) {
+        my @FILES;
+        # Open the directory
+        if( opendir( DIR, $DLDIR ) ) {
+            # Find pcap files in DIR
+            while( my $FILE = readdir( DIR ) ) {
+                # Not this (.) or (..) dirs
+                next if( ( "." eq $FILE ) || ( ".." eq $FILE ) );
+                # Match the caracteristics of daemonlogger
+                next unless ($FILE =~ /^.*\.\d{10}$/);
+                # Check if file is pcap with `file`:
+                my $exec="file $FILE > /dev/null 2>&1";
+                my $result = `$exec`;
+                # Check for string / tcpdump capture file /
+                if ( $result =~ / tcpdump capture file / ) {
+                    push( @FILES, $FILE ) if( -f "$DLDIR/$FILE" );
+                }
+            }
+            closedir( DIR );
+        }
+        # If we find any files, proccess...
+        foreach my $FILE ( @FILES ) {
+
+        }
+    }
+}
+
+
+# if server ask for pcap - carve and send.
+
+# carv pcap.
+
+# send pcap.
+
+
