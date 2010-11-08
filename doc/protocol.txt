@@ -1,29 +1,50 @@
-# CLIENT <-> SERVER
+# NODE <-> SERVER
 
 SERVER Listens....
 
-CLIENT Connects...
-IF Connect (OK); CLIENT SENDS: METHOD,MODULE,PROTOCOL:
-   POST CXTRACKER NSMF/1.0\r\n\r\n
+NODE Connects...
+IF Connect (OK); NODE SENDS: METHOD,MODULE,PROTOCOL:
+   "AUTH CXTRACKER NSMF/1.0\n"
 
 SERVER RESPONDS IF IT SUPPORTS/NOT SUPPORTS METHOD,MODULE,PROTOCOL:
    200 OK ACCEPTED                  (ALL OK)
    201 METHOD NOT SUPPORTED         (Else reply the first error it sees)
    202 MODULE NOT SUPPORTED         ....
    203 PROTOCOL NOT SUPPORTED       ....
-   210 UNKNOWN ERROR                (When its an unknown error
+   210 UNKNOWN ERROR                (When its an unknown error)
 
-CLIENT SENDS ID IF SERVER SENDS "200 OK ACCEPTED"
-   ID STRING IS: ID KEY NODENAME NETGROUP
-CLIENT SENDS DATA IF SERVER SENDS "200 OK ACCEPTED"
-CLIENT ENDS COMMUNICAION with a line containing only a periode "." ?
+If SERVER sends "200 OK ACCEPTED\n"
+    NODE sends ID
+        ID string is: "ID KEY NODENAME NETGROUP\n"
+SERVER sends "200 OK ACCEPTED\n" if ID is OK (bruteforce problem)
 
-(DO WE NEED TO SEND REPLY FROM SERVER??? 300 OK PROCCESSED, 310 ERROR PROCCESSING?)
+From here, server or node can send PING,PONG,POST,GET,BYE
 
-CLIENT/SERVER CLOSE CONNECTIONS
+*POST:**** ( The node normally sends $DATA to the server, SNORT events etc.
+NODE sends       : "POST DATA\n"
+SERVER acks      : "200 OK ACCEPTED\n"
+NODE sends data  : "$DATA\n.\r\n"  (NODE ends communication with a single line containing  ".\r\n")
+                    $DATA is handled by the spesific MODULE on the SERVER
+SERVER acks      : "200 OK ACCEPTED\n"
+or SERVER fail   : "204 DATA RECIEVE ERROR\n"
 
-From this time on, the SERVER is responsable for the DATA. So if it for some
-reasesons cant process it, and the SERVER dies, the data will be lost :/
-(Or might be stored in a tmp-file, process, then delete file if OK, or move
-to failed dir if ERROR).
+
+*PING/PONG:**** (Just say hello - im alive)
+NODE/SERVER sends: "PING $DATE\n"
+SERVER/NODE sends: "PONG $DATE\n"
+
+
+*GET:**** (Example, Server requests full cxtracker sessiondata or daemonlogger pcap data)
+SERVER sends     : "GET $MODULE\n"
+NODE sends       : "200 OK ACCEPTED\n"
+SERVER sends     : "$DATA\n.\r\n"  (SERVER ends communication with a single line containing  ".\r\n")
+                    $DATA is handled by the spesific MODULE on the NODE
+NODE sends       : "200 OK ACCEPTED\n"
+or NODE fail     : "204 DATA RECIEVE ERROR\n"
+
+
+*BYE:**** (Im shuting down - bye message)
+NODE/SERVER sends: "BYE\n"
+SERVER/NODE sends: "200 OK ACCEPTED\n"
+SERVER/NODE closes the connection
 
