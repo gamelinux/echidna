@@ -22,7 +22,8 @@ use strict;
 use warnings;
 use POSIX qw(setsid);
 use FindBin;
-use IO::Socket::SSL;
+#use IO::Socket::SSL;
+use IO::Socket;
 use threads;
 use threads::shared;
 use Thread::Queue;
@@ -135,7 +136,7 @@ sub gameover{
     my ($DAEMON, $sig) = @_;
     print "[*] Got $sig, Ending.\n";
     #File::Temp::cleanup();
-    unlink($PIDFILE) if $DEBUG;
+    unlink($PIDFILE) if $DAEMON;
     threads->exit();
     exit 0;
 }
@@ -162,19 +163,21 @@ sub open_server_socket {
 
     #$IO::Socket::SSL::DEBUG = 1 if $DEBUG;
 
-    my $ServSocket = IO::Socket::SSL->new(
+    #my $ServSocket = IO::Socket::SSL->new(
+    my $ServSocket = IO::Socket::INET->new(
                         LocalAddr => $SERVER,
                         LocalPort => $PORT,
                         Proto     => 'tcp',
                         Listen    => '10',
                         Reuse     => 1,
-                        SSL_cert_file => '/etc/nsmf-server/server-cert.pem',
-                        SSL_key_file => '/etc/nsmf-server/server-key.pem',
-                        SSL_verify_mode => 0x00,
+                        #SSL_cert_file => '/etc/nsmf-server/server-cert.pem',
+                        #SSL_key_file => '/etc/nsmf-server/server-key.pem',
+                        #SSL_verify_mode => 0x00,
                         #SSL_passwd_cb   => sub {return "nsmf"},
                         )
     #or die "[E] Problem creating socket on $SERVER:$PORT\n";
-    or die "unable to create socket: ", &IO::Socket::SSL::errstr, "\n";
+    #or die "unable to create socket: ", &IO::Socket::SSL::errstr, "\n";
+    or die "unable to create socket: ", &IO::Socket::INET::errstr, "\n";
 
     #$ServSocket->autoflush(1);
 
@@ -201,11 +204,11 @@ sub open_server_socket {
             warn "[*] Accepted new connection from $client_ip\n" if $DEBUG;
     
             ## Start new thread and listen on the socket
-            #my $TB = threads->create(\&requesthandle, $DEBUG, $ReqSock);
+            my $TB = threads->create(\&requesthandle, $DEBUG, $ReqSock);
             #$TB->detach; # We dont expect any return value :)
             #             # And it will clean up it self on exit...
 
-            requesthandle($DEBUG, $ReqSock);
+            #requesthandle($DEBUG, $ReqSock);
         }
     }
 

@@ -18,7 +18,7 @@ If SERVER sends "200 OK ACCEPTED\n"
         ID string is: "ID KEY NODENAME NETGROUP\n"
 SERVER sends "200 OK ACCEPTED\n" if ID is OK (bruteforce problem)
 
-From here, server or node can send PING,PONG,POST,GET,BYE
+From here, SERVER or NODE can send PING,PONG,POST,GET,BYE
 
 *POST:**** ( The node normally sends $DATA to the server, SNORT events etc.
 NODE sends       : "POST DATA\n"
@@ -47,4 +47,39 @@ or NODE fail     : "204 DATA RECIEVE ERROR\n"
 NODE/SERVER sends: "BYE\n"
 SERVER/NODE sends: "200 OK ACCEPTED\n"
 SERVER/NODE closes the connection
+
+
+# CLIENT <-> SERVER
+
+SERVER Listens.... (not on same port as for NODES?)
+
+CLIENT Connects...
+IF Connect (OK); CLIENT SENDS: METHOD,MODULE,PROTOCOL:
+   "AUTH CLIENT NSMF/1.0\n"
+If SERVER sends "200 OK ACCEPTED\n"
+    CLIENT sends UID
+            ID string is: "UID USERNAME PASSWORD\n"
+SERVER sends "200 OK ACCEPTED\n" if UID is OK (bruteforce problem)
+
+From here, SERVER or CLIENT can send PING,PONG,POST,GET,BYE
+
+GET:**** ( The CLIENT asks for $DATA from the server, SEARCH queuery etc. for flow sessions)
+CLIENT sends     : "GET CXTRACKER\n"
+SERVER acks      : "200 OK ACCEPTED\n"
+CLIENT sends data: "$DATA\n.\r\n"  (NODE ends communication with a single line containing  ".\r\n")
+                    $DATA is handled by the spesific MODULE on the SERVER
+                    $DATA here is the query for sesssion
+SERVER acks      : "200 OK ACCEPTED\n"
+or SERVER fail   : "204 DATA RECIEVE ERROR\n"
+
+SERVER responds with POST when the data is ready:
+SERVER sends     : "POST $MODULE\n"
+CLIENT sends     : "200 OK ACCEPTED\n"
+SERVER sends     : "$DATA\n.\r\n"  (SERVER ends communication with a single line containing  ".\r\n")
+                    $DATA is handled by the spesific MODULE on the CLIENT (which sent the request)
+CLIENT sends     : "200 OK ACCEPTED\n"
+or CLIENT fail   : "204 DATA RECIEVE ERROR\n"
+
+
+
 

@@ -21,7 +21,8 @@
 use strict;
 use warnings;
 use POSIX qw(setsid);
-use IO::Socket::SSL;
+#use IO::Socket::SSL;
+use IO::Socket::INET;
 use Getopt::Long;
 use DateTime;
 use NSMFcommon::Config;
@@ -70,7 +71,9 @@ Getopt::Long::GetOptions(
 );
 
 # read config
-NSMFcommon::Config::load_config("$CONFIGFILE",$DEBUG);
+my $CONFIG = {};
+$CONFIG = NSMFcommon::Config::load_config("$CONFIGFILE",$DEBUG);
+$CXTDIR = $CONFIG->{'CXTDIR'} if (defined $CONFIG->{'CXTDIR'});
 
 # Prepare
 
@@ -207,7 +210,9 @@ sub send_data_to_server {
    
     #$IO::Socket::SSL::DEBUG = 1 if $DEBUG;
 
-    my $socket = new IO::Socket::SSL("$SERVER:$PORT");
+    #my $socket = new IO::Socket::SSL("$SERVER:$PORT");
+    #my $socket = new IO::Socket::INET("$SERVER:$PORT");
+    my $socket = IO::Socket::INET->new( PeerAddr => $SERVER, PeerPort => $PORT, Proto => 'tcp');
 
     if (defined $socket) {
         my $HEADER = "POST CXTRACKER NSMF/1.0";
@@ -240,8 +245,10 @@ sub send_data_to_server {
         $socket->close();
         close $socket;
     } else {
-        print "[E] Error opening socket: ". IO::Socket::SSL::errstr() ."\n";
+        #print "[E] Error opening socket: ". IO::Socket::SSL::errstr() ."\n";
+        #print "[E] Error opening socket: ". IO::Socket::errstr() ."\n";
         #print "[E] Error connect ($socket).\n" if ($IO::Socket::SSL::DEBUG);
+        print "[E] Error opening socket. Server might be down?\n";
         return 1;
     }
     return 0;

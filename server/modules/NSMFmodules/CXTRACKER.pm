@@ -67,8 +67,11 @@ sub import {
     print "[**] CXTRACKER: Connecting to database...\n";
     $dbh = DBI->connect($DBI,$DB_USERNAME,$DB_PASSWORD, {RaiseError => 1}) or die "$DBI::errstr";
     print "[**] CXTRACKER: Connection OK...\n";
-    # Make todays table, and initialize the session merged table
-    setup_db();
+    # Initialize the session merged table
+    delete_merged_session_table();
+    my $sessiontables = find_session_tables();
+    merge_session_tables($sessiontables);
+    # Disconnect        
     $dbh->disconnect;
     print "[**] CXTRACKER: Disconnected to DB...\n";
     $dbh = undef; # undef it, or else there will be a threading issue...
@@ -209,7 +212,7 @@ sub merge_session_tables {
       # check for != MRG_MyISAM - exit
       print "[**] CXTRACKER: Creating session MERGE table\n" if $DEBUG;
       my $sql = "                                        \
-      CREATE TABLE session                               \
+      CREATE TABLE cxtracker                             \
       (                                                  \
       sid           INT(0) UNSIGNED            NOT NULL, \
       sessionid       BIGINT(20) UNSIGNED      NOT NULL, \
@@ -321,7 +324,7 @@ sub new_session_table {
 sub delete_merged_session_table {
     my ($sql, $sth);
     eval{
-        $sql = "DROP TABLE IF EXISTS session";
+        $sql = "DROP TABLE IF EXISTS cxtracker";
         $sth = $dbh->prepare($sql);
         $sth->execute;
         $sth->finish;
@@ -344,7 +347,7 @@ sub delete_merged_session_table {
 sub find_session_tables {
     my ($sql, $sth);
     my $tables = q();
-    $sql = q(SHOW TABLES LIKE 'session_%');
+    $sql = q(SHOW TABLES LIKE 'cxtracker_%');
     $sth = $dbh->prepare($sql);
     $sth->execute;
     while (my @array = $sth->fetchrow_array) {
