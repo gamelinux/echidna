@@ -1,4 +1,5 @@
-
+# http://www.ossec.net/
+# OSSEC is an Open Source Host-based Intrusion Detection System.
 
 my $STATEFILE   = q(/var/lib/nsmframework/ossec.state);
 my $LOGDIR      = q(/var/log);

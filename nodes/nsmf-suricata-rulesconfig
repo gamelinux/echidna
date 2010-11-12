@@ -1,0 +1,4 @@
+# provisioning of rules and config
+# Gets the latest rules and config from the nsmf-server for
+# this sensor and installs them.
+
