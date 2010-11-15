@@ -1,0 +1,6 @@
+# upload to Zero Wine
+# http://sourceforge.net/projects/zerowine/
+# Zero Wine is a malware's behavior analysis tool.
+# Just upload your suspicious PE file (windows executable)
+# through the web interface and let it analyze the
+# behaviour of the process.
