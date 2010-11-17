@@ -209,16 +209,15 @@ sub get_sessions {
 
 sub send_data_to_server {
     my ($DEBUG, $DATA, $NSMFSERVER, $NSMFPORT) = @_;
-   
     #$IO::Socket::SSL::DEBUG = 1 if $DEBUG;
-
     #my $socket = new IO::Socket::SSL("$NSMFSERVER:$NSMFPORT");
     #my $socket = new IO::Socket::INET("$NSMFSERVER:$NSMFPORT");
+
     my $socket = IO::Socket::INET->new( PeerAddr => $NSMFSERVER, PeerPort => $NSMFPORT, Proto => 'tcp');
 
     if (defined $socket) {
         my $HEADER = "AUTH CXTRACKER NSMF/1.0";
-        print $socket "$HEADER\n";
+        print $socket "$HEADER";
         print "[*] Sent HEADER: '$HEADER'.\n" if $DEBUG;
         $socket->flush();
         my ($line) = $socket->getline;
@@ -228,21 +227,42 @@ sub send_data_to_server {
             print "[*] Server $NSMFSERVER sent response: '$line'.\n" if $DEBUG;
             #ID KEY NODENAME NETGROUP
             my $ID = "ID SHA256SECRETKEY NODENAME NETGROUP";
-            print $socket "$ID\n";
+            print $socket "$ID";
             print "[*] Sent ID: '$ID'.\n" if $DEBUG;
             $socket->flush();
-            $line = $socket->getline;
+            ($line) = $socket->getline();
             chomp $line;
             $line =~ s/\r//;
             if ( $line =~ /200 OK ACCEPTED/ ) {
                 print "[*] Server $NSMFSERVER sent response: '$line'.\n" if $DEBUG;
-                print $socket "$DATA\n";
+                $HEADER = "POST DATA";
+                $socket->say("$HEADER");
                 $socket->flush();
+                print "[*] Sent HEADER: '$HEADER'.\n" if $DEBUG;
+                ($line) = $socket->getline();
+                chomp $line;
+                $line =~ s/\r//;
+                if ( $line =~ /200 OK ACCEPTED/ ) {
+                    print $socket "$DATA\n.\r\n";
+                    $socket->flush();
+                    print "[*] Data sent.\n" if $DEBUG;
+                    ($line) = $socket->getline();
+                    chomp $line;
+                    $line =~ s/\r//;
+                    if ( $line =~ /200 OK ACCEPTED/ ) {
+                        print "[*] Server recived data OK.\n" if $DEBUG;
+                    } else {
+                        print "[*] Server $NSMFSERVER sent bogus response1: '$line'.\n" if $DEBUG;
+                    }
+
+                } else {
+                    print "[*] Server $NSMFSERVER sent bogus response2: '$line'.\n" if $DEBUG;
+                }
             } else {
-                print "[*] Server $NSMFSERVER sent bogus response: '$line'.\n" if $DEBUG;
+                print "[*] Server $NSMFSERVER sent bogus response3: '$line'.\n" if $DEBUG;
             }
         } else {
-            print "[*] Server $NSMFSERVER sent bogus response: '$line'.\n" if $DEBUG;
+            print "[*] Server $NSMFSERVER sent bogus response4: '$line'.\n" if $DEBUG;
         }
         $socket->close();
         close $socket;

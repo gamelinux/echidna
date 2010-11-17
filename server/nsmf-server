@@ -336,9 +336,9 @@ sub requesthandle {
 
     # SERVER> 200 OK ACCEPTED
     #print $RS "200 OK ACCEPTED\n";
-    $RS->say("200 OK ACCEPTED");
+    $RS->say("200 OK ACCEPTED\n");
     $RS->flush();
-    ($line) = ($RS->getline());
+    ($line) = $RS->getline();
     # Shoud be:
     # "ID KEY NODENAME NETGROUP"
     print "[*] Client $client_ip sent ID header: $line\n" if $DEBUG;
@@ -359,8 +359,9 @@ sub requesthandle {
     $request->{'module'}   = $MODULE;
     $request->{'protocol'} = $PROTOCOL;
     # SERVER> 200 OK ACCEPTED
-    print $RS "200 OK ACCEPTED\n";
+    $RS->say("200 OK ACCEPTED\n");
     $RS->flush();
+    print "[*] Sent \"200 OK ACCEPTED\"\n";
     #if ( $METHOD =~ /POST/ ) {
     #    # GET DATA FROM CLIENT
     #    # Should this be done in the module? as the module might have som
@@ -375,6 +376,7 @@ sub requesthandle {
     #$TQ->enqueue($request);
     my $module = "NSMFmodules::$request->{'module'}::$request->{'module'}";
     my $dynamicmodule = eval "sub { &$module }"; # Works...
+    print "[->] Leaving nsmf-server core...";
     $dynamicmodule->($request);                      # ...also
     #eval "$module \$REQ" ;    # Works also
     if ($@) {
@@ -466,7 +468,6 @@ sub is_known_protocol {
 sub is_known_module {
     my (@MODULES, $MODULE) = @_;
     $MODULE = "CXTRACKER";
-    print "WAAARN $MODULE\n";
     # Do checks on list of modules supported/loaded
     foreach my $MOD (@MODULES) {
         if ( $MOD eq $MODULE ) {

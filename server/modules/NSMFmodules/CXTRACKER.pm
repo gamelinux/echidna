@@ -110,6 +110,7 @@ sub connection_handle {
             }
         }
         $inreqest = 0;
+        sleep (1);
         #check_ping($REQ); #
     }
 }
