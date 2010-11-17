@@ -96,7 +96,10 @@ Getopt::Long::GetOptions(
 );
 
 # read config
-NSMFcommon::Config::load_config("$CONFIGFILE",$DEBUG);
+my $CONFIG = {};
+$CONFIG = NSMFcommon::Config::load_config("$CONFIGFILE",$DEBUG);
+my $SERVERMODULES = $CONFIG->{'SERVERMODULES'} if (defined $CONFIG->{'SERVERMODULES'});
+our @MODULES = split (/,/, $SERVERMODULES);
 
 # Prepare
 
@@ -125,7 +128,7 @@ NSMFcommon::Daemon::go_daemon ($LOGFILE,$PIDFILE) if $DAEMON;;
 
 my $TQ = Thread::Queue->new();   # Thread-Queue shared over all threads
 # Start SERVER
-open_server_socket($DEBUG,$SERVER,$PORT);
+open_server_socket($DEBUG,$SERVER,$PORT,@MODULES);
 exit;
 
 =head2 gameover
@@ -159,7 +162,7 @@ sub pipeHandler{
 =cut
 
 sub open_server_socket {
-    my ($DEBUG,$SERVER,$PORT) = @_;
+    my ($DEBUG,$SERVER,$PORT,@MODULES) = @_;
 
     #$IO::Socket::SSL::DEBUG = 1 if $DEBUG;
 
@@ -204,7 +207,7 @@ sub open_server_socket {
             warn "[*] Accepted new connection from $client_ip\n" if $DEBUG;
     
             ## Start new thread and listen on the socket
-            my $TB = threads->create(\&requesthandle, $DEBUG, $ReqSock);
+            my $TB = threads->create(\&requesthandle, $DEBUG, $ReqSock,@MODULES);
             #$TB->detach; # We dont expect any return value :)
             #             # And it will clean up it self on exit...
 
@@ -279,7 +282,7 @@ sub nodequeue {
 =cut
 
 sub requesthandle {
-    my ($DEBUG,$RS) = @_; # Request Socket, $DEBUG
+    my ($DEBUG,$RS,@MODULES) = @_; # $DEBUG, Request Socket, @MODULES
     my $client_ip = $RS->peerhost;
 
     my $request = {};
@@ -318,7 +321,7 @@ sub requesthandle {
     }
 
     # Check if $MODULE is a known nsmf loaded module
-    if (is_known_module($MODULE) == 1) {
+    if (is_known_module(@MODULES, $MODULE) == 1) {
         print $RS "202 MODULE NOT SUPPORTED\n";
         $RS->flush();
         print "[E] Client $client_ip sent requests to a unknown module: $MODULE\n" if $DEBUG;
@@ -332,11 +335,10 @@ sub requesthandle {
     # SERVER> 201 METHOD NOT SUPPORTED
 
     # SERVER> 200 OK ACCEPTED
-    print $RS "200 OK ACCEPTED\n";
+    #print $RS "200 OK ACCEPTED\n";
+    $RS->say("200 OK ACCEPTED");
     $RS->flush();
-    $line = $RS->getline;
-    chomp $line;
-    $line =~ s/\r//;
+    ($line) = ($RS->getline());
     # Shoud be:
     # "ID KEY NODENAME NETGROUP"
     print "[*] Client $client_ip sent ID header: $line\n" if $DEBUG;
@@ -350,6 +352,8 @@ sub requesthandle {
         $RS->shutdown(2);
         return;
     }
+    # Check with DB that the ID IS OK!
+    # Else disconnect.
 
     $request->{'method'}   = $METHOD;
     $request->{'module'}   = $MODULE;
@@ -357,17 +361,25 @@ sub requesthandle {
     # SERVER> 200 OK ACCEPTED
     print $RS "200 OK ACCEPTED\n";
     $RS->flush();
-    if ( $METHOD =~ /POST/ ) {
-        # GET DATA FROM CLIENT
-        # Should this be done in the module? as the module might have som
-        # extra headers that it wants to verify, befor it accepts lots of data?
-        ($request->{'data'}) = read_socket_data($RS);
-        # Does this stop when client ends conversation? DOS possible?
-    }
+    #if ( $METHOD =~ /POST/ ) {
+    #    # GET DATA FROM CLIENT
+    #    # Should this be done in the module? as the module might have som
+    #    # extra headers that it wants to verify, befor it accepts lots of data?
+    #    ($request->{'data'}) = read_socket_data($RS);
+    #    # Does this stop when client ends conversation? DOS possible?
+    #}
     # CLOSE CONNECTION
-    $RS->shutdown(2);
+    #$RS->shutdown(2);
     # SEND THE REQUEST TO global Thread Queue, TQ.
-    $TQ->enqueue($request);
+    $request->{'requestsocket'} = $RS;
+    #$TQ->enqueue($request);
+    my $module = "NSMFmodules::$request->{'module'}::$request->{'module'}";
+    my $dynamicmodule = eval "sub { &$module }"; # Works...
+    $dynamicmodule->($request);                      # ...also
+    #eval "$module \$REQ" ;    # Works also
+    if ($@) {
+        print "[E] Ohhh crap: $@\n" if $DEBUG;
+    }
     return;
 }
 
@@ -414,7 +426,7 @@ sub verify_client_header {
         $METHOD   = $1;
         $MODULE   = $2;
         $PROTOCOL = $3;
-        if ( $METHOD =~ /(PING|GET|POST)/ ) {
+        if ( $METHOD =~ /AUTH/ ) {
             # Method exepted...
             return (0,$METHOD,$MODULE,$PROTOCOL);# OK
         }
@@ -452,12 +464,16 @@ sub is_known_protocol {
 =cut
 
 sub is_known_module {
-    my $MODULE = shift;
+    my (@MODULES, $MODULE) = @_;
+    $MODULE = "CXTRACKER";
+    print "WAAARN $MODULE\n";
     # Do checks on list of modules supported/loaded
-    if ( $MODULE =~ /CXTRACKER/ ) {
-        return 0; # Supported
+    foreach my $MOD (@MODULES) {
+        if ( $MOD eq $MODULE ) {
+            return 0; # Supported
+        }
+        # else
+        return 1; # Not supported
     }
-    # else
-    return 1; # Not supported
 }
 

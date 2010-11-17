@@ -54,8 +54,8 @@ use NSMFcommon::Daemon;
 our $CONFIGFILE    = qq(/etc/nsmf-node/cxtracker.conf);
 our $DEBUG         = 1;
 our $DAEMON        = 0;
-our $SERVER        = qq(127.0.0.1);
-our $PORT          = qq(10101);
+our $NSMFSERVER    = qq(127.0.0.1);
+our $NSMFPORT      = qq(10101);
 our $NODENAME      = qq(default);
 our $NETGROUP      = qq(EXT_NET);
 our $CXTDIR        = qq(/var/lib/cxtracker/$NODENAME/);
@@ -73,6 +73,8 @@ Getopt::Long::GetOptions(
 # read config
 my $CONFIG = {};
 $CONFIG = NSMFcommon::Config::load_config("$CONFIGFILE",$DEBUG);
+$NSMFSERVER = $CONFIG->{'NSMFSERVER'} if (defined $CONFIG->{'NSMFSERVER'});
+$NSMFPORT = $CONFIG->{'NSMFPORT'} if (defined $CONFIG->{'NSMFPORT'});
 $CXTDIR = $CONFIG->{'CXTDIR'} if (defined $CONFIG->{'CXTDIR'});
 
 # Prepare
@@ -136,9 +138,9 @@ sub dir_watch {
          my $processtime=$endtime-$starttime;
          print "[*] File $CXTDIR/$FILE processed in $processtime seconds\n" if ($DEBUG);
          $starttime=$endtime;
-         my $result = send_data_to_server ($DEBUG,$SESSIONSDATA,$SERVER,$PORT);
+         my $result = send_data_to_server ($DEBUG,$SESSIONSDATA,$NSMFSERVER,$NSMFPORT);
          if ($result >= 1) {
-            print "[E] Error while sending sessiondata to server: $CXTDIR/$FILE -> $SERVER:$PORT\n";
+            print "[E] Error while sending sessiondata to server: $CXTDIR/$FILE -> $NSMFSERVER:$NSMFPORT\n";
             print "[*] Skipping deletion of file: $CXTDIR/$FILE\n";
          }
          $endtime=time();
@@ -200,22 +202,22 @@ sub get_sessions {
 
 =head2 send_data_to_server
 
- Sends a chunck of $DATA to $SERVER:$PORT
+ Sends a chunck of $DATA to $NSMFSERVER:$NSMFPORT
  Returns 0 on success;
 
 =cut
 
 sub send_data_to_server {
-    my ($DEBUG, $DATA, $SERVER, $PORT) = @_;
+    my ($DEBUG, $DATA, $NSMFSERVER, $NSMFPORT) = @_;
    
     #$IO::Socket::SSL::DEBUG = 1 if $DEBUG;
 
-    #my $socket = new IO::Socket::SSL("$SERVER:$PORT");
-    #my $socket = new IO::Socket::INET("$SERVER:$PORT");
-    my $socket = IO::Socket::INET->new( PeerAddr => $SERVER, PeerPort => $PORT, Proto => 'tcp');
+    #my $socket = new IO::Socket::SSL("$NSMFSERVER:$NSMFPORT");
+    #my $socket = new IO::Socket::INET("$NSMFSERVER:$NSMFPORT");
+    my $socket = IO::Socket::INET->new( PeerAddr => $NSMFSERVER, PeerPort => $NSMFPORT, Proto => 'tcp');
 
     if (defined $socket) {
-        my $HEADER = "POST CXTRACKER NSMF/1.0";
+        my $HEADER = "AUTH CXTRACKER NSMF/1.0";
         print $socket "$HEADER\n";
         print "[*] Sent HEADER: '$HEADER'.\n" if $DEBUG;
         $socket->flush();
@@ -223,7 +225,7 @@ sub send_data_to_server {
         chomp $line;
         $line =~ s/\r//;
         if ( $line =~ /200 OK ACCEPTED/ ) {
-            print "[*] Server $SERVER sent response: '$line'.\n" if $DEBUG;
+            print "[*] Server $NSMFSERVER sent response: '$line'.\n" if $DEBUG;
             #ID KEY NODENAME NETGROUP
             my $ID = "ID SHA256SECRETKEY NODENAME NETGROUP";
             print $socket "$ID\n";
@@ -233,14 +235,14 @@ sub send_data_to_server {
             chomp $line;
             $line =~ s/\r//;
             if ( $line =~ /200 OK ACCEPTED/ ) {
-                print "[*] Server $SERVER sent response: '$line'.\n" if $DEBUG;
+                print "[*] Server $NSMFSERVER sent response: '$line'.\n" if $DEBUG;
                 print $socket "$DATA\n";
                 $socket->flush();
             } else {
-                print "[*] Server $SERVER sent bogus response: '$line'.\n" if $DEBUG;
+                print "[*] Server $NSMFSERVER sent bogus response: '$line'.\n" if $DEBUG;
             }
         } else {
-            print "[*] Server $SERVER sent bogus response: '$line'.\n" if $DEBUG;
+            print "[*] Server $NSMFSERVER sent bogus response: '$line'.\n" if $DEBUG;
         }
         $socket->close();
         close $socket;

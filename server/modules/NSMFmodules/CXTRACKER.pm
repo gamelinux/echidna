@@ -29,30 +29,6 @@ our $DEBUG = 1;
 our $DBI = "DBI:mysql:$DB_NAME:$DB_HOST:$DB_PORT";
 our $dbh = undef;
 
-=head2 CXTRACKER
-
- This is the module that the nsmf-server calls when it passes
- a $REQ (request) to this module. This is the only module that
- we export and is used by nsmf.
-
-=cut
-
-sub CXTRACKER {
-    my $REQ = shift;
-    $DEBUG = $REQ->{'debug'};
-    $NODENAME = $REQ->{'node'};
-    print "[**] CXTRACKER: Huston - we got a request for $NODENAME.\n" if $DEBUG;
-    if (not defined $dbh) {
-        print "[**] CXTRACKER: Connecting to database...\n";
-        $dbh = DBI->connect($DBI,$DB_USERNAME,$DB_PASSWORD, {RaiseError => 1}) or die "$DBI::errstr";
-        print "[**] CXTRACKER: Connection OK...\n";
-    }
-    #print "OK\n" if not (NSMFmodules::CXTRACKER::put_cxdata_to_db($REQ));
-    NSMFmodules::CXTRACKER::put_cxdata_to_db($REQ);
-    undef $REQ;
-    return;
-}
-
 =head2 import
 
  When perl loads a perl-module, the sub import gets executed.
@@ -79,6 +55,80 @@ sub import {
 
 sub DESTROY {
     print "[**] CXTRACKER: Dead on arrival!\n";
+}
+
+=head2 CXTRACKER
+
+ This is the module that the nsmf-server calls when it passes
+ a $REQ (request) to this module. This is the only module that
+ we export and is used by nsmf.
+
+=cut
+
+sub CXTRACKER {
+    my $REQ = shift;
+    $DEBUG = $REQ->{'debug'};
+    $NODENAME = $REQ->{'node'};
+    print "[**] CXTRACKER: Huston - we got a connection from $NODENAME.\n" if $DEBUG;
+    if (not defined $dbh) {
+        print "[**] CXTRACKER: Connecting to database...\n";
+        $dbh = DBI->connect($DBI,$DB_USERNAME,$DB_PASSWORD, {RaiseError => 1}) or die "$DBI::errstr";
+        print "[**] CXTRACKER: Connection OK...\n";
+    }
+    # Send to sub to handle requests
+    connection_handle($REQ);
+    #NSMFmodules::CXTRACKER::put_cxdata_to_db($REQ);
+    undef $REQ;
+    return;
+}
+
+sub connection_handle {
+    my $REQ = shift;
+    $DEBUG = $REQ->{'debug'};
+    $NODENAME = $REQ->{'node'};
+    my $RS = $REQ->{'requestsocket'};
+    my $inreqest = 0;
+
+    while ($RS) {
+        $inreqest = 1;
+        my ($line) = $RS->getline();
+        next if undef $line;
+        chomp $line;
+        $line =~ s/\r//;
+        if ($line =~ /^(POST|GET|PING|BYE)/) {
+            if ($line =~ /^PING (.*)/) {
+                got_ping($REQ, $1);    
+            }
+            elsif ($line =~ /^POST DATA/) {
+                got_post($REQ);
+            }
+            elsif ($line =~ /^GET/) {
+                got_get($REQ);
+            }
+            elsif ($line =~ /^BYE/) {
+                got_bye($REQ);
+            }
+        }
+        $inreqest = 0;
+        #check_ping($REQ); #
+    }
+}
+
+=head2 got_post
+
+ processes the post request
+
+=cut 
+
+sub got_post {
+    my $REQ = shift;
+    my $RS = $REQ->{'requestsocket'};
+
+    print $RS "200 OK ACCEPTED\n";
+    $RS->flush();
+    read_socket_data($REQ);
+    print $RS "200 OK ACCEPTED\n";
+    NSMFmodules::CXTRACKER::put_cxdata_to_db($REQ);
 }
 
 =head2 put_cxdata_to_db
@@ -371,6 +421,9 @@ sub recreate_merge_table {
    merge_session_tables($sessiontables);
 }
 
+
+#################### should be global subs #########################
+
 =head2 expand_ipv6
 
  Expands a IPv6 address from short notation
@@ -476,7 +529,33 @@ sub ip_is_ipv6 {
     return 1;
 }
 
+=head2 read_socket_data
 
+ Read data from a socket.
+ Input the $socket descriptor.
+ Output is the data collected?
+
+=cut
+
+sub read_socket_data {
+    my $REQ = shift;
+    my $data = qq();
+    my $SOCK = $REQ->{'requestsocket'};
+
+    binmode($SOCK);
+    while (defined(my $Line = <$SOCK>)) {
+        #last unless length $Line;
+        if ( $Line =~ /^.\r\n$/ ) {
+            $REQ->{'data'} = $data;
+            return;
+        }
+        $data = "$data$Line";
+    }
+    return;
+}
+
+
+########## End should be globals ###############
 
 
 END {

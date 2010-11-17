@@ -1,0 +1,173 @@
+#!/usr/bin/perl -w -I../common/NSMFcommon/
+# ----------------------------------------------------------------------
+# This file is a part of The NSMFramework
+# Copyright (C) 2010, Edward Fjellskål <edwardfjellskaal@gmail.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# ----------------------------------------------------------------------
+
+use strict;
+use warnings;
+use POSIX qw(setsid);
+#use IO::Socket::SSL;
+use IO::Socket::INET;
+use Getopt::Long;
+use DateTime;
+use NSMFcommon::Config;
+use NSMFcommon::Dirs;
+use NSMFcommon::Daemon;
+
+=head1 NAME
+
+ nsmf-suricata
+
+=head1 VERSION
+
+ 0.1
+
+=head1 SYNOPSIS
+
+ $ nsmf-suricata [options]
+
+ OPTIONS:
+
+    -c|--configfile : spesify path to configfile
+    -h|--help       : this help message
+    --version       : show version
+
+=cut
+
+# default config
+
+our $CONFIGFILE    = qq(/etc/nsmf-node/suricata.conf);
+our $DEBUG         = 1;
+our $DAEMON        = 0;
+our $NSMFSERVER    = qq(127.0.0.1);
+our $NSMFPORT      = qq(10101);
+our $BYSERVER      = qq(127.0.0.1);
+our $BYPORT        = qq(7735);
+our $NODENAME      = qq(default);
+our $NETGROUP      = qq(EXT_NET);
+our $PINGSERVER    = 5000;
+our $LOGFILE       = qq(/var/log/nsmf-node/suricata-$NODENAME.log);
+our $PIDFILE       = qq(/var/run/nsmf-suricata-$NODENAME.pid);
+
+Getopt::Long::GetOptions(
+    'configfile|c=s'        => \$CONFIGFILE,
+);
+
+# read config
+my $CONFIG = {};
+$CONFIG = NSMFcommon::Config::load_config("$CONFIGFILE",$DEBUG);
+$NSMFSERVER = $CONFIG->{'NSMFSERVER'} if (defined $CONFIG->{'NSMFSERVER'});
+$NSMFPORT = $CONFIG->{'NSMFPORT'} if (defined $CONFIG->{'NSMFPORT'});
+
+# Prepare
+
+# Signal handlers
+use vars qw(%sources);
+#$SIG{"HUP"}   = \&recreate_merge_table;
+$SIG{"INT"}   = sub { gameover($DEBUG, "INT" ) };
+$SIG{"TERM"}  = sub { gameover($DEBUG, "TERM") };
+$SIG{"QUIT"}  = sub { gameover($DEBUG, "QUIT") };
+$SIG{"KILL"}  = sub { gameover($DEBUG, "KILL") };
+#$SIG{"ALRM"}  = sub { dir_watch(); alarm $TIMEOUT; };
+
+# Main program
+
+# Check that all needed dirs exists
+NSMFcommon::Dirs::check_dir_create_w ($CXTDIR);
+NSMFcommon::Dirs::check_dir_create_w ($CXTDIRFAIL);
+NSMFcommon::Dirs::check_dir_create_w ("/var/log/nsmf-node/");  # Needs to be fixed: Should find dir from $LOGFILE 
+#NSMFcommon::Dirs::check_dir_create_w ("/var/run/");            # Needs to be fixed: Should find dir from $PIDFILE
+
+NSMFcommon::Daemon::go_daemon ($LOGFILE,$PIDFILE) if $DAEMON;;
+
+## Connect to nsmf-server (loop) and start a listener for barnyard data.
+#print "[*] $ \n" if $DEBUG;
+start_node($DEBUG, $NSMFSERVER, $NSMFPORT);
+exit;
+
+# Start the node
+# watch in dir for stat on latest file.
+# also report buffer window of pcaps holding.
+
+sub start_node {
+    my ($DEBUG, $NSMFSERVER, $NSMFPORT) = @_;
+
+    # Starts the sub that waits for BY2 data in a thread,
+    # and adds the data to a queue for sending to server.
+    my $BY = threads->create(\&start_BY_listener,$DEBUG,$BYSERVER,$BYPORT);
+    $BY->detach; # We dont expect any return value :)
+                 # And it will clean up it self on exit...
+
+    # Starts the sub that connects to the nsmf-server in
+    # a thread, and sends of data that it gets from BY2.
+    # It also pings.
+    my $NS = threads->create(\&server_connect,$DEBUG);
+    $NS->detach; # We dont expect any return value :)
+}
+
+sub server_connect {
+    my $DEBUG = shift;
+    while (1) {
+        my $socket = IO::Socket::INET->new( PeerAddr => $NSMFSERVER, PeerPort => $NSMFPORT, Proto => 'tcp');
+
+        if (defined $socket) {
+        }
+
+    }
+
+}
+
+sub start_BY_listener {
+    my ($DEBUG,$BYSERVER,$BYPORT) = @_;
+
+    my $ServSocket = IO::Socket::INET->new(
+                        LocalAddr => $BYSERVER,
+                        LocalPort => $BYPORT,
+                        Proto     => 'tcp',
+                        Listen    => '10',
+                        Reuse     => 1,
+                        )
+    or die "[E] Unable to create listen socket for $BYSERVER:$BYPORT\n";
+
+    while (1) {
+        print "[*] Waiting for Barnyard2 connection...\n";
+
+        while (my $ReqSock = $ServSocket->accept()) {
+            $ReqSock->autoflush(1);
+            my $client_ip = $ReqSock->peerhost;
+            print "[*] Accepted new connection from $client_ip\n" if $DEBUG;
+
+            ## Start new thread and listen on the socket
+            my $TB = threads->create(\&byrequesthandle, $DEBUG, $ReqSock);
+            #$TB->detach; # We dont expect any return value :)
+            #             # And it will clean up it self on exit...
+        }
+
+        # Should never be here?
+        $ServSocket->close();
+        print "[*] Socket closed.\n" if $DEBUG;
+        # print "[*] Reopenening...\n" if $DEBUG;
+        # sleep 50;
+        # open_server_socket ($DEBUG,$SERVER,$PORT);
+    }
+}
+
+
+
+
+
