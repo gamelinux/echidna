@@ -197,7 +197,7 @@ sub open_server_socket {
                   # And it will clean up it self on exit...
 
     while (1) {
-        warn "waiting for next connection.\n";
+        warn "[*] nsmf-server is listinging for connections..\n";
     
         while (my $ReqSock = $ServSocket->accept()) {
             #my $nonblocking = 1;
@@ -283,6 +283,7 @@ sub nodequeue {
 
 sub requesthandle {
     my ($DEBUG,$RS,@MODULES) = @_; # $DEBUG, Request Socket, @MODULES
+    my $line = qq();
     my $client_ip = $RS->peerhost;
 
     my $request = {};
@@ -297,7 +298,8 @@ sub requesthandle {
     #            );
 
     #print $RS "Hello $client_ip\n";
-    my ($line) = $RS->getline;
+    #my ($line) = $RS->getline;
+    sysread($RS, $line, 8192, length $line);
     chomp $line;
     $line =~ s/\r//;
     print "[*] Client $client_ip sent header: $line\n" if $DEBUG;
@@ -335,14 +337,16 @@ sub requesthandle {
     # SERVER> 201 METHOD NOT SUPPORTED
 
     # SERVER> 200 OK ACCEPTED
-    #print $RS "200 OK ACCEPTED\n";
-    $RS->say("200 OK ACCEPTED\n");
-    $RS->flush();
-    ($line) = $RS->getline();
+    #$RS->say("200 OK ACCEPTED\0");
+    print $RS "200 OK ACCEPTED\0";
+    $line = qq();
+    sysread($RS, $line, 8192, length $line);
+    #$RS->flush();
+    #($line) = $RS->getline();
     # Shoud be:
     # "ID KEY NODENAME NETGROUP"
     print "[*] Client $client_ip sent ID header: $line\n" if $DEBUG;
-    if ( $line =~ /ID\s(\w+)\s(\w+)\s(\w+).*/ ) {
+    if ( $line =~ /^ID\s(\w+)\s(\w+)\s(\w+).*/ ) {
         $request->{'key'}      = $1;
         $request->{'node'}     = $2;
         $request->{'netgroup'} = $3;
@@ -359,7 +363,7 @@ sub requesthandle {
     $request->{'module'}   = $MODULE;
     $request->{'protocol'} = $PROTOCOL;
     # SERVER> 200 OK ACCEPTED
-    $RS->say("200 OK ACCEPTED\n");
+    $RS->say("200 OK ACCEPTED\0");
     $RS->flush();
     print "[*] Sent \"200 OK ACCEPTED\"\n";
     #if ( $METHOD =~ /POST/ ) {
@@ -376,7 +380,7 @@ sub requesthandle {
     #$TQ->enqueue($request);
     my $module = "NSMFmodules::$request->{'module'}::$request->{'module'}";
     my $dynamicmodule = eval "sub { &$module }"; # Works...
-    print "[->] Leaving nsmf-server core...";
+    print "[->] Leaving nsmf-server core...\n";
     $dynamicmodule->($request);                      # ...also
     #eval "$module \$REQ" ;    # Works also
     if ($@) {

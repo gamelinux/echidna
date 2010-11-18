@@ -79,6 +79,7 @@ sub CXTRACKER {
     connection_handle($REQ);
     #NSMFmodules::CXTRACKER::put_cxdata_to_db($REQ);
     undef $REQ;
+    END;
     return;
 }
 
@@ -87,12 +88,15 @@ sub connection_handle {
     $DEBUG = $REQ->{'debug'};
     $NODENAME = $REQ->{'node'};
     my $RS = $REQ->{'requestsocket'};
+    my $line = qq();
     my $inreqest = 0;
 
     while ($RS) {
         $inreqest = 1;
-        my ($line) = $RS->getline();
-        next if undef $line;
+        #my ($line) = $RS->getline();
+        $line = qq();
+        sysread($RS, $line, 8192, length $line);
+        #next if undef $line;
         chomp $line;
         $line =~ s/\r//;
         if ($line =~ /^(POST|GET|PING|BYE)/) {
@@ -100,19 +104,35 @@ sub connection_handle {
                 got_ping($REQ, $1);    
             }
             elsif ($line =~ /^POST DATA/) {
+                print "[**] CXTRACKER: Got POST DATA request...\n";
                 got_post($REQ);
             }
             elsif ($line =~ /^GET/) {
                 got_get($REQ);
             }
             elsif ($line =~ /^BYE/) {
+                print "[**] CXTRACKER: Got BYE request...\n";
                 got_bye($REQ);
+                last;
             }
         }
         $inreqest = 0;
         sleep (1);
         #check_ping($REQ); #
     }
+}
+
+=head2 got_bye
+
+ processes the bye request
+
+=cut
+
+sub got_bye {
+    my $REQ = shift;
+    my $RS = $REQ->{'requestsocket'};
+    print "[**] CXTRACKER: shuting down socket...\n";
+    $RS->shutdown(2);
 }
 
 =head2 got_post
@@ -124,12 +144,21 @@ sub connection_handle {
 sub got_post {
     my $REQ = shift;
     my $RS = $REQ->{'requestsocket'};
+    my $node = $REQ->{'node'};
 
-    print $RS "200 OK ACCEPTED\n";
+    print $RS "200 OK ACCEPTED\0";
     $RS->flush();
-    read_socket_data($REQ);
-    print $RS "200 OK ACCEPTED\n";
-    NSMFmodules::CXTRACKER::put_cxdata_to_db($REQ);
+    if ( read_socket_data($REQ) == 1) {
+        print $RS "200 OK ACCEPTED\0";
+        $RS->flush();
+        NSMFmodules::CXTRACKER::put_cxdata_to_db($REQ);
+        print "[**] CXTRACKER: Data recieved OK from node: $node\n";
+    } else {
+        print $RS "204 DATA RECIEVE ERROR\0";
+        $RS->flush();
+        print "[**] CXTRACKER: Data recieve ERROR from node: $node\n";
+    }
+    print "[**] CXTRACKER: Leaving got_post()\n";
 }
 
 =head2 put_cxdata_to_db
@@ -157,7 +186,7 @@ sub put_cxdata_to_db {
             next LINE;
         }
         # Things should be OK now to send to the DB
-        print "$line\n";
+        print "[**] CXTRACKER: put_cxdata_to_db(): $line\n";
         $result = put_session2db($line);
     }
     return $result;
@@ -229,7 +258,7 @@ sub put_session2db {
       $sth->finish;
    };
    #print "GOT - $@\n";
-   if ($@ =~ /Duplicate entry/) {
+   if ($@ =~ /Duplicate entry/) { # Why dont this work?
       # OK - Just a dupe (we have the connection :)
       print "[**] CXTRACKER: Got duplicate entry....\n";
       return 0;
@@ -425,6 +454,19 @@ sub recreate_merge_table {
 
 #################### should be global subs #########################
 
+=head2 add_inet_aton6
+
+ adds INET_ATON6 function to mysql if not exists...
+
+=cut
+
+sub add_inet_aton6 {
+    # get $dhb
+    # check if function exists.
+    # if not - add it
+    # return
+}
+
 =head2 expand_ipv6
 
  Expands a IPv6 address from short notation
@@ -548,13 +590,12 @@ sub read_socket_data {
         #last unless length $Line;
         if ( $Line =~ /^.\r\n$/ ) {
             $REQ->{'data'} = $data;
-            return;
+            return 1; # OK
         }
         $data = "$data$Line";
     }
-    return;
+    return 0; # Error
 }
-
 
 ########## End should be globals ###############
 

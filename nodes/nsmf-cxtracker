@@ -65,7 +65,6 @@ our $PINGSERVER    = 5000;
 our $LOGFILE       = qq(/var/log/nsmf-node/cxtracker-$NODENAME.log);
 our $PIDFILE       = qq(/var/run/nsmf-cxtracker-$NODENAME.pid);
 
-
 Getopt::Long::GetOptions(
     'configfile|c=s'        => \$CONFIGFILE,
 );
@@ -116,44 +115,51 @@ exit;
 =cut
 
 sub dir_watch {
-   #infinite loop
-   while (1) {
-      my @FILES;
-      # Open the directory
-      if( opendir( DIR, $CXTDIR ) ) {
-         # Find session files in dir (stats.eth0.1229062136)
-         while( my $FILE = readdir( DIR ) ) {
-            next if( ( "." eq $FILE ) || ( ".." eq $FILE ) );
-            next unless ($FILE =~ /^stats\..*\.\d{10}$/);
-            push( @FILES, $FILE ) if( -f "$CXTDIR/$FILE" );
-         }
-         closedir( DIR );
-      }
-      # If we find any files, proccess...
-      foreach my $FILE ( @FILES ) {
-         my $starttime=time();
-         print "[*] Found file: $CXTDIR/$FILE\n" if ($DEBUG);
-         my $SESSIONSDATA = get_sessions("$CXTDIR/$FILE");
-         my $endtime=time();
-         my $processtime=$endtime-$starttime;
-         print "[*] File $CXTDIR/$FILE processed in $processtime seconds\n" if ($DEBUG);
-         $starttime=$endtime;
-         my $result = send_data_to_server ($DEBUG,$SESSIONSDATA,$NSMFSERVER,$NSMFPORT);
-         if ($result >= 1) {
-            print "[E] Error while sending sessiondata to server: $CXTDIR/$FILE -> $NSMFSERVER:$NSMFPORT\n";
-            print "[*] Skipping deletion of file: $CXTDIR/$FILE\n";
-         }
-         $endtime=time();
-         $processtime=$endtime-$starttime;
-         if ($result == 0) {
-            print "[*] Sessiondata sent in $processtime seconds\n" if ($DEBUG);
-            print "[A] Would have deleted file...\n";
-            #unlink("$CXTDIR/$FILE") if $result == 0;
-         }
-      }
-      # Dont pool files to often, or to seldom...
-      sleep $CHECKFILES;
-   }
+    #infinite loop
+    my $SS = IO::Socket::INET->new( PeerAddr => $NSMFSERVER, PeerPort => $NSMFPORT, Proto => 'tcp');
+    while (1) {
+        if (defined $SS) {
+            my @FILES;
+            # Open the directory
+            if( opendir( DIR, $CXTDIR ) ) {
+                # Find session files in dir (stats.eth0.1229062136)
+                while( my $FILE = readdir( DIR ) ) {
+                    next if( ( "." eq $FILE ) || ( ".." eq $FILE ) );
+                    next unless ($FILE =~ /^stats\..*\.\d{10}$/);
+                    push( @FILES, $FILE ) if( -f "$CXTDIR/$FILE" );
+                }
+                closedir( DIR );
+            }
+            # If we find any files, proccess...
+            foreach my $FILE ( @FILES ) {
+                my $starttime=time();
+                print "[*] Found file: $CXTDIR/$FILE\n" if ($DEBUG);
+                my $SESSIONSDATA = get_sessions("$CXTDIR/$FILE");
+                my $endtime=time();
+                my $processtime=$endtime-$starttime;
+                print "[*] File $CXTDIR/$FILE processed in $processtime seconds\n" if ($DEBUG);
+                $starttime=$endtime;
+                my $result = send_data_to_server ($DEBUG,$SESSIONSDATA,$SS);
+                if ($result >= 1) {
+                    print "[E] Error while sending sessiondata to server: $CXTDIR/$FILE -> $NSMFSERVER:$NSMFPORT\n";
+                    print "[*] Skipping deletion of file: $CXTDIR/$FILE\n";
+                }
+                $endtime=time();
+                $processtime=$endtime-$starttime;
+                if ($result == 0) {
+                    print "[*] Sessiondata sent in $processtime seconds\n" if ($DEBUG);
+                    print "[A] Would have deleted file...\n";
+                    #unlink("$CXTDIR/$FILE") if $result == 0;
+                }
+                # Dont pool files to often, or to seldom...
+                sleep $CHECKFILES;
+            }
+        } else {
+            print "[E] Could not connect to server: $NSMFSERVER:$NSMFPORT, trying again in 15sec...\n";
+            sleep 15;
+            $SS = IO::Socket::INET->new( PeerAddr => $NSMFSERVER, PeerPort => $NSMFPORT, Proto => 'tcp');
+        }
+    }
 }
 
 =head2 get_sessions
@@ -202,51 +208,58 @@ sub get_sessions {
 
 =head2 send_data_to_server
 
- Sends a chunck of $DATA to $NSMFSERVER:$NSMFPORT
+ Sends a chunck of $DATA to $Socket
  Returns 0 on success;
 
 =cut
 
 sub send_data_to_server {
-    my ($DEBUG, $DATA, $NSMFSERVER, $NSMFPORT) = @_;
+    my ($DEBUG, $DATA, $SS) = @_;
+    my $line = qq();
     #$IO::Socket::SSL::DEBUG = 1 if $DEBUG;
     #my $socket = new IO::Socket::SSL("$NSMFSERVER:$NSMFPORT");
     #my $socket = new IO::Socket::INET("$NSMFSERVER:$NSMFPORT");
+    #my $socket = IO::Socket::INET->new( PeerAddr => $NSMFSERVER, PeerPort => $NSMFPORT, Proto => 'tcp');
 
-    my $socket = IO::Socket::INET->new( PeerAddr => $NSMFSERVER, PeerPort => $NSMFPORT, Proto => 'tcp');
-
-    if (defined $socket) {
+    if (defined $SS) {
         my $HEADER = "AUTH CXTRACKER NSMF/1.0";
-        print $socket "$HEADER";
+        print $SS "$HEADER\0";
         print "[*] Sent HEADER: '$HEADER'.\n" if $DEBUG;
-        $socket->flush();
-        my ($line) = $socket->getline;
+        $SS->flush();
+        #my ($line) = $socket->getline;
+        sysread($SS, $line, 8192, length $line);
         chomp $line;
         $line =~ s/\r//;
         if ( $line =~ /200 OK ACCEPTED/ ) {
             print "[*] Server $NSMFSERVER sent response: '$line'.\n" if $DEBUG;
             #ID KEY NODENAME NETGROUP
             my $ID = "ID SHA256SECRETKEY NODENAME NETGROUP";
-            print $socket "$ID";
+            print $SS "$ID\0";
             print "[*] Sent ID: '$ID'.\n" if $DEBUG;
-            $socket->flush();
-            ($line) = $socket->getline();
+            $SS->flush();
+            #($line) = $socket->getline();
+            $line = qq();
+            sysread($SS, $line, 8192, length $line);
             chomp $line;
             $line =~ s/\r//;
             if ( $line =~ /200 OK ACCEPTED/ ) {
                 print "[*] Server $NSMFSERVER sent response: '$line'.\n" if $DEBUG;
                 $HEADER = "POST DATA";
-                $socket->say("$HEADER");
-                $socket->flush();
+                $SS->say("$HEADER\0");
+                $SS->flush();
                 print "[*] Sent HEADER: '$HEADER'.\n" if $DEBUG;
-                ($line) = $socket->getline();
+                $line = qq();
+                sysread($SS, $line, 8192, length $line);
+                #($line) = $socket->getline();
                 chomp $line;
                 $line =~ s/\r//;
                 if ( $line =~ /200 OK ACCEPTED/ ) {
-                    print $socket "$DATA\n.\r\n";
-                    $socket->flush();
+                    print $SS "$DATA\n.\r\n\0";
+                    $SS->flush();
                     print "[*] Data sent.\n" if $DEBUG;
-                    ($line) = $socket->getline();
+                    #($line) = $socket->getline();
+                    $line = qq();
+                    sysread($SS, $line, 8192, length $line);
                     chomp $line;
                     $line =~ s/\r//;
                     if ( $line =~ /200 OK ACCEPTED/ ) {
@@ -264,13 +277,15 @@ sub send_data_to_server {
         } else {
             print "[*] Server $NSMFSERVER sent bogus response4: '$line'.\n" if $DEBUG;
         }
-        $socket->close();
-        close $socket;
+        #print $SS "BYE\0";
+        #$SS->flush();
+        #$SS->close();
+        #close $SS;
     } else {
         #print "[E] Error opening socket: ". IO::Socket::SSL::errstr() ."\n";
         #print "[E] Error opening socket: ". IO::Socket::errstr() ."\n";
         #print "[E] Error connect ($socket).\n" if ($IO::Socket::SSL::DEBUG);
-        print "[E] Error opening socket. Server might be down?\n";
+        print "[E] Error sending to socket. Server might be down?\n";
         return 1;
     }
     return 0;
@@ -282,7 +297,9 @@ sub send_data_to_server {
 
 
 =head2 gameover
-  Shutdown in a clean way.
+
+ Shutdown in a clean way.
+
 =cut
 
 sub gameover{
