@@ -236,6 +236,9 @@ sub put_session2db {
       $src_dip = "INET_ATON6(\'$src_dip\')";
       $dst_dip = "INET_ATON6(\'$dst_dip\')";
       $ip_version = 10; # AF_INET6
+#FIXME when INET_ATON6 is in DB
+return 0; # OK
+
   }
 
    my ($sql, $sth);

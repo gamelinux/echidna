@@ -116,9 +116,12 @@ exit;
 
 sub dir_watch {
     #infinite loop
+
     my $SS = IO::Socket::INET->new( PeerAddr => $NSMFSERVER, PeerPort => $NSMFPORT, Proto => 'tcp');
+    my $AUTHOK = send_auth($SS);
+
     while (1) {
-        if (defined $SS) {
+        if (defined $SS && $AUTHOK) {
             my @FILES;
             # Open the directory
             if( opendir( DIR, $CXTDIR ) ) {
@@ -139,7 +142,7 @@ sub dir_watch {
                 my $processtime=$endtime-$starttime;
                 print "[*] File $CXTDIR/$FILE processed in $processtime seconds\n" if ($DEBUG);
                 $starttime=$endtime;
-                my $result = send_data_to_server ($DEBUG,$SESSIONSDATA,$SS);
+                my $result = send_data_to_server($DEBUG,$SESSIONSDATA,$SS);
                 if ($result >= 1) {
                     print "[E] Error while sending sessiondata to server: $CXTDIR/$FILE -> $NSMFSERVER:$NSMFPORT\n";
                     print "[*] Skipping deletion of file: $CXTDIR/$FILE\n";
@@ -148,17 +151,64 @@ sub dir_watch {
                 $processtime=$endtime-$starttime;
                 if ($result == 0) {
                     print "[*] Sessiondata sent in $processtime seconds\n" if ($DEBUG);
-                    print "[A] Would have deleted file...\n";
-                    #unlink("$CXTDIR/$FILE") if $result == 0;
+                    print "[W] Deleting file: $CXTDIR/$FILE\n";
+                    unlink("$CXTDIR/$FILE") if $result == 0;
                 }
                 # Dont pool files to often, or to seldom...
-                sleep $CHECKFILES;
+                sleep 5; # FIXME delete when testing is done
             }
         } else {
-            print "[E] Could not connect to server: $NSMFSERVER:$NSMFPORT, trying again in 15sec...\n";
+            print "[E] Could not connect/auth to server: $NSMFSERVER:$NSMFPORT, trying again in 15sec...\n";
             sleep 15;
+            $SS->close() if defined $SS;
             $SS = IO::Socket::INET->new( PeerAddr => $NSMFSERVER, PeerPort => $NSMFPORT, Proto => 'tcp');
+            if ( defined $SS ) {
+                $AUTHOK = send_auth($SS);
+            } else {
+                $AUTHOK = 0;
+            }
         }
+    }
+}
+
+=head2 send_auth
+
+ Sends the AUTH header to the NSMF server.
+
+=cut
+
+sub send_auth {
+    my $SS = shift;
+    my $line = qq();
+    if (defined $SS) {
+        my $HEADER = "AUTH CXTRACKER NSMF/1.0";
+        print $SS "$HEADER\0";
+        print "[*] Sent HEADER: '$HEADER'.\n" if $DEBUG;
+        $SS->flush();
+        sysread($SS, $line, 8192, length $line);
+        chomp $line;
+        $line =~ s/\r//;
+        if ( $line =~ /200 OK ACCEPTED/ ) {
+            print "[*] Server $NSMFSERVER sent response: '$line'.\n" if $DEBUG;
+            #ID KEY NODENAME NETGROUP
+            my $ID = "ID SHA256SECRETKEY NODENAME NETGROUP";
+            print $SS "$ID\0";
+            print "[*] Sent ID: '$ID'.\n" if $DEBUG;
+            $SS->flush();
+            $line = qq();
+            sysread($SS, $line, 8192, length $line);
+            chomp $line;
+            $line =~ s/\r//;
+            if ( $line =~ /200 OK ACCEPTED/ ) {
+                return 1; #OK
+            } else {
+                return 0; #ERROR
+            }
+        } else {
+            return 0; #ERROR
+        }
+    } else {
+        return 0; #ERROR
     }
 }
 
@@ -215,86 +265,37 @@ sub get_sessions {
 
 sub send_data_to_server {
     my ($DEBUG, $DATA, $SS) = @_;
-    my $line = qq();
-    #$IO::Socket::SSL::DEBUG = 1 if $DEBUG;
-    #my $socket = new IO::Socket::SSL("$NSMFSERVER:$NSMFPORT");
-    #my $socket = new IO::Socket::INET("$NSMFSERVER:$NSMFPORT");
-    #my $socket = IO::Socket::INET->new( PeerAddr => $NSMFSERVER, PeerPort => $NSMFPORT, Proto => 'tcp');
+    return 1 if not defined $SS;
 
-    if (defined $SS) {
-        my $HEADER = "AUTH CXTRACKER NSMF/1.0";
-        print $SS "$HEADER\0";
-        print "[*] Sent HEADER: '$HEADER'.\n" if $DEBUG;
+    my $line = qq();
+    my $HEADER = "POST DATA";
+
+    $SS->say("$HEADER\0");
+    $SS->flush();
+    print "[*] Sent HEADER: '$HEADER'.\n" if $DEBUG;
+    $line = qq();
+    sysread($SS, $line, 8192, length $line);
+    chomp $line;
+    $line =~ s/\r//;
+    if ( $line =~ /200 OK ACCEPTED/ ) {
+        print $SS "$DATA\n.\r\n\0";
         $SS->flush();
-        #my ($line) = $socket->getline;
+        print "[*] Data sent.\n" if $DEBUG;
+        $line = qq();
         sysread($SS, $line, 8192, length $line);
         chomp $line;
         $line =~ s/\r//;
         if ( $line =~ /200 OK ACCEPTED/ ) {
-            print "[*] Server $NSMFSERVER sent response: '$line'.\n" if $DEBUG;
-            #ID KEY NODENAME NETGROUP
-            my $ID = "ID SHA256SECRETKEY NODENAME NETGROUP";
-            print $SS "$ID\0";
-            print "[*] Sent ID: '$ID'.\n" if $DEBUG;
-            $SS->flush();
-            #($line) = $socket->getline();
-            $line = qq();
-            sysread($SS, $line, 8192, length $line);
-            chomp $line;
-            $line =~ s/\r//;
-            if ( $line =~ /200 OK ACCEPTED/ ) {
-                print "[*] Server $NSMFSERVER sent response: '$line'.\n" if $DEBUG;
-                $HEADER = "POST DATA";
-                $SS->say("$HEADER\0");
-                $SS->flush();
-                print "[*] Sent HEADER: '$HEADER'.\n" if $DEBUG;
-                $line = qq();
-                sysread($SS, $line, 8192, length $line);
-                #($line) = $socket->getline();
-                chomp $line;
-                $line =~ s/\r//;
-                if ( $line =~ /200 OK ACCEPTED/ ) {
-                    print $SS "$DATA\n.\r\n\0";
-                    $SS->flush();
-                    print "[*] Data sent.\n" if $DEBUG;
-                    #($line) = $socket->getline();
-                    $line = qq();
-                    sysread($SS, $line, 8192, length $line);
-                    chomp $line;
-                    $line =~ s/\r//;
-                    if ( $line =~ /200 OK ACCEPTED/ ) {
-                        print "[*] Server recived data OK.\n" if $DEBUG;
-                    } else {
-                        print "[*] Server $NSMFSERVER sent bogus response1: '$line'.\n" if $DEBUG;
-                    }
-
-                } else {
-                    print "[*] Server $NSMFSERVER sent bogus response2: '$line'.\n" if $DEBUG;
-                }
-            } else {
-                print "[*] Server $NSMFSERVER sent bogus response3: '$line'.\n" if $DEBUG;
-            }
+            print "[*] Server recived data OK.\n" if $DEBUG;
+            return 0; #OK
         } else {
-            print "[*] Server $NSMFSERVER sent bogus response4: '$line'.\n" if $DEBUG;
+            print "[*] Server $NSMFSERVER sent bogus response to \"EOF\": '$line'.\n" if $DEBUG;
         }
-        #print $SS "BYE\0";
-        #$SS->flush();
-        #$SS->close();
-        #close $SS;
     } else {
-        #print "[E] Error opening socket: ". IO::Socket::SSL::errstr() ."\n";
-        #print "[E] Error opening socket: ". IO::Socket::errstr() ."\n";
-        #print "[E] Error connect ($socket).\n" if ($IO::Socket::SSL::DEBUG);
-        print "[E] Error sending to socket. Server might be down?\n";
-        return 1;
+        print "[*] Server $NSMFSERVER sent bogus response to \"POST DATA\": '$line'.\n" if $DEBUG;
     }
-    return 0;
+    return 1; #ERROR
 }
-### Identify module (cxtracker)
-### read file, put to server....
-### confirm
-### close connection.
-
 
 =head2 gameover
 
