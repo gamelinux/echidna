@@ -15,6 +15,6 @@ cp -v server/NSMFserver/* /usr/local/lib/site_perl/NSMFserver/
 cp -v nodes/NSMFnode/* /usr/local/lib/site_perl/NSMFnode/
 #cp worker/NSMFworker/* /usr/local/lib/site_perl/NSMFworker/
 
-cpm -v server/modules/NSMFmodules/* /usr/local/lib/site_perl/NSMFmodules/
+cp -v server/modules/NSMFmodules/* /usr/local/lib/site_perl/NSMFmodules/
 
 

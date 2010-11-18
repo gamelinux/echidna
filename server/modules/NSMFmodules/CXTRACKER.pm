@@ -230,15 +230,14 @@ sub put_session2db {
        $dst_dip, $dst_port, $src_packets, $src_byte, $dst_packets, $dst_byte,
        $src_flags, $dst_flags) = split /\|/, $SESSION, 15;
 
-  if ( ip_is_ipv6($src_dip) || ip_is_ipv6($dst_dip) ) {
+   die if ($cx_id == 0);
+
+   if ( ip_is_ipv6($src_dip) || ip_is_ipv6($dst_dip) ) {
       $src_dip = expand_ipv6($src_dip);
       $dst_dip = expand_ipv6($dst_dip);
       $src_dip = "INET_ATON6(\'$src_dip\')";
       $dst_dip = "INET_ATON6(\'$dst_dip\')";
       $ip_version = 10; # AF_INET6
-#FIXME when INET_ATON6 is in DB
-return 0; # OK
-
   }
 
    my ($sql, $sth);
@@ -297,8 +296,8 @@ sub merge_session_tables {
       my $sql = "                                        \
       CREATE TABLE cxtracker                             \
       (                                                  \
-      sid           INT(0) UNSIGNED            NOT NULL, \
-      sessionid       BIGINT(20) UNSIGNED      NOT NULL, \
+      sid           INT(10) UNSIGNED           NOT NULL, \
+      sessionid     BIGINT(20) UNSIGNED        NOT NULL, \
       start_time    DATETIME                   NOT NULL, \
       end_time      DATETIME                   NOT NULL, \
       duration      INT(10) UNSIGNED           NOT NULL, \

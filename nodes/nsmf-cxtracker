@@ -157,7 +157,7 @@ sub dir_watch {
                     unlink("$CXTDIR/$FILE") if $result == 0;
                 }
                 # Dont pool files to often, or to seldom...
-                sleep 1; # FIXME delete when testing is done, add INET_ATON6 first :)
+                #sleep 1; # FIXME delete when testing is done, add INET_ATON6 first :)
             }
         } else {
             print "[E] Could not connect/auth to server: $NSMFSERVER:$NSMFPORT, trying again in 15sec...\n";
@@ -280,7 +280,7 @@ sub send_data_to_server {
     chomp $line;
     $line =~ s/\r//;
     if ( $line =~ /200 OK ACCEPTED/ ) {
-        print $SS "$DATA\n.\r\n\0";
+        print $SS "$DATA\n.\r\n";
         $SS->flush();
         print "[*] Data sent.\n" if $DEBUG;
         $line = qq();
