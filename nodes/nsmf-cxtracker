@@ -21,7 +21,6 @@
 use strict;
 use warnings;
 use POSIX qw(setsid);
-#use IO::Socket::SSL;
 use IO::Socket::INET;
 use Getopt::Long;
 use DateTime;
@@ -50,7 +49,6 @@ use NSMFcommon::Daemon;
 =cut
 
 # default config
-
 our $CONFIGFILE    = qq(/etc/nsmf-node/cxtracker.conf);
 our $DEBUG         = 1;
 our $DAEMON        = 0;
@@ -72,9 +70,15 @@ Getopt::Long::GetOptions(
 # read config
 my $CONFIG = {};
 $CONFIG = NSMFcommon::Config::load_config("$CONFIGFILE",$DEBUG);
+$NODENAME = $CONFIG->{'NODENAME'} if (defined $CONFIG->{'NODENAME'});
+$NETGROUP = $CONFIG->{'NETGROUP'} if (defined $CONFIG->{'NETGROUP'});
 $NSMFSERVER = $CONFIG->{'NSMFSERVER'} if (defined $CONFIG->{'NSMFSERVER'});
 $NSMFPORT = $CONFIG->{'NSMFPORT'} if (defined $CONFIG->{'NSMFPORT'});
 $CXTDIR = $CONFIG->{'CXTDIR'} if (defined $CONFIG->{'CXTDIR'});
+$LOGFILE = $CONFIG->{'LOGFILE'} if (defined $CONFIG->{'LOGFILE'});
+$PIDFILE = $CONFIG->{'PIDFILE'} if (defined $CONFIG->{'PIDFILE'});
+$CHECKFILES = $CONFIG->{'CHECKFILES'} if (defined $CONFIG->{'CHECKFILES'});
+$PINGSERVER = $CONFIG->{'PINGSERVER'} if (defined $CONFIG->{'PINGSERVER'});
 
 # Prepare
 
@@ -107,10 +111,8 @@ exit;
 
 =head2 dir_watch
 
- This sub looks for new session data in a dir.
- Takes $dir to watch as input.
- If a new session files i found, it will try to connect to server,
- and push over the data.
+ Tries to connects to the nsmf-server and looks for new session data in $CXTDIR.
+ If a new session files i found, it will try to send its data to the server.
 
 =cut
 
@@ -155,7 +157,7 @@ sub dir_watch {
                     unlink("$CXTDIR/$FILE") if $result == 0;
                 }
                 # Dont pool files to often, or to seldom...
-                sleep 5; # FIXME delete when testing is done
+                sleep 1; # FIXME delete when testing is done, add INET_ATON6 first :)
             }
         } else {
             print "[E] Could not connect/auth to server: $NSMFSERVER:$NSMFPORT, trying again in 15sec...\n";
@@ -173,7 +175,7 @@ sub dir_watch {
 
 =head2 send_auth
 
- Sends the AUTH header to the NSMF server.
+ Sends the AUTH header to the NSMF server, just when connecting.
 
 =cut
 

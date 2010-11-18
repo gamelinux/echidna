@@ -22,7 +22,6 @@ use strict;
 use warnings;
 use POSIX qw(setsid);
 use FindBin;
-#use IO::Socket::SSL;
 use IO::Socket;
 use threads;
 use threads::shared;
@@ -35,8 +34,6 @@ use NSMFcommon::Daemon;
 use DBI;
 use DBD::mysql;
 use Carp::Heavy;
-
-#our %SV : shared =(); # Shared variables.
 
 BEGIN {
     # list of NSMFmodules:: modules
@@ -53,9 +50,6 @@ BEGIN {
         } else {
             print "[*] Finished loading module: $module $@\n";
         }
-
-        #eval "use $module";
-        #die $@ if($@);
     }
 }
 
@@ -98,6 +92,15 @@ Getopt::Long::GetOptions(
 # read config
 my $CONFIG = {};
 $CONFIG = NSMFcommon::Config::load_config("$CONFIGFILE",$DEBUG);
+$DEBUG = $CONFIG->{'DEBUG'} if (defined $CONFIG->{'DEBUG'});
+$SERVER = $CONFIG->{'SERVER'} if (defined $CONFIG->{'SERVER'});
+$PORT = $CONFIG->{'PORT'} if (defined $CONFIG->{'PORT'});
+$SERVERNAME = $CONFIG->{'SERVERNAME'} if (defined $CONFIG->{'SERVERNAME'});
+$SERVERGROUP = $CONFIG->{'SERVERGROUP'} if (defined $CONFIG->{'SERVERGROUP'});
+$PINGNODES = $CONFIG->{'PINGNODES'} if (defined $CONFIG->{'PINGNODES'});
+$LOGFILE = $CONFIG->{'LOGFILE'} if (defined $CONFIG->{'LOGFILE'});
+$PIDFILE = $CONFIG->{'PIDFILE'} if (defined $CONFIG->{'PIDFILE'});
+
 my $SERVERMODULES = $CONFIG->{'SERVERMODULES'} if (defined $CONFIG->{'SERVERMODULES'});
 our @MODULES = split (/,/, $SERVERMODULES);
 
@@ -121,18 +124,17 @@ NSMFcommon::Dirs::check_dir_create_w ("/var/log/nsmf-server/"); # Needs to be fi
 # Go daemonmode?
 NSMFcommon::Daemon::go_daemon ($LOGFILE,$PIDFILE) if $DAEMON;;
 
-# Load modules that we want the server to use
-# load_modules ($MODULEPATH?);
-#  or
-# load_modules ("CXTRACKER,PRADS,PCAP,SURICATA,SNORT");
+# Thread-Queue shared over all threads
+my $TQ = Thread::Queue->new();
 
-my $TQ = Thread::Queue->new();   # Thread-Queue shared over all threads
 # Start SERVER
 open_server_socket($DEBUG,$SERVER,$PORT,@MODULES);
 exit;
 
 =head2 gameover
-  Shutdown in a clean way.
+
+ Shutdown in a clean way.
+
 =cut
 
 sub gameover{
@@ -146,7 +148,7 @@ sub gameover{
 
 =head2 pipeHandler
 
-  Deal with clients that disappear rather than have perl die.
+ Deal with clients that disappear rather than have perl die.
 
 =cut
 
@@ -164,22 +166,13 @@ sub pipeHandler{
 sub open_server_socket {
     my ($DEBUG,$SERVER,$PORT,@MODULES) = @_;
 
-    #$IO::Socket::SSL::DEBUG = 1 if $DEBUG;
-
-    #my $ServSocket = IO::Socket::SSL->new(
     my $ServSocket = IO::Socket::INET->new(
                         LocalAddr => $SERVER,
                         LocalPort => $PORT,
                         Proto     => 'tcp',
                         Listen    => '10',
                         Reuse     => 1,
-                        #SSL_cert_file => '/etc/nsmf-server/server-cert.pem',
-                        #SSL_key_file => '/etc/nsmf-server/server-key.pem',
-                        #SSL_verify_mode => 0x00,
-                        #SSL_passwd_cb   => sub {return "nsmf"},
                         )
-    #or die "[E] Problem creating socket on $SERVER:$PORT\n";
-    #or die "unable to create socket: ", &IO::Socket::SSL::errstr, "\n";
     or die "unable to create socket: ", &IO::Socket::INET::errstr, "\n";
 
     #$ServSocket->autoflush(1);
@@ -210,8 +203,6 @@ sub open_server_socket {
             my $TB = threads->create(\&requesthandle, $DEBUG, $ReqSock,@MODULES);
             #$TB->detach; # We dont expect any return value :)
             #             # And it will clean up it self on exit...
-
-            #requesthandle($DEBUG, $ReqSock);
         }
     }
 
@@ -266,14 +257,6 @@ sub nodequeue {
     }
 }
 
-#sub CXTRACKER {
-#    my $REQ = shift;
-#    print "[*] Huston - we got packet! Best regards, your CXTRACKER module!\n";
-#    undef $REQ;
-#    return;
-#}
-
-
 =head2 requesthandle
 
  Handles reqests to the server from nodes.
@@ -297,8 +280,6 @@ sub requesthandle {
     #                'debug'    =>     0,
     #            );
 
-    #print $RS "Hello $client_ip\n";
-    #my ($line) = $RS->getline;
     sysread($RS, $line, 8192, length $line);
     chomp $line;
     $line =~ s/\r//;
@@ -336,13 +317,9 @@ sub requesthandle {
     # Check if $MODULE accepts $METHOD
     # SERVER> 201 METHOD NOT SUPPORTED
 
-    # SERVER> 200 OK ACCEPTED
-    #$RS->say("200 OK ACCEPTED\0");
     print $RS "200 OK ACCEPTED\0";
     $line = qq();
     sysread($RS, $line, 8192, length $line);
-    #$RS->flush();
-    #($line) = $RS->getline();
     # Shoud be:
     # "ID KEY NODENAME NETGROUP"
     print "[*] Client $client_ip sent ID header: $line\n" if $DEBUG;
@@ -356,25 +333,18 @@ sub requesthandle {
         $RS->shutdown(2);
         return;
     }
+
     # Check with DB that the ID IS OK!
     # Else disconnect.
 
     $request->{'method'}   = $METHOD;
     $request->{'module'}   = $MODULE;
     $request->{'protocol'} = $PROTOCOL;
-    # SERVER> 200 OK ACCEPTED
+
     $RS->say("200 OK ACCEPTED\0");
     $RS->flush();
     print "[*] Sent \"200 OK ACCEPTED\"\n";
-    #if ( $METHOD =~ /POST/ ) {
-    #    # GET DATA FROM CLIENT
-    #    # Should this be done in the module? as the module might have som
-    #    # extra headers that it wants to verify, befor it accepts lots of data?
-    #    ($request->{'data'}) = read_socket_data($RS);
-    #    # Does this stop when client ends conversation? DOS possible?
-    #}
-    # CLOSE CONNECTION
-    #$RS->shutdown(2);
+
     # SEND THE REQUEST TO global Thread Queue, TQ.
     $request->{'requestsocket'} = $RS;
     #$TQ->enqueue($request);
@@ -411,7 +381,6 @@ sub read_socket_data {
 
   return $data;
 }
-
 
 =head2 verify_client_header
 
@@ -462,10 +431,10 @@ sub is_known_protocol {
 
 =head2 is_known_module
 
-  Checks if nsmf-server has loaded the module
-  Input is the name of a module.
-  Returns 0 if module is supported/loaded
-  returns 1 if module is not supported/loaded
+ Checks if nsmf-server has loaded the module
+ Input is the name of a module.
+ Returns 0 if module is supported/loaded
+ returns 1 if module is not supported/loaded
 
 =cut
 
