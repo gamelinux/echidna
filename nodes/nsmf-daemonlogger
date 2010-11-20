@@ -31,7 +31,7 @@ use NSMFcommon::Daemon;
 
 =head1 NAME
 
- nsmf-cxtracker
+ nsmf-daemonlogger
 
 =head1 VERSION
 
@@ -157,7 +157,14 @@ sub check_dir {
 }
 
 
-# if server ask for pcap - carve and send.
+# if server ask for pcap, gather the request, and send it
+# to a global thread queue. From there, for a process that
+# carves out the pcap if exists, and establish a new connection
+# to send it back on.
+
+# process_requests - a thread that waits for jobs in global $TQ
+# and processes them accordingly in a new thread. Allows for
+# multiple analysts to carve pcaps at the same time.
 
 # carv pcap.
 
