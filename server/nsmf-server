@@ -35,24 +35,6 @@ use DBI;
 use DBD::mysql;
 use Carp::Heavy;
 
-BEGIN {
-    # list of NSMFmodules:: modules
-    my @modules = map { "NSMFmodules::$_" } qw/SNORT CXTRACKER/;
-
-    MODULE:
-    for my $module (@modules) {
-        local @INC = ("$FindBin::Bin/modules/");
-        #eval { require $module };
-        print "[*] Trying to load module: $module\n";
-        eval "use $module";
-        if ($@) {
-            print "[E] Module $module not loaded/found: $@\n";
-        } else {
-            print "[*] Finished loading module: $module $@\n";
-        }
-    }
-}
-
 =head1 NAME
 
  nsmf-server
@@ -103,6 +85,32 @@ $PIDFILE = $CONFIG->{'PIDFILE'} if (defined $CONFIG->{'PIDFILE'});
 
 my $SERVERMODULES = $CONFIG->{'SERVERMODULES'} if (defined $CONFIG->{'SERVERMODULES'});
 our @MODULES = split (/,/, $SERVERMODULES);
+our @OKMODULES;
+
+# Load modules
+#BEGIN {
+    my @modules;
+    # list of NSMFmodules:: modules
+    foreach (@MODULES) { push @modules, "NSMFmodules::$_"; }
+    #my @modules = map { "NSMFmodules::$_" } qw/CXTRACKER SNORT DAEMONLOGGER/;
+
+    MODULE:
+    for my $module (@modules) {
+        local @INC = ("$FindBin::Bin/modules/");
+        #eval { require $module };
+        print "[*] Trying to load module: $module\n";
+        eval "use $module";
+        if ($@) {
+            print "[E] Module $module not loaded/found: $@\n";
+        } else {
+            print "[*] Module $module loaded OK: $@\n";
+            push @OKMODULES, $module;
+        }
+    }
+#}
+print "[*] Starting nsmf-server with modules: ";
+foreach (@OKMODULES) { print "$_ "; }
+print "\n";
 
 # Prepare
 
@@ -304,7 +312,7 @@ sub requesthandle {
     }
 
     # Check if $MODULE is a known nsmf loaded module
-    if (is_known_module(@MODULES, $MODULE) == 1) {
+    if (is_known_module($MODULE, @MODULES) == 1) {
         print $RS "202 MODULE NOT SUPPORTED\n";
         $RS->flush();
         print "[E] Client $client_ip sent requests to a unknown module: $MODULE\n" if $DEBUG;
@@ -439,15 +447,15 @@ sub is_known_protocol {
 =cut
 
 sub is_known_module {
-    my (@MODULES, $MODULE) = @_;
-    $MODULE = "CXTRACKER";
+    my ($MODULE, @MODULES) = @_;
+
     # Do checks on list of modules supported/loaded
     foreach my $MOD (@MODULES) {
+        next if not defined $MOD;
         if ( $MOD eq $MODULE ) {
             return 0; # Supported
         }
-        # else
-        return 1; # Not supported
     }
+    return 1; # Not supported
 }
 

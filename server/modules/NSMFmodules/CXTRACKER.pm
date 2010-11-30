@@ -77,7 +77,6 @@ sub CXTRACKER {
     }
     # Send to sub to handle requests
     connection_handle($REQ);
-    #NSMFmodules::CXTRACKER::put_cxdata_to_db($REQ);
     undef $REQ;
     END;
     return;
@@ -93,7 +92,6 @@ sub connection_handle {
 
     while ($RS) {
         $inreqest = 1;
-        #my ($line) = $RS->getline();
         $line = qq();
         sysread($RS, $line, 8192, length $line);
         #next if undef $line;
@@ -603,7 +601,6 @@ sub read_socket_data {
 
 
 END {
-    #my $dbh = q(); # fake fake fake : FIXME
     # Stuff to do when we die
     warn "[**] CXTRACKER: Terminating module...\n";
     $dbh->disconnect if defined $dbh;
