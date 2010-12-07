@@ -169,5 +169,200 @@ sub start_BY_listener {
 
 
 
+sub openSnortUnified($) {
+   $UF->{'FILENAME'} = $_[0];
+   $UF->{'TYPE'} = '';
+   $UF->{'PACKSTR'} = '';
+   $UF->{'FIELDS'} = '';
+   $UF->{'RECORDSIZE'} = 0;
+   $UF->{'FILESIZE'} = 0;
+   $UF->{'FILEMTIME'} = 0;
+   $UF->{'FILEPOS'} = 0;
 
+
+   my $magic = 0;
+   if ( !open(UFD, "<", $UF->{'FILENAME'})) {
+     cluck("Cannot open file $UF->{'FILENAME'}\n");
+     $UF = undef;
+     return $UF;
+   }
+
+   binmode(UFD);
+   # See if we can get an exclusive lock
+   # The presumption being that if we can get an exclusive
+   # then the file is not actively being written to
+   # JRB - This turns out to not be true :(
+   # Only real alternative option is to keep reading the file
+   # and occasionally check for a newer file to process
+   if ( $flock_mode ) {
+       if ( flock(UFD, LOCK_EX & LOCK_NB) ) {
+           debug("Got an exclusive lock\n");
+           $UF->{'LOCKED'} = 1;
+       } else {
+           $UF->{'LOCKED'} = 0;
+           debug("Did not get an exclusive lock\n");
+       }
+   }
+
+   (undef,undef,undef,undef,undef,undef,undef,$UF->{'FILESIZE'},undef,$UF->{'FILEMTIME'},undef,undef,undef) = stat(UFD);
+   $UF->{'FILESIZE'} = (stat(UFD))[7];
+   $UF->{'FILEMTIME'} = (stat(UFD))[9];
+
+   read(UFD, $magic, 4);
+   $magic = unpack('V', $magic);
+
+  if ( $UF->{'64BIT'} ) {
+     debug("Handling unified file with 64bit timevals");
+     $log_fields = $log64_fields;
+     $alert_fields = $alert64_fields;
+     if ( $magic eq $LOGMAGICV ) {
+       $UF->{'TYPE'} = $UNIFIED_LOG;
+       $UF->{'FIELDS'} = $log_fields;
+       $UF->{'RECORDSIZE'} = 20 * 4;
+       $UF->{'PACKSTR'} = 'V20';
+
+     } elsif ( $magic eq $LOGMAGICN ) {
+       $UF->{'TYPE'} = $UNIFIED_LOG;
+       $UF->{'FIELDS'} = $log_fields;
+       $UF->{'RECORDSIZE'} = 20 * 4;
+       $UF->{'PACKSTR'} = 'N20';
+
+     } elsif ( $magic eq $ALERTMAGICV ) {
+       $UF->{'TYPE'} = $UNIFIED_ALERT;
+       $UF->{'FIELDS'} = $alert_fields;
+       $UF->{'RECORDSIZE'} = (21 * 4) + (2 * 2);
+       $UF->{'PACKSTR'} = 'V19v2V2';
+
+     } elsif ( $magic eq $ALERTMAGICN ) {
+       $UF->{'TYPE'} = $UNIFIED_ALERT;
+       $UF->{'FIELDS'} = $alert_fields;
+       $UF->{'RECORDSIZE'} = (21 * 4) + (2 * 2);
+       $UF->{'PACKSTR'} = 'N19n2N2';
+
+     } else {
+       # no magic, go back to beginning
+       seek(UFD,0,0);
+       $UF->{'TYPE'} = $UNIFIED2;
+       # The rest doesn't really matter because it changes from record to record
+       debug("No match on magic, assuming unified2");
+       # die("XXX - Finish unified2 handling");
+     }
+  } else { # assume 32bit
+     debug("Handling unified file with 32bit timevals");
+     $log_fields = $log32_fields;
+     $alert_fields = $alert32_fields;
+     if ( $magic eq $LOGMAGICV ) {
+       $UF->{'TYPE'} = 'LOG';
+       $UF->{'FIELDS'} = $log_fields;
+       $UF->{'RECORDSIZE'} = 14 * 4;
+       $UF->{'PACKSTR'} = 'V14';
+
+     } elsif ( $magic eq $LOGMAGICN ) {
+       $UF->{'TYPE'} = 'LOG';
+       $UF->{'FIELDS'} = $log_fields;
+       $UF->{'RECORDSIZE'} = 14 * 4;
+       $UF->{'PACKSTR'} = 'N14';
+
+     } elsif ( $magic eq $ALERTMAGICV ) {
+       $UF->{'TYPE'} = 'ALERT';
+       $UF->{'FIELDS'} = $alert_fields;
+       $UF->{'RECORDSIZE'} = (15 * 4) + (2 * 2);
+       $UF->{'PACKSTR'} = 'V13v2V2';
+
+     } elsif ( $magic eq $ALERTMAGICN ) {
+       $UF->{'TYPE'} = 'ALERT';
+       $UF->{'FIELDS'} = $alert_fields;
+       $UF->{'RECORDSIZE'} = (15 * 4) + (2 * 2);
+       $UF->{'PACKSTR'} = 'N13n2N2';
+
+     } else {
+       # no magic, go back to beginning
+       seek(UFD,0,0);
+       $UF->{'TYPE'} = $UNIFIED2;
+       # Note the new fields
+       $log_fields = $unified2_packet_fields;
+       $alert_fields = $unified2_ids_fields;
+       # The rest doesn't really matter because it changes from record to record
+       debug("No match on magic, assuming unified2");
+       # die("XXX - Finish unified2 handling");
+     }
+  }
+
+  exec_handler("unified_opened", $UF);
+
+  readSnortUnifiedHeader($UF);
+
+  return $UF;
+}
+
+
+sub readSnortUnifiedHeader($) {
+    my $h = $_[0];
+    my $buff;
+    my $header = 0;
+
+    # Reset at beginning of file
+    seek(UFD,0,0);
+
+    if ( $h->{'TYPE'} eq $UNIFIED_LOG ) {
+        $header += read(UFD, $buff, 4);
+        $h->{'MAGIC'} = unpack($h->{'4'}, $buff);
+        $header += read(UFD, $buff, 2);
+        $h->{'VERSION_MAJOR'} = unpack($h->{'2'}, $buff);
+        $header += read(UFD, $buff, 2);
+        $h->{'VERSION_MINOR'} = unpack($h->{'2'}, $buff);
+        $header += read(UFD, $buff, 4);
+        $h->{'TIMEZONE'} = unpack($h->{'4'}, $buff);
+        $header += read(UFD, $buff, 4);
+        $h->{'SIG_FLAG'} = unpack($h->{'4'}, $buff);
+        $header += read(UFD, $buff, 4);
+        $h->{'SLAPLEN'} = unpack($h->{'4'}, $buff);
+        $header += read(UFD, $buff, 4);
+        $h->{'LINKTYPE'} = unpack($h->{'4'}, $buff);
+    } elsif ($h->{'TYPE'} eq $UNIFIED_ALERT) {
+        $header += read(UFD, $buff, 4);
+        $h->{'MAGIC'} = unpack($h->{'4'}, $buff);
+        $header += read(UFD, $buff, 4);
+        $h->{'VERSION_MAJOR'} = unpack($h->{'4'}, $buff);
+        $header += read(UFD, $buff, 4);
+        $h->{'VERSION_MINOR'} = unpack($h->{'4'}, $buff);
+        $header += read(UFD, $buff, 4);
+        $h->{'TIMEZONE'} = unpack($h->{'4'}, $buff);
+    } elsif ( $h->{'TYPE'} eq $UNIFIED2 ) {
+        debug("Nothing to handle for unified2");
+    } else {
+        # XXX - Fallthrough 
+        debug("Fallthrough in readSnortUNifiedHeader");
+    }
+    $UF->{'FILEPOS'} = $header;
+
+    exec_handler("read_header", $h);
+
+}
+
+sub debug($) {
+    return unless $debug;
+    my $msg = $_[0];
+        my $package = undef;
+        my $filename = undef;
+        my $line = undef;
+        ($package, $filename, $line) = caller();
+    print STDERR $filename . ":" . $line . " : " . $msg . "\n";
+}
+
+sub exec_handler($$) {
+    my $hdlr = shift;
+    my $data = shift;
+    chomp $hdlr;
+    debug("Checking handler " . $hdlr);
+    if ( defined $HANDLERS->{$hdlr} ) {
+        debug("Executing handlers " . $hdlr);
+        foreach my $sub (@{$HANDLERS->{$hdlr}}) {
+            debug("Executing handlers " . $sub);
+            eval { &$sub($data); }
+        }
+    } else {
+        debug("No registered handler for " . $hdlr);
+    }
+}
 
