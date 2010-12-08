@@ -1,0 +1,461 @@
+#!/usr/bin/perl
+# ----------------------------------------------------------------------
+# This file is a part of The NSMFramework
+# Copyright (C) 2010, Edward Fjellskål <edwardfjellskaal@gmail.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# ----------------------------------------------------------------------
+
+use strict;
+use warnings;
+use POSIX qw(setsid);
+use FindBin;
+use IO::Socket;
+use threads;
+use threads::shared;
+use Thread::Queue;
+use Getopt::Long;
+use DateTime;
+use NSMFcommon::Config;
+use NSMFcommon::Dirs;
+use NSMFcommon::Daemon;
+use DBI;
+use DBD::mysql;
+use Carp::Heavy;
+
+=head1 NAME
+
+ nsmf-server
+
+=head1 VERSION
+
+ 0.1
+
+=head1 SYNOPSIS
+
+ $ nsmf-server [options]
+
+ OPTIONS:
+
+ -c|--configfile : spesify path to configfile
+ -h|--help       : this help message
+ --version       : show version
+
+=cut
+
+# default config
+our $CONFIGFILE    = qq(/etc/nsmf-server/server.conf);
+our $DEBUG         = 1;
+our $DAEMON        = 0;
+our $SERVER        = qq(127.0.0.1);
+our $PORT          = qq(10101);
+our $SERVERNAME    = qq(default-server);
+our $SERVERGROUP   = qq(INT_SERV);
+our $PINGNODES     = 5000;
+our $LOGFILE       = qq(/var/log/nsmf-server/server-$SERVERNAME.log);
+our $PIDFILE       = qq(/var/run/nsmf-server-$SERVERNAME.pid);
+
+Getopt::Long::GetOptions(
+    'configfile|c=s'        => \$CONFIGFILE,
+);
+
+# read config
+my $CONFIG = {};
+$CONFIG = NSMFcommon::Config::load_config("$CONFIGFILE",$DEBUG);
+$DEBUG = $CONFIG->{'DEBUG'} if (defined $CONFIG->{'DEBUG'});
+$SERVER = $CONFIG->{'SERVER'} if (defined $CONFIG->{'SERVER'});
+$PORT = $CONFIG->{'PORT'} if (defined $CONFIG->{'PORT'});
+$SERVERNAME = $CONFIG->{'SERVERNAME'} if (defined $CONFIG->{'SERVERNAME'});
+$SERVERGROUP = $CONFIG->{'SERVERGROUP'} if (defined $CONFIG->{'SERVERGROUP'});
+$PINGNODES = $CONFIG->{'PINGNODES'} if (defined $CONFIG->{'PINGNODES'});
+$LOGFILE = $CONFIG->{'LOGFILE'} if (defined $CONFIG->{'LOGFILE'});
+$PIDFILE = $CONFIG->{'PIDFILE'} if (defined $CONFIG->{'PIDFILE'});
+
+my $SERVERMODULES = $CONFIG->{'SERVERMODULES'} if (defined $CONFIG->{'SERVERMODULES'});
+our @MODULES = split (/,/, $SERVERMODULES);
+our @OKMODULES;
+
+# Load modules
+#BEGIN {
+    my @modules;
+    # list of NSMFmodules:: modules
+    foreach (@MODULES) { push @modules, "NSMFmodules::$_"; }
+    #my @modules = map { "NSMFmodules::$_" } qw/CXTRACKER SNORT DAEMONLOGGER/;
+
+    MODULE:
+    for my $module (@modules) {
+        local @INC = ("$FindBin::Bin/modules/");
+        #eval { require $module };
+        print "[*] Trying to load module: $module\n";
+        eval "use $module";
+        if ($@) {
+            print "[E] Module $module not loaded/found: $@\n";
+        } else {
+            print "[*] Module $module loaded OK: $@\n";
+            push @OKMODULES, $module;
+        }
+    }
+#}
+print "[*] Starting nsmf-server with modules: ";
+foreach (@OKMODULES) { print "$_ "; }
+print "\n";
+
+# Prepare
+
+# Signal handlers
+use vars qw(%sources);
+#$SIG{"HUP"}   = \&recreate_merge_table;
+$SIG{"PIPE"}  = \&pipeHandler;
+$SIG{"INT"}   = sub { gameover($DAEMON, "INT" ) };
+$SIG{"TERM"}  = sub { gameover($DAEMON, "TERM") };
+$SIG{"QUIT"}  = sub { gameover($DAEMON, "QUIT") };
+$SIG{"KILL"}  = sub { gameover($DAEMON, "KILL") };
+#$SIG{"ALRM"}  = sub { dir_watch(); alarm $TIMEOUT; };
+
+# Main program
+
+# Check that all needed dirs exists
+NSMFcommon::Dirs::check_dir_create_w ("/var/log/nsmf-server/"); # Needs to be fixed: Should find dir from $LOGFILE
+
+# Go daemonmode?
+NSMFcommon::Daemon::go_daemon ($LOGFILE,$PIDFILE) if $DAEMON;;
+
+# Thread-Queue shared over all threads
+my $TQ = Thread::Queue->new();
+
+# Start SERVER
+open_server_socket($DEBUG,$SERVER,$PORT,@MODULES);
+exit;
+
+=head2 gameover
+
+ Shutdown in a clean way.
+
+=cut
+
+sub gameover{
+    my ($DAEMON, $sig) = @_;
+    print "[*] Got $sig, Ending.\n";
+    #File::Temp::cleanup();
+    unlink($PIDFILE) if $DAEMON;
+    threads->exit();
+    exit 0;
+}
+
+=head2 pipeHandler
+
+ Deal with clients that disappear rather than have perl die.
+
+=cut
+
+sub pipeHandler{
+    my $sig = shift @_;
+    print "[E] SIGPIPE -> client went away! $sig \n\n";
+}
+
+=head2 open_server_socket
+
+ Starts the server and listens on $SERVER:$PORT
+
+=cut
+
+sub open_server_socket {
+    my ($DEBUG,$SERVER,$PORT,@MODULES) = @_;
+
+    my $ServSocket = IO::Socket::INET->new(
+                        LocalAddr => $SERVER,
+                        LocalPort => $PORT,
+                        Proto     => 'tcp',
+                        Listen    => '10',
+                        Reuse     => 1,
+                        )
+    or die "unable to create socket: ", &IO::Socket::INET::errstr, "\n";
+
+    #$ServSocket->autoflush(1);
+
+    # Starts the sub nodequeue in a thread, which waits for elements
+    # that are added by the sub requesthandle
+    my $TN = threads->create(\&nodequeue,$DEBUG);
+    $TN->detach; # We dont expect any return value :)
+                 # And it will clean up it self on exit...
+
+    # Start the sub clientqueue in a thread, which handles the
+    # clients communication with the server.
+    #my $TC = threads->create(\&clientqueue,$DEBUG); 
+    #$TC->detach; # We dont expect any return value :)
+                  # And it will clean up it self on exit...
+
+    while (1) {
+        warn "[*] nsmf-server is listinging for connections..\n";
+    
+        while (my $ReqSock = $ServSocket->accept()) {
+            #my $nonblocking = 1;
+            #ioctl($ReqSock, 0x8004667e, \\$nonblocking);
+            $ReqSock->autoflush(1);
+            my $client_ip = $ReqSock->peerhost;
+            warn "[*] Accepted new connection from $client_ip\n" if $DEBUG;
+    
+            ## Start new thread and listen on the socket
+            my $TB = threads->create(\&requesthandle, $DEBUG, $ReqSock,@MODULES);
+            #$TB->detach; # We dont expect any return value :)
+            #             # And it will clean up it self on exit...
+        }
+    }
+
+    # Should never be here?
+    $ServSocket->close();
+    print "[*] Socket closed.\n" if $DEBUG;
+    # print "[*] Reopenening...\n" if $DEBUG;
+    # sleep 50;
+    # open_server_socket ($DEBUG,$SERVER,$PORT);
+}
+
+=head2 nodequeue
+
+ This sub is runned in a endless while loop. It checks
+ The global QT Thread for requests in the queue. I then dispatches
+ the request to the right nsmf-module.
+
+=cut
+
+sub nodequeue {
+    my $DEBUG = shift;
+    while (1) {
+        while (defined(my $REQ = $TQ->dequeue_nb())) {
+            # Added $DEBUG to $REQ
+            $REQ->{'debug'} = $DEBUG;
+            # Send it dynamic to right module that will handle the request
+            print "[*] Got request to module: ". $REQ->{'module'} ."\n" if $DEBUG;
+            print "[*] Got data start:\n" if $DEBUG;
+            print $REQ->{'data'} if $DEBUG;
+            print "[*] Got data end:\n" if $DEBUG;
+            print "[*] Sending request to module " . $REQ->{'module'} . "\n" if $DEBUG;
+
+            my $module = "NSMFmodules::$REQ->{'module'}::$REQ->{'module'}";
+            my $dynamicmodule = eval "sub { &$module }"; # Works...
+            $dynamicmodule->($REQ);                      # ...also
+            #eval "$module \$REQ" ;    # Works also
+            if ($@) {
+                print "[E] Ohhh crap: $@\n" if $DEBUG;
+                # Putt it back on the queue ?
+                # or dropp it - as queueing it would just eat memory...
+                # Guess we should store the request to a file! - Persistence!
+                # SEND THE REQUEST BACK TO global Thread Queue, TQ for now (testing).
+               # $TQ->enqueue($REQ);
+               # write_req_to_failed_dir($REQ);
+            }
+            print "[*] Pending requests: ". $TQ->pending() ."\n\n";
+        }
+        if ( $TQ->pending() == 0 ) {
+            sleep (1); # Give the CPU a break ?
+            #usleep (0.1); # use Time::HiRes;
+        }
+    }
+}
+
+=head2 requesthandle
+
+ Handles reqests to the server from nodes.
+ The NODE <-> SERVER communication is documented in doc/protocol.txt
+
+=cut
+
+sub requesthandle {
+    my ($DEBUG,$RS,@MODULES) = @_; # $DEBUG, Request Socket, @MODULES
+    my $line = qq();
+    my $client_ip = $RS->peerhost;
+
+    my $request = {};
+    #my %request=(   'method'   =>     0,
+    #                'module'   =>     0,
+    #                'protocol' =>     0,
+    #                'key'      =>     0,
+    #                'node'     =>     0,
+    #                'netgroup' =>     0,        
+    #                'data'     =>     0,
+    #                'debug'    =>     0,
+    #            );
+
+    sysread($RS, $line, 8192, length $line);
+    chomp $line;
+    $line =~ s/\r//;
+    print "[*] Client $client_ip sent header: $line\n" if $DEBUG;
+    my ($not_ok,$METHOD,$MODULE,$PROTOCOL) = verify_client_header($DEBUG,$line);
+
+    if ($not_ok == 1) {
+        print "[E] Client $client_ip sent a bogus start header, closing connection...\n" if $DEBUG;
+        $RS->shutdown(2);
+        return;
+    }
+
+    # Check if $PROTOCOL is known
+    if (is_known_protocol($PROTOCOL) == 1) {
+        print $RS "203 PROTOCOL NOT SUPPORTED\n";
+        $RS->flush();
+        print "[E] Client $client_ip sent a unknown protocol version: $PROTOCOL\n" if $DEBUG;
+        print "    The client might be older or newer than your server version?\n" if $DEBUG;
+        print "    Closing client connection...\n" if $DEBUG;
+        $RS->shutdown(2);
+        return;
+    }
+
+    # Check if $MODULE is a known nsmf loaded module
+    if (is_known_module($MODULE, @MODULES) == 1) {
+        print $RS "202 MODULE NOT SUPPORTED\n";
+        $RS->flush();
+        print "[E] Client $client_ip sent requests to a unknown module: $MODULE\n" if $DEBUG;
+        print "    Maybe you have not enabled the module in your server config?\n" if $DEBUG;
+        print "    Closing client connection...\n" if $DEBUG;
+        $RS->shutdown(2);
+        return;
+    }
+
+    # Check if $MODULE accepts $METHOD
+    # SERVER> 201 METHOD NOT SUPPORTED
+
+    print $RS "200 OK ACCEPTED\0";
+    $line = qq();
+    sysread($RS, $line, 8192, length $line);
+    # Shoud be:
+    # "ID KEY NODENAME NETGROUP"
+    print "[*] Client $client_ip sent ID header: $line\n" if $DEBUG;
+    if ( $line =~ /^ID\s(\w+)\s(\w+)\s(\w+).*/ ) {
+        $request->{'key'}      = $1;
+        $request->{'node'}     = $2;
+        $request->{'netgroup'} = $3;
+        print "[*] Got ID OK header from client: $line\n" if $DEBUG;
+    } else {
+        print "[E] Client $client_ip sent a bogus ID header, closing connection...\n" if $DEBUG;
+        $RS->shutdown(2);
+        return;
+    }
+
+    # Check with DB that the ID IS OK!
+    # Else disconnect.
+
+    $request->{'method'}   = $METHOD;
+    $request->{'module'}   = $MODULE;
+    $request->{'protocol'} = $PROTOCOL;
+
+    $RS->say("200 OK ACCEPTED\0");
+    $RS->flush();
+    print "[*] Sent \"200 OK ACCEPTED\"\n";
+
+    # SEND THE REQUEST TO global Thread Queue, TQ.
+    $request->{'requestsocket'} = $RS;
+    #$TQ->enqueue($request);
+    my $module = "NSMFmodules::$request->{'module'}::$request->{'module'}";
+    my $dynamicmodule = eval "sub { &$module }"; # Works...
+    print "[->] Leaving nsmf-server core...\n";
+    $dynamicmodule->($request);                      # ...also
+    #eval "$module \$REQ" ;    # Works also
+    if ($@) {
+        print "[E] Ohhh crap: $@\n" if $DEBUG;
+    }
+    return;
+}
+
+=head2 read_socket_data
+
+ Read data from a socket.
+ Input the $socket descriptor.
+ Output is the data collected?
+
+=cut
+
+sub read_socket_data {
+  my $SOCK = shift;
+  my $data = q();
+
+  binmode($SOCK);
+  while (defined(my $Line = <$SOCK>)) {
+    #chomp $Line;
+    #$Line =~ s/\r//;
+    #last unless length $data;
+    $data = "$data$Line";
+  }
+
+  return $data;
+}
+
+=head2 verify_client_header
+
+ Takes a line and verifies that the METHOD, MODULE and PROTOCOL
+ according to what nsmf-server is running and protocol version etc.
+ Returns 0 on succsess, 1 on ERROR:
+    return (0|1),$METHOD,$MODULE,$PROTOCOL
+
+=cut
+
+sub verify_client_header {
+    my ($DEBUG,$HEADER) = @_;
+    my $METHOD = q(NONE);
+    my $MODULE = q(NONE);
+    my $PROTOCOL = q(0.0);
+
+    if ($HEADER =~ /^(\w+) (\w+) NSMF\/(\d\.\d)/ ) {
+        $METHOD   = $1;
+        $MODULE   = $2;
+        $PROTOCOL = $3;
+        if ( $METHOD =~ /AUTH/ ) {
+            # Method exepted...
+            return (0,$METHOD,$MODULE,$PROTOCOL);# OK
+        }
+        return (1,$METHOD,$MODULE,$PROTOCOL);# Not OK
+    } else {
+        return (1,$METHOD,$MODULE,$PROTOCOL); # Not OK
+    }
+}
+
+=head2 is_known_protocol
+
+ Checks if nsmf-server supports the protocol
+ Input is a protocol number(string).
+ Returns 0 if OK, 1 if Not supported
+
+=cut
+
+sub is_known_protocol {
+    my $PROTO = shift;
+    # Do checks on a list of supported protocols
+    if ( $PROTO =~ /1\.0/ ) {
+        return 0; # Supported
+    }
+    # else
+    return 1; # Not supported
+}
+
+=head2 is_known_module
+
+ Checks if nsmf-server has loaded the module
+ Input is the name of a module.
+ Returns 0 if module is supported/loaded
+ returns 1 if module is not supported/loaded
+
+=cut
+
+sub is_known_module {
+    my ($MODULE, @MODULES) = @_;
+
+    # Do checks on list of modules supported/loaded
+    foreach my $MOD (@MODULES) {
+        next if not defined $MOD;
+        if ( $MOD eq $MODULE ) {
+            return 0; # Supported
+        }
+    }
+    return 1; # Not supported
+}
+

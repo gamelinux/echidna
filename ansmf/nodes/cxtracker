@@ -1,0 +1,29 @@
+#!/usr/bin/perl 
+use lib '../lib';
+use strict;
+use warnings;
+use NSMF::Node;
+use NSMF::Auth;
+
+my ($config, $conn, $session);
+$config = NSMF::Node::load_config('/etc/nsmf-node/cxtracker.conf');
+
+$conn = NSMF::Node::connect({
+    server => $config->{SERVER},
+    port   => $config->{PORT},
+});
+ 
+$session = NSMF::Node::authenticate(
+    $conn, 
+    {
+	ID => $config->{ID},
+	NODENAME => $config->{NODENAME},
+	SECRET => $config->{SECRET},
+	NETGROUP => $config->{NETGROUP},
+	SERVER => $config->{SERVER},
+    },
+);
+
+
+print "\n    [!!] Authentication Failed!\n" unless defined $session;
+
