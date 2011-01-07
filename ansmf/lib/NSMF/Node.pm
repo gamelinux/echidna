@@ -8,29 +8,48 @@ use NSMF::Net;
 use NSMF::Auth;
 use NSMF::Config;
 
+require Exporter;
+#our @EXPORT = qw/load_config connect authenticate execute/;
+
+sub new {
+    my $class = shift;
+    bless {
+        config => undef,
+	conn => undef,
+	session => undef,
+    }, $class;
+}
+
 sub load_config {
-    my $path = shift;
+    my ($self, $path) = @_;
+
+    $self->{config} = NSMF::Config::load_config($path);
     return NSMF::Config::load_config($path);
 }
 
 sub connect {
-    my ($config) = shift;
+    my ($self) = @_;
     my $conn = NSMF::Net::connect({
-	server => $config->{server}, 
-        port   => $config->{port},
+	server => $self->{config}->{SERVER}, 
+        port   => $self->{config}->{PORT},
     });  
-   $conn or die "[!!]  Connection Failed!\n";   
+   die "[!!]  Connection Failed!\n" unless $conn;
+   $self->{conn} = $conn;   
+}
+
+sub session {
+    my ($self) = @_;
+    return $self->{session} if $self->{session};
 }
 
 sub authenticate {
-	my $conn = shift;
-	my ($config) = @_;
-	my $session = qq//;
+    my ($self) = @_;
+    my $session = qq//;
+
     eval {
-        local $SIG{ALRM} = sub { die "alarm\n" }; # NB: \n required
+        local $SIG{ALRM} = sub { die "alarm\n" };
         alarm 10;
-        $session = NSMF::Auth::send_auth($conn, $config);
-	close $conn;
+        $session = NSMF::Auth::send_auth($self->{conn}, $self->{config});
 	alarm 0;
     };
     
@@ -40,22 +59,26 @@ sub authenticate {
        print "[!!] Connection Timeout\n";exit;
     } 
     else {
+        print "[+] Authenticated..\n";
+        $self->{session} = $session;
     	return $session;
-#    	print "didnt";
-          # didn't
     }
 }
 
 sub execute {
-    my ($config) = @_;
-    my $name = $config->{NODENAME};
+    my ($self) = @_;
+    my $name = $self->{config}->{NODENAME};
+    print $name,"\n";
     eval {
         my $module = "NSMF::Node::$name";
  	require $module;
         $module->import();
-
     	$module->run;
     };
+
+    if ($@) {
+        die "[!!] Could not execute code for ", $self->{config}->{NODENAME};
+    }
 }
 
 1;

@@ -1,6 +1,7 @@
 package NSMF::Auth;
 
 use strict;
+
 my $DEBUG = 1;
 
 sub send_auth {	 	                  

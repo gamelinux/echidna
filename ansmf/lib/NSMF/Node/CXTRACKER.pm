@@ -1,8 +1,8 @@
 package NSMF::Node::CXTRACKER;
-require Exporter;
-our @EXPORT=qw(run);
 
 use strict;
+use NSMF::Node;
+our @ISA = qw(NSMF::Node);
 
 sub run {
     print "Running cxtracker processing..\n";
