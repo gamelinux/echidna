@@ -1,11 +1,15 @@
 package NSMF::Node::CXTRACKER;
 
 use strict;
-use NSMF::Node;
-our @ISA = qw(NSMF::Node);
+use base qw(NSMF::Node);
+use v5.10;
 
 sub run {
-    print "Running cxtracker processing..\n";
+    my ($self) = @_;
+    
+    return unless  $self->{__handlers}->{_sess_id};
+
+    say "Running cxtracker processing..";
 }
 
 1;

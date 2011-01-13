@@ -2,6 +2,7 @@ package NSMF::Config;
 
 use strict;
 use NSMF::Error;
+use v5.10;
 our $VERSION = '0.1';
 
 =head2 load_config
@@ -13,6 +14,7 @@ Takes a config file and $DEBUG as input, and returns a hash of config options.
 
 sub load_config {
     my ($file,$DEBUG) = @_;
+    $DEBUG ||= 0;
     my $config = {};
     if(not -r "$file"){
         warn "[W] Config '$file' not readable\n";

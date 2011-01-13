@@ -1,20 +1,26 @@
-#!/usr/bin/perl 
+#!/usr/bin/perl -w
 
 use lib '../lib';
 use strict;
-use warnings;
+use v5.10;
 
 use NSMF::Node::CXTRACKER;
 use Data::Dumper;
 
+# Creating new CXTRACKER Node
 my $cxt = NSMF::Node::CXTRACKER->new;
 
+# Loading configuration variables
 $cxt->load_config('/etc/nsmf-node/cxtracker.conf');
-$cxt->connect;
-$cxt->authenticate;
-$cxt->execute;
 
-print Dumper $cxt;
+# Connect and Authenticate
+$cxt->sync;
 
+#  Same as above
+#
+#  $cxt->connect;
+#  $cxt->authenticate;
+
+$cxt->run;
 
 

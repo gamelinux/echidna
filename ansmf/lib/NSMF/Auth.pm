@@ -1,18 +1,20 @@
 package NSMF::Auth;
 
 use strict;
+use Data::Dumper;
+use v5.10;
 
 my $DEBUG = 1;
 
 sub send_auth {	 	                  
    
-    my $conn 	   = shift;
-    my ($config)   = @_;
-    my $ID 	   = $config->{ID} if defined $config->{ID};
-    my $NODENAME   = $config->{NODENAME} if defined $config->{NODENAME};
-    my $SECRET 	   = $config->{SECRET} if defined $config->{SECRET};
-    my $NETGROUP   = $config->{NETGROUP} if defined $config->{NETGROUP};
-    my $NSMFSERVER = $config->{NSMFSERVER} if defined $config->{SERVER};
+    my ($conn, $config) = @_;
+
+    my $ID 	       ||= $config->{id};
+    my $NODENAME   ||= $config->{nodename};
+    my $SECRET 	   ||= $config->{secret};
+    my $NETGROUP   ||= $config->{netgroup};
+    my $NSMFSERVER ||= $config->{server};
 
     my $line = qq();
     if (defined $conn) {

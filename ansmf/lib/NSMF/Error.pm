@@ -1,6 +1,7 @@
 package NSMF::Error;
 
 use strict;
+use v5.10;
 use base 'Exporter';
 our @EXPORT=qw(not_defined);
 

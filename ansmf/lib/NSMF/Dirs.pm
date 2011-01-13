@@ -1,8 +1,8 @@
 package NSMFcommon::Dirs;
 
 use strict;
-use warnings;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK);
+use v5.10;
 require Exporter;
 @EXPORT = qw(ALL);
 $VERSION = '0.1';
