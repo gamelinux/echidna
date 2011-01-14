@@ -4,6 +4,7 @@ use strict;
 use v5.10;
 use POSIX;
 use Carp qw(croak);
+use NSMF::Util;
 use NSMF::Error;
 use NSMF::Net;
 use NSMF::Auth;
@@ -11,6 +12,7 @@ use NSMF::Config;
 use Class::Accessor "antlers";
 use Data::Dumper;
 
+our $DATA = 1;
 has id       => ( is => "rw");
 has nodename => ( is => "rw");
 has netgroup => ( is => "rw");
@@ -100,10 +102,9 @@ sub authenticate {
 
     if ($@) {
 	    die("[!! Authentication Failed!\n") unless $@ eq "alarm\n";   # propagate unexpected errors
-        print "[!!] Connection Timeout\n";exit;
+        print_status "Connection Timeout";exit;
     } 
     else {
-        say "[+] Authenticated..";
         $self->{__handlers}->{_sess_id} = $session;
     	return $self->{__handlers}->{_sess_id} // 0;
     }

@@ -1,6 +1,8 @@
 package NSMF::Auth;
 
 use strict;
+use NSMF;
+use NSMF::Util;
 use Data::Dumper;
 use v5.10;
 
@@ -20,22 +22,23 @@ sub send_auth {
     if (defined $conn) {
         my $HEADER = "AUTH $NODENAME NSMF/1.0";
         print $conn "$HEADER\0";
-        print "[*] Sent HEADER: '$HEADER'.\n" if $DEBUG;
+        print_status "Sent HEADER: '$HEADER'." if $DEBUG;
         $conn->flush();
         sysread($conn, $line, 8192, length $line);
         chomp $line;
         $line =~ s/\r//;
-        if ( $line =~ /200 OK ACCEPTED/ ) {
-            print "[*] Server $NSMFSERVER sent response: '$line'.\n" if $DEBUG;
+
+        if ( $line =~ /$NSMF::Constants::ACCEPTED/ ) {
+            print_status "Server $NSMFSERVER sent response: '$line'." if $DEBUG;
             my $ID = "$ID $SECRET $NODENAME $NETGROUP";
             print $conn "$ID\0";
-            print "[*] Sent ID: '$ID'.\n" if $DEBUG;
+            print_status "Sent ID: '$ID'." if $DEBUG;
             $conn->flush();
             $line = qq();
             sysread($conn, $line, 8192, length $line);
             chomp $line;
             $line =~ s/\r//;
-            if ( $line =~ /200 OK ACCEPTED/ ) {
+            if ( $line =~ /$NSMF::Constants::ACCEPTED/ ) {
                 return 1; #OK
             } else {
                 return 0; #ERROR

@@ -1,11 +1,10 @@
-package NSMF::Env;
+package NSMF::Constants;
 
 use strict;
 use v5.10;
-use vars qw(@EXPORT);
 require Exporter;
-@EXPORT=qw(ALL);
+our @EXPORT = qw(:all);
 
-use constant STATUS_OK => 'OK ACCEPTED';
+our $ACCEPTED = "200 OK ACCEPTED";
 
 1;
