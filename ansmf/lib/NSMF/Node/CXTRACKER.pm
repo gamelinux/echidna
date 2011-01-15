@@ -1,14 +1,15 @@
 package NSMF::Node::CXTRACKER;
 
 use strict;
+use v5.10;
 use base qw(NSMF::Node);
 use NSMF::Util;
-use v5.10;
+our $VERSION = '0.1';
 
 sub run {
     my ($self) = @_;
     
-    return unless  $self->{__handlers}->{_sess_id};
+    return unless  $self->get_session;
     print_status("Running cxtracker processing..");
 }
 

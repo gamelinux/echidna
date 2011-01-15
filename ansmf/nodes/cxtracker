@@ -1,11 +1,12 @@
 #!/usr/bin/perl -w
 
 use lib '../lib';
+
 use strict;
 use v5.10;
 
 use NSMF::Node::CXTRACKER;
-use Data::Dumper;
+use NSMF::Util;
 
 # Creating new CXTRACKER Node
 my $cxt = NSMF::Node::CXTRACKER->new;
@@ -14,12 +15,20 @@ my $cxt = NSMF::Node::CXTRACKER->new;
 $cxt->load_config('/etc/nsmf-node/cxtracker.conf');
 
 # Connect and Authenticate
-$cxt->sync;
-
-#  Same as above
-#
 #  $cxt->connect;
 #  $cxt->authenticate;
+#  sync = connect + authenticate
+$cxt->sync;
 
+# Node run method. Defined in Node/CXTRACKER.pm
 $cxt->run;
 
+# Output Debug Information
+debug($cxt);
+
+# Log to debug.log(default)
+# log($cxt,'debug.log');
+# 
+# same as:
+#
+# log($cxt);

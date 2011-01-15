@@ -1,8 +1,8 @@
 package NSMF::Config;
 
 use strict;
-use NSMF::Error;
 use v5.10;
+use NSMF::Error;
 our $VERSION = '0.1';
 
 =head2 load_config
