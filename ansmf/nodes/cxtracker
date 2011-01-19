@@ -8,11 +8,13 @@ use v5.10;
 use NSMF::Node::CXTRACKER;
 use NSMF::Util;
 
+my $config_file = '/etc/nsmf-node/cxtracker.yaml';
+
 # Creating new CXTRACKER Node
 my $cxt = NSMF::Node::CXTRACKER->new;
 
 # Loading configuration variables
-$cxt->load_config('/etc/nsmf-node/cxtracker.conf');
+$cxt->load_config($config_file);
 
 # Connect and Authenticate
 #  $cxt->connect;

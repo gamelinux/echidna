@@ -48,16 +48,16 @@ sub load_config {
     return unless ref($self) ~~ /NSMF::Node/;
 #    return unless $path ~~ /[a-zA-Z0-9-\.]+/;
 
-    my $config = NSMF::Config::load_config($path);
+    my $config = NSMF::Config::load($path);
 
     $self->{config_path} =  $path;
     $self->{name}        =  ref($self)          // 'NSMF::Node';
-    $self->{id}          =  $config->{ID}       // 'ID';
-    $self->{nodename}    =  $config->{NODENAME} // 'NODENAME';
-    $self->{netgroup}    =  $config->{NETGROUP} // 'NETGROUP';
-    $self->{server}      =  $config->{SERVER}   // '127.0.0.1';
-    $self->{port}        =  $config->{PORT}     // '10101';
-    $self->{secret}      =  $config->{SECRET}   // 'SHA256SECRET';
+    $self->{id}          =  $config->{id}       // 'ID';
+    $self->{nodename}    =  $config->{nodename} // 'NODENAME';
+    $self->{netgroup}    =  $config->{netgroup} // 'NETGROUP';
+    $self->{server}      =  $config->{server}   // '127.0.0.1';
+    $self->{port}        =  $config->{port}     // '10101';
+    $self->{secret}      =  $config->{secret}   // 'SHA256SECRET';
 
     return $config;
 }
