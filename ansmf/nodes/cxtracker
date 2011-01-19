@@ -8,7 +8,7 @@ use v5.10;
 use NSMF::Node::CXTRACKER;
 use NSMF::Util;
 
-my $config_file = '/etc/nsmf-node/cxtracker.yaml';
+my $config_file = '../etc/cxtracker.yaml';
 
 # Creating new CXTRACKER Node
 my $cxt = NSMF::Node::CXTRACKER->new;

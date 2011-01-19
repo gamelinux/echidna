@@ -1,0 +1,12 @@
+# Node Configuration
+node: 
+    id: ID
+    nodename: CXTRACKER
+    netgroup: NETGROUP
+    secret: SHA256SECRETKEY
+
+# Server Configuration
+server: 
+    name: Kerberos
+    server: 127.0.0.1
+    port: 10101
