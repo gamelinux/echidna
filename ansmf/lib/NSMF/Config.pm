@@ -4,6 +4,7 @@ use strict;
 use v5.10;
 use NSMF::Util;
 use NSMF::Error;
+use Carp qw(croak);
 use YAML::Tiny;
 our $VERSION = '0.1';
 
@@ -11,7 +12,7 @@ sub load {
     my ($file) = @_;
     my $config;
 
-    return unless ( -e -r $file);
+    croak 'Error opening configuration file. Check read access.' unless ( -e -r $file);
 
     given($file){
         when(/^.+\.yaml$/) {
@@ -25,7 +26,7 @@ sub load {
         }
     }
 
-    return $config;
+    return $config // croak "Could not parse configuration file.";
 }
 
 sub load_yaml {
@@ -61,7 +62,7 @@ sub load_config {
         warn "[W] Config '$file' not readable\n";
         return $config;
     }
-    open(my $FH, "<",$file) or die "[E] Could not open '$file': $!\n";
+    open(my $FH, "<",$file) or croak "[E] Could not open '$file': $!";
     while (my $line = <$FH>) {
         chomp($line);
         $line =~ s/\#.*//;
@@ -71,29 +72,18 @@ sub load_config {
            warn "[W] Read keys and values from config: $key:$value\n" if NSMF::DEBUG > 0;
            $config->{$key} = $value;
         }else {
-          die "[E] Not valid configfile format in: '$file'";
+          croak "[E] Not valid configfile format in: '$file'";
         }
     }
     close $FH;
     return $config;
 }
 
-sub check_config {  
-    my $config = shift;
-    my @KEYS = qw(id nodename netgroup secret server port);
-
-    foreach my $key (@KEYS) {
-        not_defined("$key") unless grep $_ eq $key, @KEYS and defined $config->{$key};
-    }
-
-    return 1;
-}
-
 1;
 
 =head2 load 
 
-Read the yaml configuration file and loads variables.
+Public interface for automatic file configuration reading.
 
 =cut
 
@@ -102,5 +92,9 @@ Read the yaml configuration file and loads variables.
 Reads the configuration file and loads variables.
 Takes a config file and NSMF::DEBUG as input, and returns a hash of config options.
 
+=head2 load_yaml
+
+Raed the configuration file in yaml format and loads variables.
 =cut
+
 

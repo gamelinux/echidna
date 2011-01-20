@@ -7,6 +7,7 @@ use Carp qw(croak);
 use NSMF::Util;
 use NSMF::Error;
 use NSMF::Net;
+use NSMF::Comm;
 use NSMF::Auth;
 use NSMF::Config;
 use Class::Accessor "antlers";
@@ -80,7 +81,6 @@ sub config {
 }
 
 # Connect method
-# Returns the IOSocket
 sub connect {
    my ($self) = @_;
 
@@ -88,12 +88,23 @@ sub connect {
 
    my $conn = NSMF::Net::connect({
 	    server => $self->server, 
-        port   => $self->port,
+        port   => $self->port
    });  
 
    $self->{__handlers}->{_net} = $conn;
 
    return $self->{__handlers}->{_net};   
+}
+
+sub connect_ng {
+
+   my ($self) = @_;
+
+   return unless defined_args($self->server, $self->port);
+
+   my $conn = NSMF::Comm::connect( $self->server, $self->port);  
+
+   return $conn;
 }
 
 # Returns the actual session
@@ -131,11 +142,13 @@ sub authenticate {
     alarm 0;
 
     if ($@) {
-	    die("[!! Authentication Failed!\n") unless $@ eq "alarm\n";   # propagate unexpected errors
-        print_status "Connection Timeout";exit;
+	    croak("[!! Authentication Failed!") unless $@ eq "alarm\n";   # propagate unexpected errors
+        print_error "Connection Timeout";exit;
     } 
     else {
         $self->{__handlers}->{_sessid} = $session;
+        croak "Authentication Failed." if $session ~~ 0;
+
     	return $self->{__handlers}->{_sessid};
     }
 }

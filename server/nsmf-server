@@ -354,8 +354,8 @@ sub requesthandle {
     print "[*] Sent \"200 OK ACCEPTED\"\n";
     
     srand(time ^ $$ ^ unpack "%L*", `ps axww | gzip -f`);
-    my $sess_id = 'NSMF_' . int(rand(1000000));
-    $RS->say("$sess_id\0");
+    my $sess_id = int(rand(1000000));
+    $RS->say("$sess_id");
     $RS->flush();
     print "[*] Sent Session ID: $sess_id\n";
 

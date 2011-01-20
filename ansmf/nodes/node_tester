@@ -1,0 +1,13 @@
+#!/usr/bin/perl -w
+use lib '../lib';
+use strict;
+use v5.10;
+use NSMF::Node;
+use NSMF::Comm;
+use NSMF::Util;
+
+my $node = NSMF::Node->new;
+
+$node->server('127.0.0.1');
+$node->port(10101);
+$node->connect_ng();
