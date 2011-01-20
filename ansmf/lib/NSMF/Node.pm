@@ -4,12 +4,12 @@ use strict;
 use v5.10;
 use POSIX;
 use Carp qw(croak);
-use NSMF::Util;
 use NSMF::Error;
 use NSMF::Net;
 use NSMF::Comm;
 use NSMF::Auth;
 use NSMF::Config;
+use NSMF::Util;
 use Class::Accessor "antlers";
 use Data::Dumper;
 our $VERSION = '0.1';
@@ -108,7 +108,7 @@ sub connect_ng {
 }
 
 # Returns the actual session
-sub get_session {
+sub session {
     my ($self) = @_;
 
     return unless ref($self) ~~ /NSMF::Node/;

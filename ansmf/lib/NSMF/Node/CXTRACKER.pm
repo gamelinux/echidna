@@ -8,8 +8,8 @@ our $VERSION = '0.1';
 
 sub run {
     my ($self) = @_;
-    
-    return unless  $self->get_session;
+     
+    return unless  $self->session;
     print_status("Running cxtracker processing..");
 }
 

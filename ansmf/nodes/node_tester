@@ -3,7 +3,6 @@ use lib '../lib';
 use strict;
 use v5.10;
 use NSMF::Node;
-use NSMF::Comm;
 use NSMF::Util;
 
 my $node = NSMF::Node->new;
