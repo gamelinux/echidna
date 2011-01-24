@@ -53,12 +53,12 @@ sub load_config {
 
     $self->{config_path} =  $path;
     $self->{name}        =  ref($self)          // 'NSMF::Node';
-    $self->{id}          =  $config->{id}       // 'ID';
-    $self->{nodename}    =  $config->{nodename} // 'NODENAME';
-    $self->{netgroup}    =  $config->{netgroup} // 'NETGROUP';
-    $self->{server}      =  $config->{server}   // '127.0.0.1';
+    $self->{id}          =  $config->{id}       // '';
+    $self->{nodename}    =  $config->{nodename} // '';
+    $self->{netgroup}    =  $config->{netgroup} // '';
+    $self->{server}      =  $config->{server}   // '0.0.0.0';
     $self->{port}        =  $config->{port}     // '10101';
-    $self->{secret}      =  $config->{secret}   // 'SHA256SECRET';
+    $self->{secret}      =  $config->{secret}   // '';
 
     return $config;
 }
@@ -84,27 +84,20 @@ sub config {
 sub connect {
    my ($self) = @_;
 
-   return unless defined_args($self->server, $self->port);
+#   print_error "Server or " unless defined_args($self->server, $self->port);
+   return if defined $self->{__handlers}->{_net};
 
-   my $conn = NSMF::Net::connect({
-	    server => $self->server, 
-        port   => $self->port
-   });  
-
+   my $conn = NSMF::Net::connect($self->server, $self->port);  
    $self->{__handlers}->{_net} = $conn;
 
    return $self->{__handlers}->{_net};   
 }
 
 sub connect_ng {
-
    my ($self) = @_;
 
-   return unless defined_args($self->server, $self->port);
-
-   my $conn = NSMF::Comm::connect( $self->server, $self->port);  
-
-   return $conn;
+   return unless  defined_args($self->server, $self->port);
+   return NSMF::Comm::connect( $self->server, $self->port);  
 }
 
 # Returns the actual session
@@ -142,12 +135,12 @@ sub authenticate {
     alarm 0;
 
     if ($@) {
-	    croak("[!! Authentication Failed!") unless $@ eq "alarm\n";   # propagate unexpected errors
+	    croak("[!! Error!") unless $@ eq "alarm\n";   # propagate unexpected errors
         print_error "Connection Timeout";exit;
     } 
     else {
         $self->{__handlers}->{_sessid} = $session;
-        croak "Authentication Failed." if $session ~~ 0;
+        print_error "Authentication Failed." if $session ~~ 0;
 
     	return $self->{__handlers}->{_sessid};
     }
