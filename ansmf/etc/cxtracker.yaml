@@ -8,5 +8,11 @@ node:
 # Server Configuration
 server: 
     name: Kerberos
-    server: 127.0.0.1
+    address: 127.0.0.1
     port: 10101
+
+#settings:
+ #   dir: '/var/path'
+  #  time: 5
+
+

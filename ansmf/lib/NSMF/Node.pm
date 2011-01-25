@@ -38,7 +38,8 @@ sub new {
 	    	_net     => undef,
     		_db      => undef,
             _sessid  => undef,
-    	}
+    	},
+        __settings => undef,
     }, $class;
 }
 
@@ -59,6 +60,7 @@ sub load_config {
     $self->{server}      =  $config->{server}   // '0.0.0.0';
     $self->{port}        =  $config->{port}     // '10101';
     $self->{secret}      =  $config->{secret}   // '';
+    $self->{__settings}  =  $config->{settings} // {};
 
     return $config;
 }

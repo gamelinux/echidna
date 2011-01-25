@@ -6,6 +6,13 @@ use base qw(NSMF::Node);
 use NSMF::Util;
 our $VERSION = '0.1';
 
+sub new {
+    my $class = shift;
+    my $node = $class->SUPER::new;
+    $node->{__data} = {};
+    return $node;
+}
+
 sub run {
     my ($self) = @_;
      

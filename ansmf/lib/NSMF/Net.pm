@@ -16,7 +16,7 @@ sub connect {
 
     my $socket = IO::Socket::INET->new(
         PeerAddr => $server, 
-	PeerPort => $port, 
+	    PeerPort => $port, 
         Proto    => $proto,
     );
 
