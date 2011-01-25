@@ -51,8 +51,8 @@ sub load_yaml {
         nodename  => $node->{nodename},
         netgroup  => $node->{netgroup},
         secret    => $node->{secret},
-        server    => $node->{server},
-        port      => $node->{port},
+        server    => $server->{server},
+        port      => $server->{port},
         settings  => $settings,
     };
 }
