@@ -10,7 +10,7 @@ sub send_auth {
 
     my ($conn, $config) = @_;
 
-    my $ID 	       = $config->{id};
+    my $ID         = $config->{id};
     my $NODENAME   = $config->{nodename};
     my $SECRET 	   = $config->{secret};
     my $NETGROUP   = $config->{netgroup};
