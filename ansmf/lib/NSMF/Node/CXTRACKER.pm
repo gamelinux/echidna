@@ -3,6 +3,7 @@ package NSMF::Node::CXTRACKER;
 use strict;
 use v5.10;
 use base qw(NSMF::Node);
+use NSMF;
 use NSMF::Util;
 our $VERSION = '0.1';
 
@@ -32,7 +33,7 @@ sub _dir_watch {
     my ($self) = @_;
     my $SS     = $self->{__handlers}->{_net};
     my $cxtdir = $self->{__settings}->{cxtdir};
-my $DEBUG = 1;
+    my $DEBUG = NSMF::DEBUG;
 
     while (1) {
         if (defined $SS) {
@@ -90,7 +91,7 @@ my $DEBUG = 1;
 sub _get_sessions {
     my $sfile = shift;
     my $sessionsdata = qq();
-my $DEBUG = 1;
+    my $DEBUG = NSMF::DEBUG;
 
     if (open (FILE, $sfile)) {
         if ($DEBUG) {
