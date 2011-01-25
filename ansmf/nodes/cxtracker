@@ -26,7 +26,7 @@ $cxt->load_config($config_file);
 #$cxt->run;
 
 # Output Debug Information
-debug($cxt);
+ debug($cxt);
 
 # Log to debug.log(default)
 # log($cxt,'debug.log');
