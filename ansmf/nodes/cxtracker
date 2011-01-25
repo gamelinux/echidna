@@ -20,7 +20,7 @@ $cxt->load_config($config_file);
 #  $cxt->connect;
 #  $cxt->authenticate;
 #  sync = connect + authenticate
-$cxt->sync;
+#$cxt->sync;
 
 # Node run method. Defined in Node/CXTRACKER.pm
 #$cxt->run;

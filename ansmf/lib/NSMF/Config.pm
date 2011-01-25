@@ -36,21 +36,24 @@ sub load_yaml {
 
     my $server = $yaml->[0]->{server};
     my $node   = $yaml->[0]->{node};
+    my $settings  = $yaml->[0]->{other};
   
     return unless defined_args($server, $node);
   
     # Server Checking
 
-
     # Node Checking   
     
+    # Other Checking
+
     return {
         id        => $node->{id},
-	    nodename  => $node->{nodename},
-    	netgroup  => $node->{netgroup},
-    	secret    => $node->{secret},
-    	server    => $node->{server},
-      	port      => $node->{port},
+        nodename  => $node->{nodename},
+        netgroup  => $node->{netgroup},
+        secret    => $node->{secret},
+        server    => $node->{server},
+        port      => $node->{port},
+        settings  => $settings,
     };
 }
 
