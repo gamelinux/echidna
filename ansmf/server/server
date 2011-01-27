@@ -6,15 +6,15 @@ use POE;
 use POE::Component::Server::TCP;
 use POE::Filter::Reference;
 use Data::Dumper;
+use NSMF;
 use NSMF::Const;
 use NSMF::Protocol;
 use NSMF::ConfigMngr;
 our $VERSION = '0.1';
+use Data::Dumper;
 
 # Configuration
 my $config = NSMF::ConfigMngr->instance;
-$config->load('server.yaml');
-
 my $server_name = $config->{name}    // 'NSMFServer';
 my $address    = $config->{address}  // '127.0.0.1';
 my $port       = $config->{port}     // 10101;
@@ -43,7 +43,7 @@ POE::Component::Server::TCP->new(
 
 sub dispatcher {
     my ($kernel, $request) = @_[KERNEL, ARG0];
-    say "= Got input";
+    say "= Got input" if $NSMF::DEBUG;
 
     my $AUTH_REQUEST = '^AUTH ([A-Z]+) NSMF\/1.0$';
     my $ID_REQUEST   = '^ID ([[:alnum:]])+ ([[:alnum:]])+ NSMF\/1.0$';
@@ -65,13 +65,15 @@ sub dispatcher {
 
 sub connected {
     my ($session, $heap) = @_[SESSION, HEAP];
-    say "[+] Client connected.";
-    say "- Session ID: " . $session->ID;
+    if ($NSMF::DEBUG) {
+        say "[+] Client connected.";
+        say "- Session ID: " . $session->ID;
+    }
 }
 
 sub disconnected {
     my ($session, $heap) = @_[SESSION, HEAP];
-    say "Client with ", $session->ID, " disconnected";
+    say "Client with ", $session->ID, " disconnected" if $NSMF::DEBUG;
 
 }
 

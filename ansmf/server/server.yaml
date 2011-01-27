@@ -1,5 +1,13 @@
-server: ibelin.mx.gnu.org
+# Server Configuration
+server: localhost
 port: 10101
-nodes:
+
+# Settings
+settings:
+    debug: 0
+
+# Enable Modules
+modules:
     - cxtracker
     - snort
+    - daemonlogger
