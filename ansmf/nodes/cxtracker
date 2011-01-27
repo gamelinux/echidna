@@ -7,6 +7,7 @@ use v5.10;
 
 use NSMF::Node::CXTRACKER;
 use NSMF::Util;
+use NSMF;
 
 my $config_file = '../etc/cxtracker.yaml';
 
@@ -20,10 +21,10 @@ $cxt->load_config($config_file);
 #  $cxt->connect;
 #  $cxt->authenticate;
 #  sync = connect + authenticate
-#$cxt->sync;
+$cxt->sync;
 
 # Node run method. Defined in Node/CXTRACKER.pm
-#$cxt->run;
+$cxt->run;
 
 # Output Debug Information
  debug($cxt);
