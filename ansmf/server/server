@@ -1,0 +1,79 @@
+#!/usr/bin/perl -w 
+
+use v5.10;
+use strict;
+use POE;
+use POE::Component::Server::TCP;
+use POE::Filter::Reference;
+use Data::Dumper;
+use NSMF::Const;
+use NSMF::Protocol;
+use NSMF::ConfigMngr;
+our $VERSION = '0.1';
+
+# Configuration
+my $config = NSMF::ConfigMngr->instance;
+$config->load('server.yaml');
+
+my $server_name = $config->{name}    // 'NSMFServer';
+my $address    = $config->{address}  // '127.0.0.1';
+my $port       = $config->{port}     // 10101;
+
+# Server 
+POE::Component::Server::TCP->new(
+    Alias              => $server_name,
+    Address            => $address,
+    Port               => $port,
+    ClientConnected    => \&connected, 
+    ClientDisconnected => \&disconnected,
+    ClientInput => sub { 
+        my ($kernel, $heap, $input) = @_[KERNEL, HEAP, ARG0];
+        $kernel->yield('dispatcher', $input);
+    },
+    ClientFilter => "POE::Filter::Stream",
+    InlineStates => {
+        dispatcher   => \&dispatcher,
+        got_auth     => \&got_auth,
+        authenticate => \&authenticate,
+        got_ping     => \&got_ping,
+        send_ack     => \&send_ack,
+        send_err     => \&send_err,
+    },
+);
+
+sub dispatcher {
+    my ($kernel, $request) = @_[KERNEL, ARG0];
+    say "= Got input";
+
+    my $AUTH_REQUEST = '^AUTH ([A-Z]+) NSMF\/1.0$';
+    my $ID_REQUEST   = '^ID ([[:alnum:]])+ ([[:alnum:]])+ NSMF\/1.0$';
+    my $PING_REQUEST = '^PING ([[:alnum:]])+ NSMF\/1.0$';
+
+    my $action;
+
+    given($request) {
+        when(/$AUTH_REQUEST/i) { $action = 'got_auth' }
+        when(/$PING_REQUEST/i) { $action = 'got_ping' }
+        when(/$ID_REQUEST/i)   { $action = 'authenticate' }
+        default: {
+            $action = 'send_err';
+        }
+    }
+
+    $kernel->yield($action, $request);
+}
+
+sub connected {
+    my ($session, $heap) = @_[SESSION, HEAP];
+    say "[+] Client connected.";
+    say "- Session ID: " . $session->ID;
+}
+
+sub disconnected {
+    my ($session, $heap) = @_[SESSION, HEAP];
+    say "Client with ", $session->ID, " disconnected";
+
+}
+
+$poe_kernel->run();
+exit(0);

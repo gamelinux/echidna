@@ -1,0 +1,5 @@
+server: ibelin.mx.gnu.org
+port: 10101
+nodes:
+    - cxtracker
+    - snort
