@@ -36,8 +36,9 @@ sub connect {
 =cut
 
 sub send_data {
-    my ($data) = @_;
-
+    my ($self) = @_;
+    print $self->{__data}->{sessions} . "\n";
+    return 0;
 }
 
 1;

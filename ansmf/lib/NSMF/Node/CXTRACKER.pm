@@ -4,6 +4,7 @@ use strict;
 use v5.10;
 use base qw(NSMF::Node);
 use NSMF;
+use NSMF::Net;
 use NSMF::Util;
 our $VERSION = '0.1';
 
@@ -40,24 +41,31 @@ sub _dir_watch {
             my @FILES;
             # Open the directory
             if( opendir( DIR, $cxtdir ) ) {
+                print "[*] Dir opened: $cxtdir\n";
                 # Find session files in dir (stats.eth0.1229062136)
                 while( my $file = readdir( DIR ) ) {
                     next if( ( "." eq $file ) || ( ".." eq $file ) );
                     next unless ($file =~ /^stats\..*\.\d{10}$/);
-                    push( @FILES, $file ) if( -f "$cxtdir/$file" );
+                    if( -f "$cxtdir/$file" ) {
+                        push( @FILES, $file );
+                    }
                 }
                 closedir( DIR );
+            } else {
+                print "[*] Could not open dir: $cxtdir\n";
             }
             # If we find any files, proccess...
             foreach my $file ( @FILES ) {
                 my $starttime=time();
-                print "[*] Found file: $cxtdir/$file\n" if ($DEBUG);
-                my $sessionsdata = _get_sessions("$cxtdir/$file");
+                print "[*] Found file: $cxtdir/$file\n";# if ($DEBUG);
+                #my $sessionsdata = _get_sessions("$cxtdir/$file");
+                $self->{__data}->{sessions} = _get_sessions("$cxtdir/$file");
                 my $endtime=time();
                 my $processtime=$endtime-$starttime;
                 print "[*] File $cxtdir/$file processed in $processtime seconds\n" if ($DEBUG);
                 $starttime=$endtime;
-                my $result = send_data_to_server($DEBUG,$sessionsdata,$SS);
+                #my $result = send_data_to_server($DEBUG,$sessionsdata,$SS);
+                my $result = $self->send_data();
                 if ($result >= 1) {
                     #print "[E] Error while sending sessiondata to server: $cxtdir/$FILE -> $NSMFSERVER:$NSMFPORT\n";
                     #print "[*] Skipping deletion of file: $cxtdir/$FILE\n";
@@ -72,6 +80,7 @@ sub _dir_watch {
                 # Dont pool files to often, or to seldom...
                 #sleep 1; # FIXME delete when testing is done, add INET_ATON6 first :)
             }
+            sleep 1; # for now... to avoid loop ;)
         } else {
         #    print "[E] Could not connect/auth to server: $NSMFSERVER:$NSMFPORT, trying again in 15sec...\n";
             sleep 15;
