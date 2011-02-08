@@ -6,6 +6,7 @@ use base qw(NSMF::Node);
 use NSMF;
 use NSMF::Net;
 use NSMF::Util;
+use Data::Dumper;
 our $VERSION = '0.1';
 
 sub new {
@@ -65,7 +66,7 @@ sub _dir_watch {
                 print "[*] File $cxtdir/$file processed in $processtime seconds\n" if ($DEBUG);
                 $starttime=$endtime;
                 #my $result = send_data_to_server($DEBUG,$sessionsdata,$SS);
-                my $result = $self->send_data($self->{__data}->{sessions});
+                my $result = $self->put($self->{__data}->{sessions});
                 if ($result >= 1) {
                     #print "[E] Error while sending sessiondata to server: $cxtdir/$FILE -> $NSMFSERVER:$NSMFPORT\n";
                     #print "[*] Skipping deletion of file: $cxtdir/$FILE\n";
@@ -76,10 +77,10 @@ sub _dir_watch {
                     print "[*] Sessiondata sent in $processtime seconds\n" if ($DEBUG);
                     print "[W] Deleting file: $cxtdir/$file\n";
                     unlink("$cxtdir/$file") or print_error "Failed to delete $cxtdir/$file";
+                    delete $self->{__data}->{sessions};
                 }
-                # Dont pool files to often, or to seldom...
-                #sleep 1; # FIXME delete when testing is done, add INET_ATON6 first :)
             }
+        
             sleep 10; # for now... to avoid loop ;)
         } else {
         #    print "[E] Could not connect/auth to server: $NSMFSERVER:$NSMFPORT, trying again in 15sec...\n";

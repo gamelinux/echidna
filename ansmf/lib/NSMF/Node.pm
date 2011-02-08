@@ -164,19 +164,17 @@ sub sync {
     return;
 }
 
-sub send_data {
+sub put {
     my ($self, $data) = @_;
 
-    my $DEBUG = NSMF::DEBUG;
-
     my $SS     = $self->{__handlers}->{_net};
-
+    my $DEBUG = NSMF::DEBUG;
     my $line = qq();
     my $HEADER = "POST DATA";
 
     $SS->say("$HEADER");
     $SS->flush();
-    say "[*] Sent HEADER: '$HEADER'.\n" if $DEBUG;
+    say "Sent HEADER: '$HEADER'." if $DEBUG;
     $line = qq();
     sysread($SS, $line, 8192, length $line);
     chomp $line;
@@ -184,24 +182,21 @@ sub send_data {
     if ( $line =~ /200 OK ACCEPTED/ ) {
         print $SS "$data\n.\r\n";
         $SS->flush();
-        print "[*] Data sent.\n" if $DEBUG;
+        print_status "Data sent." if $DEBUG;
         $line = qq();
         sysread($SS, $line, 8192, length $line);
         chomp $line;
         $line =~ s/\r//;
         if ( $line =~ /200 OK ACCEPTED/ ) {
-            print "[*] Server recived data OK.\n" if $DEBUG;
+            print_status "Server recived data OK." if $DEBUG;
             return 0; #OK
         } else {
-            print "[*] Server " . $self->server . " sent bogus response to \"EOF\": '$line'.\n" if $DEBUG;
+            print_status "Server " . $self->server . " sent bogus response to \"EOF\": '$line'." if $DEBUG;
         }
     } else {
-        print "[*] Server " . $self->server . " sent bogus response to \"POST DATA\": '$line'.\n" if $DEBUG;
+        print_status "Server " . $self->server . " sent bogus response to \"POST DATA\": '$line'." if $DEBUG;
     }
     return 1; #ERROR
-    
-
-
 }
 
 
