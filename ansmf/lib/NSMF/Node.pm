@@ -8,6 +8,7 @@ use NSMF::Error;
 use NSMF::Net;
 use NSMF::Comm;
 use NSMF::Auth;
+use base qw(NSMF::Proto);
 use NSMF::Config;
 use NSMF::Util;
 use Class::Accessor "antlers";
@@ -99,7 +100,7 @@ sub connect_ng {
    my ($self) = @_;
 
    return unless  defined_args($self->server, $self->port);
-   return NSMF::Comm::connect( $self->server, $self->port);  
+   return NSMF::Comm::connect( $self );  
 }
 
 # Returns the actual session
@@ -162,5 +163,46 @@ sub sync {
     
     return;
 }
+
+sub send_data {
+    my ($self, $data) = @_;
+
+    my $DEBUG = NSMF::DEBUG;
+
+    my $SS     = $self->{__handlers}->{_net};
+
+    my $line = qq();
+    my $HEADER = "POST DATA";
+
+    $SS->say("$HEADER");
+    $SS->flush();
+    say "[*] Sent HEADER: '$HEADER'.\n" if $DEBUG;
+    $line = qq();
+    sysread($SS, $line, 8192, length $line);
+    chomp $line;
+    $line =~ s/\r//;
+    if ( $line =~ /200 OK ACCEPTED/ ) {
+        print $SS "$data\n.\r\n";
+        $SS->flush();
+        print "[*] Data sent.\n" if $DEBUG;
+        $line = qq();
+        sysread($SS, $line, 8192, length $line);
+        chomp $line;
+        $line =~ s/\r//;
+        if ( $line =~ /200 OK ACCEPTED/ ) {
+            print "[*] Server recived data OK.\n" if $DEBUG;
+            return 0; #OK
+        } else {
+            print "[*] Server " . $self->server . " sent bogus response to \"EOF\": '$line'.\n" if $DEBUG;
+        }
+    } else {
+        print "[*] Server " . $self->server . " sent bogus response to \"POST DATA\": '$line'.\n" if $DEBUG;
+    }
+    return 1; #ERROR
+    
+
+
+}
+
 
 1;

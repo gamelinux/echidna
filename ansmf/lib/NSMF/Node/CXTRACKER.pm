@@ -46,7 +46,7 @@ sub _dir_watch {
                 while( my $file = readdir( DIR ) ) {
                     next if( ( "." eq $file ) || ( ".." eq $file ) );
                     next unless ($file =~ /^stats\..*\.\d{10}$/);
-                    if( -f "$cxtdir/$file" ) {
+                    if( -r -w -f "$cxtdir/$file" ) {
                         push( @FILES, $file );
                     }
                 }
@@ -65,7 +65,7 @@ sub _dir_watch {
                 print "[*] File $cxtdir/$file processed in $processtime seconds\n" if ($DEBUG);
                 $starttime=$endtime;
                 #my $result = send_data_to_server($DEBUG,$sessionsdata,$SS);
-                my $result = $self->send_data();
+                my $result = $self->send_data($self->{__data}->{sessions});
                 if ($result >= 1) {
                     #print "[E] Error while sending sessiondata to server: $cxtdir/$FILE -> $NSMFSERVER:$NSMFPORT\n";
                     #print "[*] Skipping deletion of file: $cxtdir/$FILE\n";
@@ -75,12 +75,12 @@ sub _dir_watch {
                 if ($result == 0) {
                     print "[*] Sessiondata sent in $processtime seconds\n" if ($DEBUG);
                     print "[W] Deleting file: $cxtdir/$file\n";
-                    #unlink("$cxtdir/$file") if $result == 0;
+                    unlink("$cxtdir/$file") or print_error "Failed to delete $cxtdir/$file";
                 }
                 # Dont pool files to often, or to seldom...
                 #sleep 1; # FIXME delete when testing is done, add INET_ATON6 first :)
             }
-            sleep 1; # for now... to avoid loop ;)
+            sleep 10; # for now... to avoid loop ;)
         } else {
         #    print "[E] Could not connect/auth to server: $NSMFSERVER:$NSMFPORT, trying again in 15sec...\n";
             sleep 15;
@@ -135,6 +135,7 @@ sub _get_sessions {
       print "Sessionsdata:\n$sessionsdata\n" if $DEBUG;
       return $sessionsdata;
       }
+      
 }
 
 
