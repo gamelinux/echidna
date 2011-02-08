@@ -167,12 +167,13 @@ sub sync {
 sub put {
     my ($self, $data) = @_;
 
-    my $SS     = $self->{__handlers}->{_net};
+    return unless defined $data;
+    my $SS     = $self->{__handlers}->{_net} // print_error('Could not send data. No socket created');
     my $DEBUG = NSMF::DEBUG;
     my $line = qq();
     my $HEADER = "POST DATA";
 
-    $SS->say("$HEADER");
+    $SS->say($HEADER);
     $SS->flush();
     say "Sent HEADER: '$HEADER'." if $DEBUG;
     $line = qq();

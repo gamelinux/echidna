@@ -7,6 +7,9 @@ use NSMF;
 use NSMF::Net;
 use NSMF::Util;
 use Data::Dumper;
+use POE;
+use POE::Component::DirWatch;
+
 our $VERSION = '0.1';
 
 sub new {
@@ -21,74 +24,58 @@ sub run {
      
     return unless  $self->session;
     print_status("Running cxtracker processing..");
-    $self->_dir_watch();
+    $self->dir_watch();
+    POE::Kernel->run;
 }
 
-=head2 _dir_watch
-
- Looks for new session data files in $cxtdir regulary.
- If a new session files i found, it will try to send its data to the server.
-
-=cut
-
-sub _dir_watch {
+sub dir_watch {
     my ($self) = @_;
-    my $SS     = $self->{__handlers}->{_net};
+
+    my $watcher = POE::Component::DirWatch->new(
+        alias => ref($self),
+        directory => '/var/lib/cxtracker',
+        filter => sub { 
+        	-f $_[0];
+        },
+        file_callback => sub {
+    	my ($file) = @_;
+            $self->_process($file);    	
+        },
+        interval => 1,
+    );
+}
+
+sub _process {
+    my ($self, $file) = @_;
     my $cxtdir = $self->{__settings}->{cxtdir};
     my $DEBUG = NSMF::DEBUG;
 
-    while (1) {
-        if (defined $SS) {
-            my @FILES;
-            # Open the directory
-            if( opendir( DIR, $cxtdir ) ) {
-                print "[*] Dir opened: $cxtdir\n";
-                # Find session files in dir (stats.eth0.1229062136)
-                while( my $file = readdir( DIR ) ) {
-                    next if( ( "." eq $file ) || ( ".." eq $file ) );
-                    next unless ($file =~ /^stats\..*\.\d{10}$/);
-                    if( -r -w -f "$cxtdir/$file" ) {
-                        push( @FILES, $file );
-                    }
-                }
-                closedir( DIR );
-            } else {
-                print "[*] Could not open dir: $cxtdir\n";
-            }
-            # If we find any files, proccess...
-            foreach my $file ( @FILES ) {
-                my $starttime=time();
-                print "[*] Found file: $cxtdir/$file\n";# if ($DEBUG);
-                #my $sessionsdata = _get_sessions("$cxtdir/$file");
-                $self->{__data}->{sessions} = _get_sessions("$cxtdir/$file");
-                my $endtime=time();
-                my $processtime=$endtime-$starttime;
-                print "[*] File $cxtdir/$file processed in $processtime seconds\n" if ($DEBUG);
-                $starttime=$endtime;
+    my @FILES;
+    if( -r -w -f "$file" ) {
+        push( @FILES, $file );
+    }
+
+    foreach my $file ( @FILES ) {
+        my $starttime=time();
+        print "[*] Found file: $cxtdir/$file\n";# if ($DEBUG);
+
+        $self->{__data}->{sessions} = _get_sessions($file);
+        my $endtime=time();
+        my $processtime=$endtime-$starttime;
+        print "[*] File $cxtdir/$file processed in $processtime seconds\n" if ($DEBUG);
+        $starttime=$endtime;
                 #my $result = send_data_to_server($DEBUG,$sessionsdata,$SS);
-                my $result = $self->put($self->{__data}->{sessions});
-                if ($result >= 1) {
-                    #print "[E] Error while sending sessiondata to server: $cxtdir/$FILE -> $NSMFSERVER:$NSMFPORT\n";
-                    #print "[*] Skipping deletion of file: $cxtdir/$FILE\n";
-                }
-                $endtime=time();
-                $processtime=$endtime-$starttime;
-                if ($result == 0) {
-                    print "[*] Sessiondata sent in $processtime seconds\n" if ($DEBUG);
-                    print "[W] Deleting file: $cxtdir/$file\n";
-                    unlink("$cxtdir/$file") or print_error "Failed to delete $cxtdir/$file";
-                    delete $self->{__data}->{sessions};
-                }
-            }
-        
-            sleep 10; # for now... to avoid loop ;)
-        } else {
-        #    print "[E] Could not connect/auth to server: $NSMFSERVER:$NSMFPORT, trying again in 15sec...\n";
-            sleep 15;
-            $SS->close() if defined $SS;
-            return;
+        my $result = $self->put($self->{__data}->{sessions});
+        $endtime=time();
+        $processtime=$endtime-$starttime;
+        if ($result == 0) {
+            print "[*] Session data sent in $processtime seconds\n" if ($DEBUG);
+            print "[W] Deleting file: $file\n";
+            unlink($file) or print_error "Failed to delete $cxtdir/$file";
+            delete $self->{__data}->{sessions};
         }
     }
+        
 }
 
 =head2 _get_sessions
@@ -133,11 +120,17 @@ sub _get_sessions {
             }
       }
       close FILE;
-      print "Sessionsdata:\n$sessionsdata\n" if $DEBUG;
+      print "Sessions data:\n$sessionsdata\n" if $DEBUG;
       return $sessionsdata;
       }
       
 }
 
 
+=head2 _dir_watch
+
+ Looks for new session data files in $cxtdir regulary.
+ If a new session files i found, it will try to send its data to the server.
+
+=cut
 1;

@@ -4,7 +4,7 @@ port: 10101
 
 # Settings
 settings:
-    debug: 0
+    debug: 1
 
 # Enable Modules
 modules:

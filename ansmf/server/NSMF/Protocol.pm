@@ -11,10 +11,11 @@ use Data::Dumper;
 use Carp qw(croak);
 use base qw(Exporter);
 our $VERSION = '0.1';
-our @EXPORT = qw( got_auth got_ping send_ack send_err authenticate);
+our @EXPORT = qw( got_auth got_ping send_ack send_err authenticate got_post);
 
 my $config = NSMF::ConfigMngr->instance;
 my $modules = $config->{modules} // [];
+map { $_ = uc($_) } @$modules;
 
 sub got_auth {
     my ($kernel, $session, $heap, $input) = @_[KERNEL, SESSION, HEAP, ARG0];
@@ -22,11 +23,13 @@ sub got_auth {
 
     my @request = split '\s+', $input;
     my $module = $request[1];
-
-    if ($module ~~ @$modules) {
+    say $module;
+    if (uc($module) ~~ @$modules) {
+        say 'Found';
         $heap->{client}->put("NSMF/1.0 MODULE " . uc($module) . " FOUND\r\n");
         $heap->{$module} = {};
     } else {
+        say 'Not Found';
         $heap->{client}->put("NSMF/1.0 MODULE NOT FOUND\r\n");
     }
 }
@@ -40,7 +43,7 @@ sub authenticate {
     my $credential;
 
     eval {
-        $credential = NSMF::Credential->search({nodename => $module})->next;
+        $credential = NSMF::Credential->search({ nodename => $module })->next;
     };
     
     if($@) {
@@ -53,7 +56,7 @@ sub authenticate {
         return;
     }
     
-    if ($key == $credential->password) {
+    if ($key ~~ $credential->password) {
         say " [+] ", uc($module)," authenticated!" if $NSMF::DEBUG;
         $heap->{$module}->{session_id} = 1;
         $heap->{client}->put("NSMF/1.0 202 Accepted\r\n");
@@ -81,6 +84,10 @@ sub send_err {
     $client->put("NSMF/1.0 400 Bad Request\r\n");
 }
 
-
+sub got_post {
+    my ($kernel, $heap, $request) = @_[KERNEL, HEAP, ARG0];
+    my @data = split '\n', $request;
+    say Dumper @data;
+}   
 
 1;

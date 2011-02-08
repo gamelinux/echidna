@@ -5,7 +5,7 @@ sub driver {
     Data::ObjectDriver::Driver::DBI->new(
         dsn      => 'dbi:mysql:nsmf',
         username => 'root',
-        password => 'passw0rd',
+        password => '$passw0rd..!',
     )
 }
 

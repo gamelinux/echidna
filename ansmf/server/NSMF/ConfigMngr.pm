@@ -43,4 +43,16 @@ sub load {
     return $instance;
 }
 
+sub name {
+    return $instance->{name} // 'NSMFServer';
+}
+
+sub address {
+    return $instance->{server} // croak '[!] No server defined.';
+}
+
+sub port {
+    return $instance->{port} // croak '[!] No port defined.';
+}
+
 1;
