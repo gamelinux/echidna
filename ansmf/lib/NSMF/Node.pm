@@ -8,7 +8,6 @@ use NSMF::Error;
 use NSMF::Net;
 use NSMF::Comm;
 use NSMF::Auth;
-use base qw(NSMF::Proto);
 use NSMF::Config;
 use NSMF::Util;
 use Class::Accessor "antlers";
