@@ -2,7 +2,7 @@ package NSMF;
 
 use v5.10;
 
-our @ISA = (NSMF::Util);
+#our @ISA = (NSMF::Util);
 
 use constant DEBUG    => 1;
 use constant ACCEPTED => '200 OK ACCEPTED';

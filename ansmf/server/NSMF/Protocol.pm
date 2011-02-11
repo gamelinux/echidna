@@ -43,7 +43,7 @@ sub authenticate {
     my $credential;
 
     eval {
-        $credential = NSMF::Credential->search({ nodename => $module })->next;
+        $credential = NSMF::Credential->search({ nodename => lc($module) })->next;
     };
     
     if($@) {

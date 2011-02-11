@@ -6,12 +6,14 @@ use POSIX;
 use Carp qw(croak);
 use NSMF::Error;
 use NSMF::Net;
-use NSMF::Comm;
+use NSMF::Comm qw(init);
 use NSMF::Auth;
 use NSMF::Config;
 use NSMF::Util;
+use base qw(NSMF::Action);
 use Class::Accessor "antlers";
 use Data::Dumper;
+use POE;
 our $VERSION = '0.1';
 
 # Class::Accessor generated get/set methods
@@ -99,7 +101,7 @@ sub connect_ng {
    my ($self) = @_;
 
    return unless  defined_args($self->server, $self->port);
-   return NSMF::Comm::connect( $self );  
+   NSMF::Comm::init( $self );  
 }
 
 # Returns the actual session
@@ -112,7 +114,7 @@ sub session {
 
 # Authentication method
 # Returns the session id or 0 if authentication fails. 
-sub authenticate {
+sub authenticate2 {
     my ($self) = @_;
 
     return unless ref($self) ~~ /NSMF::Node/;
@@ -157,7 +159,7 @@ sub sync {
     return 0 unless ref($self) ~~ /NSMF::Node/;
 
     if ( $self->connect() ) {
-        return $self->authenticate();
+        return $self->authenticate2();
     }
     
     return;
