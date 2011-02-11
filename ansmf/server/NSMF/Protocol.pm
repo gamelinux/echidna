@@ -69,6 +69,7 @@ sub authenticate {
 sub got_ping {
     my ($heap, $input) = @_[HEAP, ARG0];
     say "  - Got PING" if $NSMF::DEBUG;
+    say "  -> " . $input;
     my $time = localtime;
     $heap->{client}->put("NSMF/1.0 PONG $time\r\n")
 }
