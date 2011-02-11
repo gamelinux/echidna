@@ -37,8 +37,6 @@ sub load {
     $self->{port}     = $yaml->[0]->{port}     // 0;
     $self->{settings} = $yaml->[0]->{settings} // {};
     $self->{modules}  = $yaml->[0]->{modules}  // [];
-    say "Modules?";
-    say Dumper $yaml->[0]->{modules};
     $debug = $yaml->[0]->{settings}->{debug}   // 0;
     $instance = $self;
 

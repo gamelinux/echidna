@@ -21,7 +21,7 @@ sub load {
 
         return unless $module eq $module_name;
 
-        $module_path = 'NSMF::Mod3ule::' . uc($module_name);
+        $module_path = 'NSMF::Module::' . uc($module_name);
         eval "use $module_path";
 
         if($@) {
