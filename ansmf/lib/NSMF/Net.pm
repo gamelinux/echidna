@@ -28,18 +28,6 @@ sub connect {
     return $socket // print_error "Could not create connection at server. $server:$port";
 }
 
-=head2 send_data
-
- Method for sending data to a nsfm server, node, client or worker.
-
-=cut
-
-sub send_data {
-    my ($self) = @_;
-
-    return 0;
-}
-
 1;
 
 

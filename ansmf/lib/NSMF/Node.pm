@@ -10,20 +10,41 @@ use NSMF::Comm qw(init);
 use NSMF::Auth;
 use NSMF::Config;
 use NSMF::Util;
-use base qw(NSMF::Action);
-use Class::Accessor "antlers";
+use base qw(NSMF::Action NSMF::Proto);
 use Data::Dumper;
 use POE;
 our $VERSION = '0.1';
 
-# Class::Accessor generated get/set methods
-has id       => ( is => "rw");
-has nodename => ( is => "rw");
-has netgroup => ( is => "rw");
-has server   => ( is => "rw");
-has port     => ( is => "rw");
-has secret   => ( is => "rw");
-
+sub id {
+    my ($self, $arg) = @_;
+    $self->{id} = $arg if defined_args($arg);
+    return $self->{id};
+}
+sub nodename {
+    my ($self, $arg) = @_;
+    $self->{nodename} = $arg if defined_args($arg);
+    return $self->{nodename};
+}
+sub netgroup {
+    my ($self, $arg) = @_;
+    $self->{netgroup} = $arg if defined_args($arg);
+    return $self->{netgroup};
+}
+sub server {
+    my ($self, $arg) = @_;
+    $self->{server} = $arg if defined_args($arg);
+    return $self->{server};
+}
+sub port {
+    my ($self, $arg) = @_;
+    $self->{port} = $arg if defined_args($arg);
+    return $self->{port};
+}
+sub secret {
+    my ($self, $arg) = @_;
+    $self->{secret} = $arg if defined_args($arg);
+    return $self->{secret};
+}
 # Constructor
 sub new {
     my $class = shift;

@@ -2,19 +2,25 @@
 
 use v5.10;
 use strict;
+
+# POE Imports
 use POE;
 use POE::Component::Server::TCP;
 use POE::Filter::Reference;
-use Data::Dumper;
+
+# NSMF Imports
 use NSMF;
 use NSMF::Const;
-use NSMF::Protocol;
+use NSMF::Proto;
 use NSMF::ConfigMngr;
-our $VERSION = '0.1';
+
+# Misc
 use Data::Dumper;
+our $VERSION = '0.1';
 
 # Configuration
 my $config = NSMF::ConfigMngr->instance;
+my $nsmf   = NSMF::Proto->instance;
 
 # Server 
 POE::Component::Server::TCP->new(
@@ -28,39 +34,8 @@ POE::Component::Server::TCP->new(
         $kernel->yield('dispatcher', $input);
     },
     ClientFilter => "POE::Filter::Stream",
-    InlineStates => {
-        dispatcher   => \&dispatcher,
-        got_auth     => \&got_auth,
-        authenticate => \&authenticate,
-        got_ping     => \&got_ping,
-        send_ack     => \&send_ack,
-        send_err     => \&send_err,
-        got_post     => \&got_post,
-    },
+    ObjectStates => [ $nsmf => $nsmf->states ],
 );
-
-sub dispatcher {
-    my ($kernel, $request) = @_[KERNEL, ARG0];
-    say "= Got input" if $NSMF::DEBUG;
-
-    my $AUTH_REQUEST = '^AUTH ([[:alnum:]]+) ([[:alnum:]]+) NSMF\/1.0$';
-    my $ID_REQUEST   = '^ID ([[:alnum:]])+ ([[:alnum:]])+ NSMF\/1.0$';
-    my $PING_REQUEST = '^PING ([[:alnum:]])+ NSMF\/1.0$';
-    my $POST_REQUEST = '^POST ([[:alnum:]])+ NSMF\/1.0';
-
-    my $action;
-
-    given($request) {
-        when(/$AUTH_REQUEST/i) { $action = 'got_auth' }
-        when(/$PING_REQUEST/i) { $action = 'got_ping' }
-        when(/$ID_REQUEST/i)   { $action = 'authenticate' }
-        when(/$POST_REQUEST/i) { $action = 'got_post' }
-        default: {
-            $action = 'send_err';
-        }
-    }
-    $kernel->yield($action, $request);
-}
 
 sub connected {
     my ($session, $heap) = @_[SESSION, HEAP];
@@ -73,9 +48,8 @@ sub connected {
 sub disconnected {
     my ($session, $heap) = @_[SESSION, HEAP];
     say "Client with ", $session->ID, " disconnected" if $NSMF::DEBUG;
-
 }
 
 say '[+] Server Initialized ..';
-$poe_kernel->run();
+POE::Kernel->run();
 exit(0);

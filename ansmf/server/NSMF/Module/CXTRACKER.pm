@@ -1,5 +1,8 @@
 package NSMF::Module::CXTRACKER;
 
+use strict;
+use v5.10;
+
 use NSMF::Driver;
 
 use base qw(Data::ObjectDriver::BaseObject);
@@ -27,3 +30,7 @@ __PACKAGE__->install_properties({
     primary_key => 'sessionid',
     driver => NSMF::Driver->driver,
 });
+
+sub start {
+    say "Start";
+}

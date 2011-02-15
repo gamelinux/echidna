@@ -17,7 +17,7 @@ sub init {
     ($self) = @_;
     my ($server, $port) = ($self->server, $self->port);
     print_status "Connecting";
-    croak "Host or Port not defined." unless defined_args($server, $port);
+#    croak "Host or Port not defined." unless defined_args($server, $port);
 
     POE::Component::Client::TCP->new(
         RemoteAddress => $server,
@@ -26,47 +26,45 @@ sub init {
         Connected => sub {
             print_status "[+] $server:$port ...";
 
-            $_[HEAP]->{nodename} = 'CXTRACKER';
+            $_[HEAP]->{nodename} = $self->nodename;
+            $_[HEAP]->{secret}   = $self->secret;
+
             $_[KERNEL]->yield('auth');
-            print_status ">> Authenticating..";
+            print_status "Authenticating..";
 
         },
         ConnectError => sub {
             print_status "Could not connect to $server:$port ...";
         },
         ServerInput => sub {
-            my ($kernel, $heap, $input) = @_[KERNEL, HEAP, ARG0];
+            my ($kernel, $input) = @_[KERNEL, ARG0];
             
-            print_status "Got input from $server:$port ...";
-            say "[DEBUG] $input";
-
             $kernel->yield(dispatcher => $input);
-#            $kernel->delay(shutdown => 60);
+            $kernel->delay(ping => 5);
         },
         ObjectStates => [
             $self => { 
-                auth   => 'authenticate',
-                id     => 'identify',
-                ping   => 'ping',
-                got_ok => 'got_ok',
+                auth     => 'authenticate',
+                ident    => 'identify',
+                ping     => 'send_ping',
+                pong     => 'send_pong',
+                got_pong => 'got_pong',
+                got_ok   => 'got_ok',
+                is_alive => 'is_alive',
             },
         ],
         InlineStates => {
             dispatcher => \&dispatcher,
-            loop       => \&loop,
+            node       => \&run,
         }
     );
 
-    $poe_kernel->run();
-    print_status "Connection Finalized.";
+    POE::Kernel->run();
 }
 
-sub loop {
-    say "alooo";
+sub run {
     my ($kernel, $heap) = @_[KERNEL, HEAP];
     $self->run();
-#    $_[HEAP]->{watcher} = $self->watcher('/var/lib/cxtracker', '_process');
-    
 }
 
 sub dispatcher {
@@ -76,23 +74,23 @@ sub dispatcher {
     given($request) {
         when(/FOUND/) {
             given($heap->{stage}) {
-                when('auth') {
-                    $action = 'id';
+                when('REQ') {
+                    $action = 'ident';
                 } default: {
                     return;
                 }
             }
         }
         when(/NSMF\/1.0 202 Accepted/) {
-            if ($heap->{stage} eq 'id') {
-                $heap->{stage} = 'session';
+            if ($heap->{stage} eq 'SYN') {
+                $heap->{stage} = 'EST';
                 say 'We are wired in baby!';
-                $kernel->yield('loop');
+                $kernel->yield('node');
                 return;
             } 
         }
-        default: {
-            $action = 'ping';
+        when(/PONG/) {
+           $action = 'got_pong'; 
         }
     }
     $kernel->yield($action) if $action;

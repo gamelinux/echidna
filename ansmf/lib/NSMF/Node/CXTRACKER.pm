@@ -24,14 +24,10 @@ sub new {
 sub run {
     my ($self) = @_;
      
-#    return unless $self->session;
     print_status("Running cxtracker processing..");
 
     $cxtdir = $self->{__settings}->{cxtdir};
 
-    # File watcher 
-    # param Directory to Watch
-    # param Handler
     my $watcher = $self->watcher($cxtdir, '_process');
 }
 
@@ -48,21 +44,26 @@ sub _process {
         my $starttime=time();
         print "[*] Found file: $file\n";# if ($DEBUG);
 
-        $self->{__data}->{sessions} = _get_sessions($file);
+        #$self->{__data}->{sessions} = _get_sessions($file);
+        push @{$self->{__data}->{sessions}}, split "\n", _get_sessions($file);
+        say Dumper $self->{__data}->{sessions};
+        say $self->{__data}->{sessions}[0];
         my $endtime=time();
         my $processtime=$endtime-$starttime;
         print "[*] File $file processed in $processtime seconds\n" if (NSMF::DEBUG);
-        $starttime=$endtime;
-                #my $result = send_data_to_server($DEBUG,$sessionsdata,$SS);
-        my $result = $self->put($self->{__data}->{sessions});
-        $endtime=time();
-        $processtime=$endtime-$starttime;
-        if ($result == 0) {
-            print "[*] Session data sent in $processtime seconds\n" if (NSMF::DEBUG);
-            print "[W] Deleting file: $file\n";
-            unlink($file) or print_error "Failed to delete $file";
-            delete $self->{__data}->{sessions};
+    
+        for my $record (@{$self->{__data}->{sessions}}) {
+            $starttime=$endtime;
+            my $result = $self->put($record);
+            $endtime=time();
+            $processtime=$endtime-$starttime;
+            if ($result == 0) {
+                print "[*] Session record sent in $processtime seconds\n" if (NSMF::DEBUG);
+            }
         }
+        delete $self->{__data}->{sessions};
+        print "[W] Deleting file: $file\n";
+        unlink($file) or print_error "Failed to delete $file";
     }
         
 }
