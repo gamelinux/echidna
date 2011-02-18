@@ -6,12 +6,14 @@ use strict;
 use Carp;
 use YAML::Tiny;
 use Data::Dumper;
+
 our $debug;
 my $instance;
 my ($server, $settings);
 
 sub instance {
     my ($class) = @_;
+
     unless (defined $instance) {
         $instance = bless {
             name     => 'NSMFServer',
@@ -20,8 +22,10 @@ sub instance {
             settings => {},
             modules    => [],
         }, $class;
+
         return $instance;
     }
+
     return $instance;
 }
 

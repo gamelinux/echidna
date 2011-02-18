@@ -1,11 +1,10 @@
 package NSMF::ModMngr;
 
 use NSMF;
-use NSMF::ConfigMngr;
-use NSMF::Module::CXTRACKER;
 use NSMF::Util;
+use NSMF::ConfigMngr;
+
 use Data::Dumper;
-use Carp;
 
 use strict;
 use v5.10;
@@ -29,7 +28,7 @@ sub load {
         }
     }
 
-    croak "No Modules enabled"; 
+    return "No Modules enabled"; 
 }
 
 1;

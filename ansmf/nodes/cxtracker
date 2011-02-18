@@ -5,10 +5,9 @@ use lib '../lib';
 use strict;
 use v5.10;
 
-use NSMF::Node::CXTRACKER;
-use NSMF::Util;
 use NSMF;
-use POE;
+use NSMF::Util;
+use NSMF::Node::CXTRACKER;
 
 my $config_file = '../etc/cxtracker.yaml';
 
@@ -19,24 +18,8 @@ my $cxt = NSMF::Node::CXTRACKER->new;
 $cxt->load_config($config_file);
 
 # Connect and Authenticate
-#  $cxt->connect;
-#  $cxt->authenticate;
-#  sync = connect + authenticate
 $cxt->sync;
+$cxt->start;
 
-debug($cxt);
-# Node run method. Defined in Node/CXTRACKER.pm
-$cxt->run;
-POE::Kernel->run;
-
-# Output Debug Information
-
-# Log to debug.log(default)
-# log($cxt,'debug.log');
-# 
-# same as:
-#
-# log($cxt);
-
-
-
+#require POE;
+#POE::Kernel->run();

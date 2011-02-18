@@ -10,7 +10,7 @@ use POE::Filter::Reference;
 
 # NSMF Imports
 use NSMF;
-use NSMF::Const;
+use NSMF::Util;
 use NSMF::Proto;
 use NSMF::ConfigMngr;
 
@@ -19,8 +19,8 @@ use Data::Dumper;
 our $VERSION = '0.1';
 
 # Configuration
-my $config = NSMF::ConfigMngr->instance;
-my $nsmf   = NSMF::Proto->instance;
+my $config  = NSMF::ConfigMngr->instance;
+my $proto   = NSMF::Proto->instance;
 
 # Server 
 POE::Component::Server::TCP->new(
@@ -34,22 +34,22 @@ POE::Component::Server::TCP->new(
         $kernel->yield('dispatcher', $input);
     },
     ClientFilter => "POE::Filter::Stream",
-    ObjectStates => [ $nsmf => $nsmf->states ],
+    ObjectStates => [ $proto => $proto->states ],
 );
 
 sub connected {
     my ($session, $heap) = @_[SESSION, HEAP];
     if ($NSMF::DEBUG) {
-        say "[+] Client connected.";
+        print_status "Client connected.";
         say "- Session ID: " . $session->ID;
     }
 }
 
 sub disconnected {
     my ($session, $heap) = @_[SESSION, HEAP];
-    say "Client with ", $session->ID, " disconnected" if $NSMF::DEBUG;
+   say "Client with ", $session->ID, " disconnected" if $NSMF::DEBUG;
 }
 
-say '[+] Server Initialized ..';
+print_status 'Server Initialized ..';
 POE::Kernel->run();
 exit(0);

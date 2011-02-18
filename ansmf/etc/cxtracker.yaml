@@ -2,7 +2,7 @@
 node: 
     id: ID
     nodename: CXTRACKER
-    netgroup: Ext_Net
+    netgroup: NETGROUP
     secret: 5ed9927cb990116b2ea542d30f7149b9bcfeef0ee0b1992d3915ae4602ffc1cb
 
 server:

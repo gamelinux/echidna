@@ -5,7 +5,6 @@ use v5.10;
 use base qw(Exporter);
 use DateTime;
 use Data::Dumper;
-use NSMF::Error;
 use Carp qw(croak);
 our @EXPORT = qw(print_status print_error defined_args debug log);
 our $VERSION = '0.1';
@@ -39,18 +38,6 @@ sub defined_args {
 
     return 1;
 }
-
-sub check_config {  
-    my $config = shift;
-    my @KEYS = qw(id nodename netgroup secret server port);
-
-    foreach my $key (@KEYS) {
-        not_defined("$key") unless grep $_ eq $key, @KEYS and defined $config->{$key};
-    }
-
-    return 1;
-}
-
 
 sub debug {
     my @args = @_;

@@ -2,16 +2,25 @@ package NSMF::Node::CXTRACKER;
 
 use strict;
 use v5.10;
+
+# NSMF::Node Subclass
 use base qw(NSMF::Node);
+
+# NSMF Imports
 use NSMF;
 use NSMF::Net;
 use NSMF::Util;
-use Data::Dumper;
+
+# POE Imports
 use POE;
 use POE::Component::DirWatch;
 
+# Misc
+use Data::Dumper;
 our $VERSION = '0.1';
 our $cxtdir;
+
+my $poe_heap;
 
 sub new {
     my $class = shift;
@@ -21,51 +30,70 @@ sub new {
     return $node;
 }
 
+sub  hello {
+    say "Hello from CXTRACKER Node!!";
+}
 sub run {
-    my ($self) = @_;
+    my ($self, $kernel, $heap) = @_;
      
+    $poe_heap = $heap; 
     print_status("Running cxtracker processing..");
 
     $cxtdir = $self->{__settings}->{cxtdir};
-
     my $watcher = $self->watcher($cxtdir, '_process');
+
+    $self->start();
+}
+
+# Send Data function
+# Requires $poe_heap to be defined with the POE HEAP
+# Must be used only after run() method has been executed.
+sub put {
+    my ($data) = @_;
+
+    return unless $poe_heap;
+
+    $poe_heap->{server}->put($data);
 }
 
 sub _process {
     my ($self, $file) = @_;
 
     my $cxtdir = $self->{__settings}->{cxtdir};
+
+    print_error 'CXTDIR undefined!' unless $cxtdir;
+
     my @FILES;
-    if( -r -w -f "$file" ) {
+    if( -r -w -f $file ) {
         push( @FILES, $file );
     }
 
-    foreach my $file ( @FILES ) {
-        my $starttime=time();
-        print "[*] Found file: $file\n";# if ($DEBUG);
+    my ($sessions, $start_time, $end_time, $process_time, $result);
 
-        #$self->{__data}->{sessions} = _get_sessions($file);
-        push @{$self->{__data}->{sessions}}, split "\n", _get_sessions($file);
-        say Dumper $self->{__data}->{sessions};
-        say $self->{__data}->{sessions}[0];
-        my $endtime=time();
-        my $processtime=$endtime-$starttime;
-        print "[*] File $file processed in $processtime seconds\n" if (NSMF::DEBUG);
-    
-        for my $record (@{$self->{__data}->{sessions}}) {
-            $starttime=$endtime;
-            my $result = $self->put($record);
-            $endtime=time();
-            $processtime=$endtime-$starttime;
-            if ($result == 0) {
-                print "[*] Session record sent in $processtime seconds\n" if (NSMF::DEBUG);
-            }
+    foreach my $file ( @FILES ) {
+
+        say "[*] Found file: $file";
+
+        $start_time   = time();
+        $sessions     = _get_sessions($file);
+        $end_time     = time();
+        $process_time = $end_time - $start_time;
+
+        say "[*] File $file processed in $process_time seconds" if (NSMF::DEBUG);
+
+        $sessions = $self->{__data}->{sessions};
+        $start_time   = $end_time;
+        $result       = $self->put($sessions);
+        $end_time     = time();
+        $process_time = $end_time - $start_time;
+
+        if ($result == 0) {
+            print "[*] Session record sent in $process_time seconds" if (NSMF::DEBUG);
         }
-        delete $self->{__data}->{sessions};
-        print "[W] Deleting file: $file\n";
+
+        say "[W] Deleting file: $file";
         unlink($file) or print_error "Failed to delete $file";
     }
-        
 }
 
 =head2 _get_sessions
@@ -77,16 +105,19 @@ sub _process {
 
 sub _get_sessions {
     my $sfile = shift;
-    my $sessionsdata = qq();
+    my $sessions_data = qq();
 
     if (open (FILE, $sfile)) {
         if (NSMF::DEBUG) {
             my $filelen=`wc -l $sfile |awk '{print \$1'}`;
             my $filesize=`ls -lh $sfile |awk '{print \$5}'`;
+
             chomp $filelen;
             chomp $filesize;
-            print "[*] File:$sfile, Lines:$filelen, Size:$filesize\n";
+
+            say "[*] File:$sfile, Lines:$filelen, Size:$filesize";
         }
+
         # Verify the data in the session files
         LINE:
         while (my $line = readline FILE) {
@@ -102,17 +133,17 @@ sub _get_sessions {
                 next LINE;
             }
             # Things should be OK now to send to the SERVER
-            if ( $sessionsdata eq "" ) {
-                $sessionsdata = "$line";
+            if ( $sessions_data eq "" ) {
+                $sessions_data = "$line";
             } else {
-                $sessionsdata = "$sessionsdata\n$line";
+                $sessions_data = "$sessions_data\n$line";
             }
       }
+
       close FILE;
-      print "Sessions data:\n$sessionsdata\n" if NSMF::DEBUG;
-      return $sessionsdata;
+      say "Sessions data:\n$sessions_data" if NSMF::DEBUG;
+      return $sessions_data;
       }
-      
 }
 
 1;
