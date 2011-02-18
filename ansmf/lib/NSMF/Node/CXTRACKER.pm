@@ -81,7 +81,6 @@ sub _process {
 
         say "[*] File $file processed in $process_time seconds" if (NSMF::DEBUG);
 
-        $sessions = $self->{__data}->{sessions};
         $start_time   = $end_time;
         $result       = $self->put($sessions);
         $end_time     = time();

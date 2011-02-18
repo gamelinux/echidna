@@ -1,4 +1,3 @@
-# Thoughts on tabels... for discussions :)
 
 
 
@@ -25,9 +24,9 @@ CREATE TABLE `user_info` (
   `lastlogin_succ`  datetime,
   `lastlogin_fail`  datetime,
   `loginfail_count` int(11) unsigned NOT NULL DEFAULT '0',
-  PRIMARY KEY (`uid`)
+  PRIMARY KEY (`uid`),
   UNIQUE KEY `username` (`username`),
-); ENGINE=MyISAM AUTO_INCREMENT=2 DEFAULT CHARSET=latin1
+) ENGINE=MyISAM AUTO_INCREMENT=2 DEFAULT CHARSET=latin1;
 
 
 CREATE TABLE `node` (
