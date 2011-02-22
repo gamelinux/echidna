@@ -31,6 +31,7 @@ POE::Component::Server::TCP->new(
     ClientDisconnected => \&disconnected,
     ClientInput => sub { 
         my ($kernel, $heap, $input) = @_[KERNEL, HEAP, ARG0];
+
         $kernel->yield('dispatcher', $input);
     },
     ClientFilter => "POE::Filter::Stream",
@@ -43,6 +44,11 @@ sub connected {
         print_status "Client connected.";
         say "- Session ID: " . $session->ID;
     }
+
+    # Initialization
+    $heap->{nodename}   = undef;
+    $heap->{session_id} = undef;
+    $heap->{netgroup}   = undef;
 }
 
 sub disconnected {

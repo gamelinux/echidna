@@ -75,12 +75,11 @@ sub auth_request {
     my ($kernel, $session, $heap, $input) = @_[KERNEL, SESSION, HEAP, ARG0];
     print_status  "  - Got AUTH Request: " . $input if $NSMF::DEBUG;
 
-    my @request = split '\s+', $input;
-    my $module = $request[1];
+    my @request  = split '\s+', $input;
+    my $module   = uc $request[1];
     my $netgroup = $request[2];  
 
-
-    if (uc($module) ~~ @$modules) {
+    if ($module ~~ @$modules) {
 
         say "   Module: $module  Netgroup: $netgroup" if $NSMF::DEBUG;
 
@@ -88,6 +87,7 @@ sub auth_request {
 
         $heap->{nodename} = $module;
         $heap->{netgroup} = $netgroup;
+
 
     } else {
         print_status 'Not Found' if $NSMF::DEBUG;
@@ -97,32 +97,41 @@ sub auth_request {
 
 sub authenticate {
     my ($kernel, $session, $heap, $request) = @_[KERNEL, SESSION, HEAP, ARG0];
-
-    my @data = split '\s+', $request;
-    my $key = $data[1];
+    
+    my @data   = split '\s+', $request;
+    my $key    = $data[1];
     my $module = $data[2];
-    my $credential;
+    my $credentials;
+    #$key = '';
 
     eval {
-        $credential = NSMF::Credential->search({ nodename => lc($module) })->next;
+        $credentials = NSMF::Credential->search({ nodename => lc($module) })->next;
     };
     
     if($@) {
-        print_error 'There is a problem with the Database configuration. Check Credentials'
+        warn '[!!] Database Error';
+        return;
     }
 
-#    return unless (ref $heap->{$module});
+    warn 'No credentials found', return unless ( $credentials );
+
     if ($heap->{nodename} eq $module and defined $heap->{session_id}) {
         print_status  "$module is already authenticated" if $NSMF::DEBUG;
         return;
     }
     
-    if ($key ~~ $credential->password and $heap->{nodename} eq $module) {
+    if ($key ~~ $credentials->password and $heap->{nodename} eq $module) {
+
         print_status uc($module). " authenticated!" if $NSMF::DEBUG;
+
         $heap->{session_id} = 1;
         $heap->{status} = 'EST';
         $heap->{client}->put($ACCEPTED."\r\n");
     } else {
+        say 'Nodename: ', $heap->{nodename};
+        say 'Netgroup: ', $heap->{netgroup};
+        say 'Status:   ', $heap->{status};
+        say 'Session ID: ', $heap->{session_id};
         $heap->{client}->put("NSMF/1.0 401 Unauthorized\r\n");
     }
 
@@ -162,7 +171,7 @@ sub send_error {
     my ($kernel, $heap) = @_[KERNEL, HEAP];
     my $client = $heap->{client};
     warn "[!] Bad Request" if $NSMF::DEBUG;
-    $client->put("NSMF/1.0 400 Bad Request\r\n");
+    $client->put("NSMF/1.0 400 BAD REQUEST\r\n");
 }
 
 1;
