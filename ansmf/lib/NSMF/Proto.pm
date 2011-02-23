@@ -61,6 +61,9 @@ sub dispatcher {
         }
     }
     $kernel->yield($action) if $action;
+
+    $kernel->delay(send_ping => 30) unless $heap->{shutdown};
+
 }
 
 # Stage REQ
@@ -87,6 +90,8 @@ sub identify {
 
 sub send_ping {
     my ($kernel, $heap, $response) = @_[KERNEL, HEAP, ARG0];
+
+    return if $heap->{shutdown};
 
     # Verify Established Connection
     return unless $heap->{stage} eq 'EST';

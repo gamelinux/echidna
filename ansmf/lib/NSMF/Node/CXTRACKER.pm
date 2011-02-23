@@ -39,7 +39,7 @@ sub run {
     $self->hello();
 
     $cxtdir = $self->{__settings}->{cxtdir};
-    $self->watcher($cxtdir, '_process') or print_status "Failed to start watcher";
+    $heap->{watcher} = $self->watcher($cxtdir, '_process');
 
     $self->start();
 }

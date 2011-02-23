@@ -9,7 +9,7 @@ use POE::Component::DirWatch;
 sub watcher {
     my ($self, $dir, $handler) = @_;
 
-    POE::Component::DirWatch->new(
+    return POE::Component::DirWatch->new(
         alias => 'file_seeker',
         directory => $dir,
         filter => sub { 

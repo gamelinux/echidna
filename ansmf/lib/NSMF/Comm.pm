@@ -47,7 +47,14 @@ sub init {
             my ($kernel, $response) = @_[KERNEL, ARG0];
             
             $kernel->yield(dispatcher => $response);
-            $kernel->delay(send_ping => 30);
+        },
+        ServerError => sub {
+            my ($kernel, $heap) = @_[KERNEL, HEAP];
+            print_status "Lost connection to server...";
+            print_status "Going Down";
+
+            delete $heap->{watcher};
+            $heap->{shutdown} = 1;
         },
         ObjectStates => [
             $proto => $proto->states,

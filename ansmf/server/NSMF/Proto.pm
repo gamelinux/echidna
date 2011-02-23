@@ -11,6 +11,7 @@ use NSMF::ConfigMngr;
 
 use POE;
 
+use Date::Format;
 use Data::Dumper;
 our $VERSION = '0.1';
 
@@ -140,10 +141,16 @@ sub authenticate {
 sub got_ping {
     my ($heap, $input) = @_[HEAP, ARG0];
 
+    my @params    = split /\s+/, $input;
+    my $ping_time = $params[1]; 
+
+    $heap->{ping_recv} = $ping_time if $ping_time;
+
     return unless $heap->{status} eq 'EST' and $heap->{session_id};
 
     print_status "  - Got PING" if $NSMF::DEBUG;
     print_status "  -> " . $input;
+
     my $time = localtime;
     $heap->{client}->put("NSMF/1.0 PONG $time\r\n")
 }
