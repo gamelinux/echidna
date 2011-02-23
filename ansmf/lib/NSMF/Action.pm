@@ -16,10 +16,10 @@ sub watcher {
         	-f $_[0];
         },
         file_callback => sub {
-    	my ($file) = @_;
+    	    my ($file) = @_;
             $self->$handler($file);    	
         },
-        interval => 1,
+        interval => 3,
     );
 }
 

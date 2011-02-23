@@ -101,7 +101,9 @@ sub got_pong {
     my ($kernel, $heap, $response) = @_[KERNEL, HEAP, ARG0];
     print_status "Got PONG ";
     $heap->{ping_recv} = time();
-    say "Latency" if ($heap->{ping_sent} - $heap->{ping_recv}) > 5;
+    if ($heap->{ping_sent}) {
+        say "Latency" if ($heap->{ping_sent} - $heap->{ping_recv}) > 5;
+    }
 }
 
 sub got_ping {

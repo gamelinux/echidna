@@ -47,7 +47,7 @@ sub init {
             my ($kernel, $response) = @_[KERNEL, ARG0];
             
             $kernel->yield(dispatcher => $response);
-            $kernel->delay(send_ping => 3);
+            $kernel->delay(send_ping => 30);
         },
         ObjectStates => [
             $proto => $proto->states,
@@ -61,8 +61,6 @@ sub init {
 
 sub run {
     my ($kernel, $heap) = @_[KERNEL, HEAP];
-
-    $self->hello;
     $self->run($kernel, $heap);
 }
 

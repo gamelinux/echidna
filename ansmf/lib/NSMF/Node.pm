@@ -22,6 +22,8 @@ use Data::Dumper;
 
 our $VERSION = '0.1';
 
+our ($poe_kernel, $poe_heap);
+
 # Constructor
 sub new {
     my $class = shift;
@@ -88,6 +90,23 @@ sub sync {
    return unless  defined_args($self->server, $self->port);
 
    NSMF::Comm::init( $self );  
+}
+
+sub register {
+    my ($self, $kernel, $heap) = @_;
+    $poe_kernel = $kernel;
+    $poe_heap   = $heap;
+
+}
+# Send Data function
+# Requires $poe_heap to be defined with the POE HEAP
+# Must be used only after run() method has been executed.
+sub put {
+    my ($self, $data) = @_;
+
+    return unless ref $poe_heap;
+
+    $poe_heap->{server}->put($data);
 }
 
 # Returns the actual session

@@ -13,14 +13,12 @@ use NSMF::Util;
 
 # POE Imports
 use POE;
-use POE::Component::DirWatch;
 
 # Misc
 use Data::Dumper;
 our $VERSION = '0.1';
 our $cxtdir;
 
-my $poe_heap;
 
 sub new {
     my $class = shift;
@@ -36,24 +34,14 @@ sub  hello {
 sub run {
     my ($self, $kernel, $heap) = @_;
      
-    $poe_heap = $heap; 
     print_status("Running cxtracker processing..");
 
+    $self->hello();
+
     $cxtdir = $self->{__settings}->{cxtdir};
-    my $watcher = $self->watcher($cxtdir, '_process');
+    $self->watcher($cxtdir, '_process') or print_status "Failed to start watcher";
 
     $self->start();
-}
-
-# Send Data function
-# Requires $poe_heap to be defined with the POE HEAP
-# Must be used only after run() method has been executed.
-sub put {
-    my ($data) = @_;
-
-    return unless $poe_heap;
-
-    $poe_heap->{server}->put($data);
 }
 
 sub _process {
