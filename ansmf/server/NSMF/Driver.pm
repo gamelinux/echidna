@@ -3,9 +3,9 @@ use Data::ObjectDriver::Driver::DBI;
 
 sub driver {
     Data::ObjectDriver::Driver::DBI->new(
-        dsn      => 'dbi:mysql:nsmf',
-        username => 'root',
-        password => '$passw0rd..!',
+        dsn      => 'dbi:mysql:openfpc',
+        username => 'openfpc',
+        password => 'openfpc',
     )
 }
 

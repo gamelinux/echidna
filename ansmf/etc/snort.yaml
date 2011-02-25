@@ -1,0 +1,19 @@
+# Node Configuration
+node: 
+    nodename: SNORT
+    netgroup: NETGROUP
+    secret: 9b3b290ed38462494e886667de1093a77e48045f539fd2a18ca49f8fe60b5929
+
+server:
+    server: 127.0.0.1
+    port: 10101
+
+settings:
+    unifiedpath: '/var/log/snort/'
+    basefile: 'snort.log'
+    statefile: '/var/log/snort/waldo.file'
+    genmsg: '/etc/snort/gen-msg.map'
+    sidmsg: '/etc/snort/sid-msg.map'
+    archivedir: '/var/log/barnyard2/'
+
+
