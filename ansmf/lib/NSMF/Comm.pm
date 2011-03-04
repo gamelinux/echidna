@@ -52,9 +52,7 @@ sub init {
             my ($kernel, $heap) = @_[KERNEL, HEAP];
             print_status "Lost connection to server...";
             print_status "Going Down";
-
-            delete $heap->{watcher};
-            $heap->{shutdown} = 1;
+            exit;
         },
         ObjectStates => [
             $proto => $proto->states,

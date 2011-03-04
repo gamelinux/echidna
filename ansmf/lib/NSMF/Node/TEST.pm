@@ -45,6 +45,7 @@ sub run {
     # PUT is our send method, reuses the $heap->{server}->put that we provided to the super class with the $self->register method
     print_status("Sending a custom ping!");
     $self->put("PING " .time(). " NSMF/1.0");
+    $self->put('POST ' .time(). ' NSMF/1.0' . "\nMYDATA");
 }
 
 sub  hello {

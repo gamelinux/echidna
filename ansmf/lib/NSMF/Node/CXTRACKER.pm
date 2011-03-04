@@ -19,7 +19,10 @@ use Data::Dumper;
 our $VERSION = '0.1';
 our $cxtdir;
 
-
+sub found {
+    my ($self, $file) = @_;
+    say "Found $file";
+}
 sub new {
     my $class = shift;
     my $node = $class->SUPER::new;
@@ -39,26 +42,25 @@ sub run {
     $self->hello();
 
     $cxtdir = $self->{__settings}->{cxtdir};
-    $heap->{watcher} = $self->watcher($cxtdir, '_process');
+    $heap->{watcher} = $self->file_watcher({
+        directory => $cxtdir,
+        callback  => '_process',
+        interval  => 3
+    });
 
     $self->start();
 }
 
 sub _process {
     my ($self, $file) = @_;
-
     my $cxtdir = $self->{__settings}->{cxtdir};
-
+    
+    return unless defined $file  and -r -w -f $file;
+    say "Processing $file";
     print_error 'CXTDIR undefined!' unless $cxtdir;
-
-    my @FILES;
-    if( -r -w -f $file ) {
-        push( @FILES, $file );
-    }
 
     my ($sessions, $start_time, $end_time, $process_time, $result);
 
-    foreach my $file ( @FILES ) {
 
         say "[*] Found file: $file";
 
@@ -70,17 +72,14 @@ sub _process {
         say "[*] File $file processed in $process_time seconds" if (NSMF::DEBUG);
 
         $start_time   = $end_time;
-        $result       = $self->put($sessions);
+        $self->put($sessions);
         $end_time     = time();
         $process_time = $end_time - $start_time;
 
-        if ($result == 0) {
-            print "[*] Session record sent in $process_time seconds" if (NSMF::DEBUG);
-        }
+        print "[*] Session record sent in $process_time seconds" if (NSMF::DEBUG);
 
         say "[W] Deleting file: $file";
         unlink($file) or print_error "Failed to delete $file";
-    }
 }
 
 =head2 _get_sessions

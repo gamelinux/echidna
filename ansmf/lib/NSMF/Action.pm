@@ -3,25 +3,40 @@ package NSMF::Action;
 use strict;
 use v5.10;
 
-use POE::Component::DirWatch;
+use POE;
+use NSMF::Util;
 
-#  Returns a POE::Component::DirWatch session
-sub watcher {
-    my ($self, $dir, $handler) = @_;
+sub file_watcher {
+    my ($self, $settings) = @_;
 
-    return POE::Component::DirWatch->new(
-        alias => 'file_seeker',
-        directory => $dir,
-        filter => sub { 
-        	-f $_[0];
-        },
-        file_callback => sub {
-    	    my ($file) = @_;
-            $self->$handler($file);    	
-        },
-        interval => 3,
+    print_error "Expected hash ref of parameters" unless ref $settings;
+
+    my $dir      = $settings->{directory}  // print_error "Directory Expected";
+    my $time     = $settings->{interval}   // 3;
+    my $callback = $settings->{callback}   // print_error "Callback Expected";
+
+    return POE::Session->create(
+        inline_states => {
+            _start => sub { 
+                $_[KERNEL]->yield('watch'); 
+                $_[KERNEL]->alias_set('file_seeker');
+            },
+            watch => sub {
+                my ($kernel) = $_[KERNEL];
+                my $file_back;
+                opendir my $dh, $dir or die "Could not open $dir";
+                while ( my $file = readdir($dh)) {
+                    if ( -f "$dir/$file") {
+                        $file_back = $dir . $file;
+                        last;
+                    }
+                } 
+                closedir $dh;
+                $self->$callback($file_back);
+                $kernel->delay( watch => $time);
+            },
+        }
     );
 }
-
 
 1;

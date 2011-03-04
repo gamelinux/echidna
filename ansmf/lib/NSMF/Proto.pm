@@ -59,10 +59,13 @@ sub dispatcher {
         when(/PONG/) {
            $action = 'got_pong'; 
         }
+        default: {
+            say "Woot?";
+        }
     }
     $kernel->yield($action) if $action;
 
-    $kernel->delay(send_ping => 30) unless $heap->{shutdown};
+    $kernel->delay(send_ping => 5) unless $heap->{shutdown};
 
 }
 
