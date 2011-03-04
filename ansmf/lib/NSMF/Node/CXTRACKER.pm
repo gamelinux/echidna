@@ -45,7 +45,8 @@ sub run {
     $heap->{watcher} = $self->file_watcher({
         directory => $cxtdir,
         callback  => '_process',
-        interval  => 3
+        interval  => 3,
+        pattern   => 'stats\..+\.(\d){10}'
     });
 
     $self->start();
