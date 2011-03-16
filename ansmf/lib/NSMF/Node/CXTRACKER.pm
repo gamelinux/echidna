@@ -77,7 +77,7 @@ sub _process {
         $end_time     = time();
         $process_time = $end_time - $start_time;
 
-        print "[*] Session record sent in $process_time seconds" if (NSMF::DEBUG);
+        say "[*] Session record sent in $process_time seconds" if (NSMF::DEBUG);
 
         say "[W] Deleting file: $file";
         unlink($file) or print_error "Failed to delete $file";
