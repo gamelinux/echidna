@@ -16,6 +16,7 @@ use NSMF::ConfigMngr;
 
 # Misc
 use Data::Dumper;
+
 our $VERSION = '0.1';
 
 # Configuration
@@ -23,7 +24,7 @@ my $config  = NSMF::ConfigMngr->instance;
 my $proto   = NSMF::Proto->instance;
 
 # Server 
-POE::Component::Server::TCP->new(
+new POE::Component::Server::TCP(
     Alias              => $config->name,
     Address            => $config->address,
     Port               => $config->port,
@@ -31,7 +32,6 @@ POE::Component::Server::TCP->new(
     ClientDisconnected => \&disconnected,
     ClientInput => sub { 
         my ($kernel, $heap, $input) = @_[KERNEL, HEAP, ARG0];
-
         $kernel->yield('dispatcher', $input);
     },
     ClientFilter => "POE::Filter::Stream",
@@ -46,9 +46,11 @@ sub connected {
     }
 
     # Initialization
+    $heap->{status}     = 'REQ';
     $heap->{nodename}   = undef;
     $heap->{session_id} = undef;
     $heap->{netgroup}   = undef;
+    $heap->{modules_sessions} = [];
 }
 
 sub disconnected {

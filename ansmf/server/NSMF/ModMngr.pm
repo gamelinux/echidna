@@ -10,15 +10,16 @@ use strict;
 use v5.10;
 
 sub load {
-    my ($module_name) = @_;
- 
-    my $module_path;
-    my $config = NSMF::ConfigMngr->instance;
-    my $modules = $config->{modules};
+    my ($self, $module_name) = @_;
 
-    if ($module_name ~~ @$modules) {
+    my $module_path;
+    my $config  = NSMF::ConfigMngr->instance;
+    my $modules = $config->{modules};
+    
+    if (lc $module_name ~~ @$modules) {
     
         $module_path = 'NSMF::Module::' . uc($module_name);
+        say $module_path;
         eval "use $module_path";
 
         if($@) {
@@ -28,7 +29,7 @@ sub load {
         }
     }
 
-    return "No Modules enabled"; 
+    return; 
 }
 
 1;

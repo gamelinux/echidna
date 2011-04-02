@@ -1,4 +1,4 @@
-package NSMF::Comm;
+package NSMF::Core;
 
 use strict;
 use v5.10;
@@ -61,11 +61,11 @@ sub init {
             run => \&run,
         }
     );
-
 }
 
 sub run {
     my ($kernel, $heap) = @_[KERNEL, HEAP];
+    say "Calling run";
     $self->run($kernel, $heap);
 }
 

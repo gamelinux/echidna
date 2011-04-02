@@ -7,9 +7,7 @@ use base qw(NSMF::Action);
 
 # NSMF Imports
 use NSMF;
-use NSMF::Net;
-use NSMF::Comm qw(init);
-use NSMF::Auth;
+use NSMF::Core qw(init);
 use NSMF::Util;
 use NSMF::Config;
 
@@ -19,6 +17,8 @@ use POE;
 # Misc 
 use POSIX;
 use Data::Dumper;
+
+use Carp;
 
 our $VERSION = '0.1';
 
@@ -36,6 +36,7 @@ sub new {
         port        => undef,
     	secret      => undef,
         config_path => undef,
+        __data      => {},
     	__handlers => {
 	    	_net     => undef,
     		_db      => undef,
@@ -81,22 +82,19 @@ sub config {
         netgroup => $self->netgroup,
         secret   => $self->secret,
     };
-
 }
 
 sub sync {
    my ($self) = @_;
 
    return unless  defined_args($self->server, $self->port);
-
-   NSMF::Comm::init( $self );  
+   NSMF::Core::init( $self );  
 }
 
 sub register {
     my ($self, $kernel, $heap) = @_;
     $poe_kernel = $kernel;
     $poe_heap   = $heap;
-
 }
 # Send Data function
 # Requires $poe_heap to be defined with the POE HEAP
@@ -109,6 +107,40 @@ sub put {
     $poe_heap->{server}->put($data);
 }
 
+sub ping {
+    my ($self) = @_;
+    return unless ref $poe_heap;
+    
+    my $payload = 'PING ' .time(). ' NSMF/1.0';
+    $poe_heap->{server}->put($payload);
+}
+
+sub post {
+    my ($self, $type, $data) = @_;
+
+   if (ref $type) {
+       my %hash = %$type;
+       $type = keys %hash;
+       $data = $hash{$type};
+   } 
+   my @valid_types = qw(
+        pcap
+        cxt
+    );
+    croak 'POST Data Type Not Supported'
+        unless $type ~~ @valid_types;
+
+    croak 'POE HEAP Instance Not Found' 
+        unless ref $poe_heap;
+
+    srand (time ^ $$ ^ unpack "%L*", `ps axww | gzip -f`);
+    say '   [*] Payload Length: ' .length $data;
+
+    my $payload = 'POST ' .$type. ' ' . int(rand(10000)). " NSMF/1.0\r\n\n";
+    $payload   .= $data;
+    say Dumper $payload;
+    #$poe_heap->{server}->put($payload);
+}
 # Returns the actual session
 sub session {
     my ($self) = @_;

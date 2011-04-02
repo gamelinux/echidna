@@ -8,7 +8,6 @@ use base qw(NSMF::Node);
 
 # NSMF Imports
 use NSMF;
-use NSMF::Net;
 use NSMF::Util;
 
 # POE Imports
@@ -18,18 +17,6 @@ use POE;
 use Data::Dumper;
 our $VERSION = '0.1';
 our $cxtdir;
-
-sub found {
-    my ($self, $file) = @_;
-    say "Found $file";
-}
-sub new {
-    my $class = shift;
-    my $node = $class->SUPER::new;
-    $node->{__data} = {};
-
-    return $node;
-}
 
 sub  hello {
     say "Hello from CXTRACKER Node!!";

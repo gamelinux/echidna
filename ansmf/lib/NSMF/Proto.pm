@@ -6,6 +6,8 @@ use v5.10;
 use POE;
 use NSMF::Util;
 use Data::Dumper;
+use Compress::Zlib;
+use MIME::Base64;
 
 my $instance;
 
@@ -25,10 +27,16 @@ sub states {
 
     return [
         'dispatcher',
+
+        ## Authentication
         'authenticate',
         'identify',
+
+        # -> To Server
         'send_ping',
         'send_pong',
+
+        # -> From Server
         'got_ping',
         'got_pong',
     ];
@@ -37,39 +45,69 @@ sub states {
 sub dispatcher {
     my ($kernel, $heap, $request) = @_[KERNEL, HEAP, ARG0];
 
+    say "  [error] Response is Empty" unless $request;
+
     my $action = '';
-    given($request) {
-        when(/FOUND/) {
-            given($heap->{stage}) {
-                when('REQ') {
+    given($heap->{stage}) {
+        when(/REQ/) {
+            given($request) {
+                when(/^NSMF\/1.0 200 OK ACCEPTED/i) { 
                     $action = 'identify';
-                } default: {
-                    return;
-                }
+                    say "  [response] = OK ACCEPTED"; }
+                when(/^NSMF\/1.0 UNSUPPORTED/i) { 
+                    say "  [response] = NOT ACCEPTED"; 
+                    return; }
+                default: {
+                    say " UNKNOWN RESPONSE: $request";
+                    return; }
             }
         }
-        when(/NSMF\/1.0 200 OK ACCEPTED/i) {
-            if ($heap->{stage} eq 'SYN') {
-                $heap->{stage} = 'EST';
-                say 'We are wired in baby!';
-                $kernel->yield('run');
-                return;
-            } 
+        when(/SYN/i) {
+            given($request) {
+                when(/^NSMF\/1.0 200 OK ACCEPTED/i) { 
+                    $heap->{stage} = 'EST';
+                    say "  [response] = OK ACCEPTED";
+                    $kernel->yield('run');
+                    $kernel->delay(ping => 3);
+                    return; }
+                when(/^NSMF\/1.0 401 UNAUTHORIZED/i) { 
+                    say "  [response] = UNAUTHORIZED"; 
+                    return; }
+                default: {
+                    say " UNKNOWN RESPONSE: $request";
+                    return; }
+            }
         }
-        when(/PONG/) {
-           $action = 'got_pong'; 
-        }
-        default: {
-            say "Woot?";
+        when(/EST/i) {
+            given($request) {
+                when(/^NSMF\/1.0 200 OK ACCEPTED/i) {
+                     say "  -> EST ACCEPTED";
+                }
+                when(/^NSMF\/1.0 PONG (\d)+/i) {
+                    $action = 'got_pong'; }
+                when(/POST/i) {
+                    my $req = parse_request(post => $request);
+    
+                    unless (ref $req eq 'POST') {
+                        say "Failed to parse";
+                        return;
+                    }
+                    my $data = uncompress(decode_base64( $req->{data} ));
+                    say "Method: " .$req->{method};
+                    say "Params: " .$req->{param};
+                    say Dumper $data; }
+                default: {
+                    say " UNKNOWN RESPONSE: $request";
+                    return; }
+            }
         }
     }
     $kernel->yield($action) if $action;
 
-    $kernel->delay(send_ping => 5) unless $heap->{shutdown};
+#    $kernel->delay(send_ping => 5) unless $heap->{shutdown};
 
 }
-
-# Stage REQ
+################ AUTHENTICATE ###################
 sub authenticate {
     my ($kernel, $heap, $response) = @_[KERNEL, HEAP, ARG0];
     my $nodename = $heap->{nodename};
@@ -79,43 +117,33 @@ sub authenticate {
     $heap->{server}->put("AUTH $nodename $netgroup NSMF/1.0");
 }
 
-# Stage SYN
 sub identify {
     my ($kernel, $heap, $response) = @_[KERNEL, HEAP, ARG0];
 
     my ($nodename, $key) = ($heap->{nodename}, '1234');
-    print_status 'Identifying..';
+    say 'Identifying..';
     print_error('Nodename, Secret not defined on Identification Stage') unless defined_args($nodename, $key);
 
     $heap->{stage} = 'SYN';     
     $heap->{server}->put("ID $key $nodename NSMF/1.0");
 }
 
+################ END AUTHENTICATE ##################
+
+################ KEEP ALIVE ###################
 sub send_ping {
-    my ($kernel, $heap, $response) = @_[KERNEL, HEAP, ARG0];
+    my ($kernel, $heap) = @_[KERNEL, HEAP];
 
     return if $heap->{shutdown};
 
     # Verify Established Connection
     return unless $heap->{stage} eq 'EST';
 
-    print_status "Sending PING..";
+    say "    -> Sending PING..";
 
-    $heap->{server}->put("PING " .time(). " NSMF/1.0");
-    $heap->{ping_sent} = time();
-}
-
-sub got_pong {
-    my ($kernel, $heap, $response) = @_[KERNEL, HEAP, ARG0];
-    print_status "Got PONG ";
-    $heap->{ping_recv} = time();
-    if ($heap->{ping_sent}) {
-        say "Latency" if ($heap->{ping_sent} - $heap->{ping_recv}) > 5;
-    }
-}
-
-sub got_ping {
-    my ($kernel, $heap, $response) = @_[KERNEL, HEAP, ARG0];
+    my $ping_sent = time();
+    $heap->{server}->put("PING " .$ping_sent. " NSMF/1.0");
+    $heap->{ping_sent} = $ping_sent;
 }
 
 sub send_pong {
@@ -124,9 +152,26 @@ sub send_pong {
     # Verify Established Connection
     return unless $heap->{stage} eq 'EST';
 
-    $heap->{server}->put("PONG " .time(). " NSMF/1.0");
-    print_status "Sending PONG..";
-    $heap->{ping_sent} = time();
+    my $ping_time = time();
+    $heap->{server}->put("PONG " .$ping_time. " NSMF/1.0");
+    say "Sending PONG..";
+    $heap->{ping_sent} = $ping_time;
+}
+
+sub got_pong {
+    my ($kernel, $heap, $response) = @_[KERNEL, HEAP, ARG0];
+    say "    <- Got PONG ";
+    $heap->{ping_recv} = time();
+
+    if ($heap->{ping_sent}) {
+        say "Latency" if ($heap->{ping_sent} - $heap->{ping_recv}) > 5;
+    }
+
+    $kernel->delay(send_ping => 3);
+}
+
+sub got_ping {
+    my ($kernel, $heap, $response) = @_[KERNEL, HEAP, ARG0];
 }
 
 sub is_alive {
@@ -136,14 +181,68 @@ sub is_alive {
         say "There is latency..";
     }
 }
+################ END KEEP ALIVE ###################
 
-sub got_ok {
-    my ($kernel, $arg) = @_[KERNEL, ARG0];
-    say "Got OK!: $arg";
+sub parse_post {
+    my ($request) = @_;
+    my @data   = split '\s+', $request;
+
+    return unless scalar @data == 4;
+
+    return {
+        method => $data[0],
+        param  => $data[1],
+        tail   => $data[2],
+        data   => $data[3],
+    };
 }
 
-sub send_data {
-    
+sub parse_request {
+    my ($type, $input) = @_;
+
+    if (ref $type) {
+        my %hash = %$type;
+        $type = keys %hash;
+        $input = $hash{$type};
+    }
+    my @types = (
+        'auth',
+        'get',
+        'post',
+    );
+
+    return unless grep $type, @types;
+    return unless defined $input;
+
+    my @request = split '\s+', $input;
+    given($type) {
+        when(/AUTH/i) { 
+            return bless { 
+                method   => $request[0],
+                nodename => $request[1],
+                netgroup => $request[2],
+                tail     => $request[3],
+            }, 'AUTH';
+        }
+        when(/GET/i) {
+            return bless {
+                method => $request[0] // undef,
+                type   => $request[1] // undef,
+                job_id => $request[2] // undef,
+                tail   => $request[3] // undef,
+                query  => $request[4] // undef,
+            }, 'POST';
+        }
+        when(/POST/i) {
+            return bless {
+                method => $request[0] // undef,
+                type   => $request[1] // undef,
+                job_id => $request[2] // undef,
+                tail   => $request[3] // undef,
+                data   => $request[4] // undef,
+            }, 'POST';
+        }
+    }
 }
 
 1;
