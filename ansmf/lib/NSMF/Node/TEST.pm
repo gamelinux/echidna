@@ -39,22 +39,13 @@ sub run {
  
     say "    -> Sending Custom PING";
     $self->ping();
-#    my $payload = encode_base64( compress( "Z"x100000 ) );
-#    $self->post(pcap => $payload)
+    my $payload = encode_base64( compress( "1"x34850 ) );
+    $self->post(pcap => $payload);
+#    say Dumper uncompress(decode_base64($payload));
 #    open my $file2, '>', '/tmp/test.pdf' or die 'Cant open file';
 #    print $file2 uncompress(decode_base64 $payload);
 
 
-#    print_status "Sending a POST";
-#    my $payload = encode_base64( compress( "Z"x100000 ) );
-    #$self->put(
-    #    'POST '.
-    #    'PCAP '. 
-    #    '123434 '.
-    #    'NSMF/1.0'. 
-    #    "\r\n". 
-    #    $payload
-    #);
 
 }
 

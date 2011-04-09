@@ -35,8 +35,6 @@ sub run {
         interval  => 3,
         pattern   => 'stats\..+\.(\d){10}'
     });
-
-    $self->start();
 }
 
 sub _process {

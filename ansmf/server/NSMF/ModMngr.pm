@@ -19,11 +19,10 @@ sub load {
     if (lc $module_name ~~ @$modules) {
     
         $module_path = 'NSMF::Module::' . uc($module_name);
-        say $module_path;
         eval "use $module_path";
 
         if($@) {
-            print_error "Failed to Load Module $module_name";
+            die "Failed to Load Module $module_name";
         } else {
             return $module_path->new;
         }

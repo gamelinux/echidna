@@ -80,11 +80,13 @@ sub dispatcher {
         }
         when(/EST/i) {
             given($request) {
-                when(/^NSMF\/1.0 200 OK ACCEPTED/i) {
+                when(/^NSMF\/1.0 200 OK ACCEPTED\r\n$/i) {
                      say "  -> EST ACCEPTED";
                 }
-                when(/^NSMF\/1.0 PONG (\d)+/i) {
+                when(/^PONG (\d)+ NSMF\/1.0\r\n$/i) {
                     $action = 'got_pong'; }
+                when(/^PING (\d)+ NSMF\/1.0\r\n$/i) {
+                    $action = 'got_ping'; }
                 when(/POST/i) {
                     my $req = parse_request(post => $request);
     
@@ -95,17 +97,17 @@ sub dispatcher {
                     my $data = uncompress(decode_base64( $req->{data} ));
                     say "Method: " .$req->{method};
                     say "Params: " .$req->{param};
-                    say Dumper $data; }
+#                    say Dumper $data; 
+                    }
                 default: {
                     say " UNKNOWN RESPONSE: $request";
+#                    say Dumper $request;
                     return; }
             }
         }
     }
+
     $kernel->yield($action) if $action;
-
-#    $kernel->delay(send_ping => 5) unless $heap->{shutdown};
-
 }
 ################ AUTHENTICATE ###################
 sub authenticate {
@@ -142,7 +144,7 @@ sub send_ping {
     say "    -> Sending PING..";
 
     my $ping_sent = time();
-    $heap->{server}->put("PING " .$ping_sent. " NSMF/1.0");
+    $heap->{server}->put("PING " .$ping_sent. " NSMF/1.0\r\n");
     $heap->{ping_sent} = $ping_sent;
 }
 
@@ -153,96 +155,37 @@ sub send_pong {
     return unless $heap->{stage} eq 'EST';
 
     my $ping_time = time();
-    $heap->{server}->put("PONG " .$ping_time. " NSMF/1.0");
-    say "Sending PONG..";
+    $heap->{server}->put("PONG " .$ping_time. " NSMF/1.0\r\n");
+    say "    -> Sending PONG..";
     $heap->{ping_sent} = $ping_time;
-}
-
-sub got_pong {
-    my ($kernel, $heap, $response) = @_[KERNEL, HEAP, ARG0];
-    say "    <- Got PONG ";
-    $heap->{ping_recv} = time();
-
-    if ($heap->{ping_sent}) {
-        say "Latency" if ($heap->{ping_sent} - $heap->{ping_recv}) > 5;
-    }
-
-    $kernel->delay(send_ping => 3);
 }
 
 sub got_ping {
     my ($kernel, $heap, $response) = @_[KERNEL, HEAP, ARG0];
+
+    # Verify Established Connection
+    return unless $heap->{stage} eq 'EST';
+
+    say "    <- Got PING ";
+    $heap->{ping_recv} = time();
+
+    $kernel->yield('send_pong');
 }
 
-sub is_alive {
-    my ($kernel, $heap) = @_[KERNEL, HEAP];
-    my $interval = time() - $heap->{ping_recv};
-    if ( $interval > 4) {
-        say "There is latency..";
-    }
+sub got_pong {
+    my ($kernel, $heap, $response) = @_[KERNEL, HEAP, ARG0];
+
+    # Verify Established Connection
+    return unless $heap->{stage} eq 'EST';
+
+    say "    <- Got PONG ";
+    say "    ----------------";
+    $heap->{pong_recv} = time();
+
+    $kernel->delay(send_ping => 60);
 }
+
 ################ END KEEP ALIVE ###################
 
-sub parse_post {
-    my ($request) = @_;
-    my @data   = split '\s+', $request;
-
-    return unless scalar @data == 4;
-
-    return {
-        method => $data[0],
-        param  => $data[1],
-        tail   => $data[2],
-        data   => $data[3],
-    };
-}
-
-sub parse_request {
-    my ($type, $input) = @_;
-
-    if (ref $type) {
-        my %hash = %$type;
-        $type = keys %hash;
-        $input = $hash{$type};
-    }
-    my @types = (
-        'auth',
-        'get',
-        'post',
-    );
-
-    return unless grep $type, @types;
-    return unless defined $input;
-
-    my @request = split '\s+', $input;
-    given($type) {
-        when(/AUTH/i) { 
-            return bless { 
-                method   => $request[0],
-                nodename => $request[1],
-                netgroup => $request[2],
-                tail     => $request[3],
-            }, 'AUTH';
-        }
-        when(/GET/i) {
-            return bless {
-                method => $request[0] // undef,
-                type   => $request[1] // undef,
-                job_id => $request[2] // undef,
-                tail   => $request[3] // undef,
-                query  => $request[4] // undef,
-            }, 'POST';
-        }
-        when(/POST/i) {
-            return bless {
-                method => $request[0] // undef,
-                type   => $request[1] // undef,
-                job_id => $request[2] // undef,
-                tail   => $request[3] // undef,
-                data   => $request[4] // undef,
-            }, 'POST';
-        }
-    }
-}
 
 1;

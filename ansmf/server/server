@@ -6,7 +6,6 @@ use strict;
 # POE Imports
 use POE;
 use POE::Component::Server::TCP;
-use POE::Filter::Reference;
 
 # NSMF Imports
 use NSMF;

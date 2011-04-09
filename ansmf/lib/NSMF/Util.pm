@@ -6,7 +6,14 @@ use base qw(Exporter);
 use DateTime;
 use Data::Dumper;
 use Carp qw(croak);
-our @EXPORT = qw(print_status print_error defined_args debug log);
+our @EXPORT = qw(
+    parse_request
+    print_status 
+    print_error 
+    defined_args 
+    debug 
+    log
+);
 our $VERSION = '0.1';
 
 sub verify_node {
@@ -61,6 +68,54 @@ sub log {
     say $fh $dt->datetime;
     say $fh Dumper $message;
     close $fh;
+}
+
+sub parse_request {
+    my ($type, $input) = @_;
+
+    if (ref $type) {
+        my %hash = %$type;
+        $type = keys %hash;
+        $input = $hash{$type};
+    }
+    my @types = (
+        'auth',
+        'get',
+        'post',
+    );
+
+    return unless grep $type, @types;
+    return unless defined $input;
+
+    my @request = split '\s+', $input;
+    given($type) {
+        when(/AUTH/i) { 
+            return bless { 
+                method   => $request[0],
+                nodename => $request[1],
+                netgroup => $request[2],
+                tail     => $request[3],
+            }, 'AUTH';
+        }
+        when(/GET/i) {
+            return bless {
+                method => $request[0] // undef,
+                type   => $request[1] // undef,
+                job_id => $request[2] // undef,
+                tail   => $request[3] // undef,
+                query  => $request[4] // undef,
+            }, 'POST';
+        }
+        when(/POST/i) {
+            return bless {
+                method => $request[0] // undef,
+                type   => $request[1] // undef,
+                job_id => $request[2] // undef,
+                tail   => $request[3] // undef,
+                data   => $request[4] // undef,
+            }, 'POST';
+        }
+    }
 }
 
 1;

@@ -11,6 +11,8 @@ use NSMF::Core qw(init);
 use NSMF::Util;
 use NSMF::Config;
 
+use MIME::Base64;
+use Compress::Zlib;
 # POE Imports
 use POE;
 
@@ -111,7 +113,7 @@ sub ping {
     my ($self) = @_;
     return unless ref $poe_heap;
     
-    my $payload = 'PING ' .time(). ' NSMF/1.0';
+    my $payload = 'PING ' .time(). ' NSMF/1.0' ."\r\n";
     $poe_heap->{server}->put($payload);
 }
 
@@ -135,11 +137,10 @@ sub post {
 
     srand (time ^ $$ ^ unpack "%L*", `ps axww | gzip -f`);
     say '   [*] Payload Length: ' .length $data;
-
+   
     my $payload = 'POST ' .$type. ' ' . int(rand(10000)). " NSMF/1.0\r\n\n";
     $payload   .= $data;
-    say Dumper $payload;
-    #$poe_heap->{server}->put($payload);
+    $poe_heap->{server}->put($payload);
 }
 # Returns the actual session
 sub session {
@@ -186,7 +187,6 @@ sub secret {
 }
 
 sub start {
-    POE::Kernel->run();
+    POE::Kernel->run;
 }
-
 1;

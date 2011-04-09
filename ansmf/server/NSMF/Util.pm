@@ -21,12 +21,9 @@ sub parse_request {
     my ($type, $input) = @_;
 
     if (ref $type) {
-        say "Isi";
         my %hash = %$type;
         $type = keys %hash;
         $input = $hash{$type};
-        say Dumper $type;
-        say Dumper $input;
     }
     my @types = (
         'auth',
@@ -54,7 +51,7 @@ sub parse_request {
                 job_id => $request[2] // undef,
                 tail   => $request[3] // undef,
                 query  => $request[4] // undef,
-            }, 'POST';
+            }, 'GET';
         }
         when(/post/i) {
             return bless {
