@@ -3,7 +3,6 @@ package NSMF::Util;
 use strict;
 use v5.10;
 use base qw(Exporter);
-use DateTime;
 use Data::Dumper;
 use Carp qw(croak);
 our @EXPORT = qw(
