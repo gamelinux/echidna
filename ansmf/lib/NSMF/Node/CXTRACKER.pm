@@ -24,6 +24,7 @@ sub  hello {
 sub run {
     my ($self, $kernel, $heap) = @_;
      
+    $self->register($kernel, $heap);
     print_status("Running cxtracker processing..");
 
     $self->hello();
@@ -47,25 +48,25 @@ sub _process {
 
     my ($sessions, $start_time, $end_time, $process_time, $result);
 
+    say "[*] Found file: $file";
 
-        say "[*] Found file: $file";
+    $start_time   = time();
+    $sessions     = _get_sessions($file);
+    $end_time     = time();
+    $process_time = $end_time - $start_time;
 
-        $start_time   = time();
-        $sessions     = _get_sessions($file);
-        $end_time     = time();
-        $process_time = $end_time - $start_time;
+    say "[*] File $file processed in $process_time seconds" if (NSMF::DEBUG);
 
-        say "[*] File $file processed in $process_time seconds" if (NSMF::DEBUG);
+    $start_time   = $end_time;
+    say Dumper $sessions;
+    $self->post(cxt => $sessions);
+    $end_time     = time();
+    $process_time = $end_time - $start_time;
 
-        $start_time   = $end_time;
-        $self->put($sessions);
-        $end_time     = time();
-        $process_time = $end_time - $start_time;
+    print "[*] Session record sent in $process_time seconds" if (NSMF::DEBUG);
 
-        print "[*] Session record sent in $process_time seconds" if (NSMF::DEBUG);
-
-        say "[W] Deleting file: $file";
-        unlink($file) or print_error "Failed to delete $file";
+    say "[W] Deleting file: $file";
+    #unlink($file) or print_error "Failed to delete $file";
 }
 
 =head2 _get_sessions
@@ -108,7 +109,7 @@ sub _get_sessions {
             if ( $sessions_data eq "" ) {
                 $sessions_data = "$line";
             } else {
-                $sessions_data = "$sessions_data\n$line";
+                $sessions_data .= "\n$line";
             }
       }
 

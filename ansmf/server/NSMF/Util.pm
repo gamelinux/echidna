@@ -38,8 +38,8 @@ sub parse_request {
         when(/auth/i) { 
             return bless { 
                 method   => $request[0],
-                nodename => $request[1],
-                netgroup => $request[2],
+                agent    => $request[1],
+                key       => $request[2],
                 tail     => $request[3],
             }, 'AUTH';
         }
@@ -53,12 +53,15 @@ sub parse_request {
             }, 'GET';
         }
         when(/post/i) {
+
+            my @data;
+            push @data, $request[$_] for (4..$#request);
             return bless {
                 method => $request[0] // undef,
                 type   => $request[1] // undef,
                 job_id => $request[2] // undef,
                 tail   => $request[3] // undef,
-                data   => $request[4] // undef,
+                data   => \@data // undef,
             }, 'POST';
         }
     }

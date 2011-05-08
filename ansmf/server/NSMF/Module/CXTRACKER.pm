@@ -7,6 +7,11 @@ use POE::Filter::Reference;
 use base qw(NSMF::Module);
 use Data::Dumper;
 
+sub new {
+    my $class = shift;
+    return bless {}, $class;
+}
+
 my $filter = POE::Filter::Reference->new;
 sub run {  
     my ($self) = @_;

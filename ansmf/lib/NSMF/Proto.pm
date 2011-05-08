@@ -54,7 +54,7 @@ sub dispatcher {
                 when(/^NSMF\/1.0 200 OK ACCEPTED/i) { 
                     $action = 'identify';
                     say "  [response] = OK ACCEPTED"; }
-                when(/^NSMF\/1.0 UNSUPPORTED/i) { 
+                when(/^NSMF\/1.0 UNAUTHORIZED/i) { 
                     say "  [response] = NOT ACCEPTED"; 
                     return; }
                 default: {
@@ -70,8 +70,8 @@ sub dispatcher {
                     $kernel->yield('run');
                     $kernel->delay(ping => 3);
                     return; }
-                when(/^NSMF\/1.0 401 UNAUTHORIZED/i) { 
-                    say "  [response] = UNAUTHORIZED"; 
+                when(/^NSMF\/1.0 401 UNSUPPORTED/i) { 
+                    say "  [response] = UNSUPPORTED"; 
                     return; }
                 default: {
                     say " UNKNOWN RESPONSE: $request";
@@ -112,22 +112,25 @@ sub dispatcher {
 ################ AUTHENTICATE ###################
 sub authenticate {
     my ($kernel, $heap, $response) = @_[KERNEL, HEAP, ARG0];
-    my $nodename = $heap->{nodename};
-    my $netgroup = $heap->{netgroup};
 
     $heap->{stage} = 'REQ';
-    $heap->{server}->put("AUTH $nodename $netgroup NSMF/1.0");
+    my $agent    = $heap->{agent};
+    my $secret   = $heap->{secret};
+
+    my $payload = "AUTH $agent $secret NSMF/1.0";
+    $heap->{server}->put($payload);
 }
 
 sub identify {
     my ($kernel, $heap, $response) = @_[KERNEL, HEAP, ARG0];
 
-    my ($nodename, $key) = ($heap->{nodename}, '1234');
-    say 'Identifying..';
-    print_error('Nodename, Secret not defined on Identification Stage') unless defined_args($nodename, $key);
+    my $nodename = $heap->{nodename};
+    my $payload = "ID " .$nodename. " NSMF/1.0";
+    say '-> Identifying ' .$nodename;
+    print_error 'Nodename, Secret not defined on Identification Stage' unless defined_args($nodename);
 
     $heap->{stage} = 'SYN';     
-    $heap->{server}->put("ID $key $nodename NSMF/1.0");
+    $heap->{server}->put("ID $nodename NSMF/1.0");
 }
 
 ################ END AUTHENTICATE ##################

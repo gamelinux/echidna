@@ -37,6 +37,7 @@ sub init {
             $_[HEAP]->{nodename} = $self->nodename;
             $_[HEAP]->{netgroup} = $self->netgroup;
             $_[HEAP]->{secret}   = $self->secret;
+            $_[HEAP]->{agent}    = $self->agent;
 
             $_[KERNEL]->yield('authenticate');
         },
@@ -65,11 +66,8 @@ sub init {
 
 sub run {
     my ($kernel, $heap) = @_[KERNEL, HEAP];
-    say "Calling run";
+    say "-> Calling run";
     $self->run($kernel, $heap);
 }
-
-
-
 
 1;

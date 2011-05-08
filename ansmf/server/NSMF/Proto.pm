@@ -6,7 +6,7 @@ use strict;
 use NSMF;
 use NSMF::Util;
 use NSMF::ModMngr;
-use NSMF::Credential;
+use NSMF::AuthMngr;
 use NSMF::ConfigMngr;
 
 use POE;
@@ -43,8 +43,8 @@ sub states {
 
     return [
         'dispatcher',
-        'auth_request',
         'authenticate',
+        'identify',
         'got_ping',
         'got_pong',
         'got_post',
@@ -63,19 +63,19 @@ sub dispatcher {
     my ($kernel, $request) = @_[KERNEL, ARG0];
 
     my $AUTH_REQUEST = '^AUTH (\w+) (\w+) NSMF\/1.0$';
-    my $ID_REQUEST   = '^ID (\w)+ (\w)+ NSMF\/1.0$';
-    my $PING_REQUEST = 'PING (\d)+ NSMF/1.0' ."\r\n";
-    my $PONG_REQUEST = 'PONG (\d)+ NSMF/1.0' ."\r\n";
+    my $ID_REQUEST   = '^ID (\w)+ NSMF\/1.0$';
+    my $PING_REQUEST = 'PING (\d)+ NSMF/1.0';
+    my $PONG_REQUEST = 'PONG (\d)+ NSMF/1.0';
     my $POST_REQUEST = '^POST (\w)+ (\d)+ NSMF\/1.0'."\r\n\n".'(\w)+';
     my $GET_REQUEST  = '^GET (\w)+ NSMF\/1.0$';
 
     my $action;
 
     given($request) {
-        when(/$AUTH_REQUEST/i) { $action = 'auth_request' }
-        when(/$ID_REQUEST/i)   { $action = 'authenticate' }
-        when(/^$PING_REQUEST$/i) { $action = 'got_ping' }
-        when(/^$PONG_REQUEST$/i) { $action = 'got_pong' }
+        when(/$AUTH_REQUEST/i) { $action = 'authenticate' }
+        when(/$ID_REQUEST/i)   { $action = 'identify' }
+        when(/^$PING_REQUEST/i) { $action = 'got_ping' }
+        when(/^$PONG_REQUEST/i) { $action = 'got_pong' }
         when(/$POST_REQUEST/i) { $action = 'got_post' }
         when(/$GET_REQUEST/i)  { $action = 'get' }
         default: {
@@ -86,7 +86,7 @@ sub dispatcher {
     $kernel->yield($action, $request);
 }
 
-sub auth_request {
+sub authenticate {
     my ($kernel, $session, $heap, $input) = @_[KERNEL, SESSION, HEAP, ARG0];
     $input = trim($input);
 
@@ -94,74 +94,67 @@ sub auth_request {
 
     my $parsed = parse_request(auth => $input);
     unless (ref $parsed eq 'AUTH') {
+    say 'authhh';
         $heap->put('NSMF/1.0 400 BAD REQUEST');
         return;
     }
 
-    my $module   = lc $parsed->{nodename};
-    my $netgroup = lc $parsed->{netgroup};  
-
-    if ($module ~~ @$modules) {
-        say "    [+] Found Module: $module" if $NSMF::DEBUG;
-
-        $heap->{nodename} = $module;
-        $heap->{netgroup} = $netgroup;
-
-        $heap->{client}->put("NSMF/1.0 200 OK ACCEPTED\r\n");
-    } else {
-        say '    = Not Found' if $NSMF::DEBUG;
-        $heap->{client}->put("NSMF/1.0 402 Unsuported\r\n");
-    }
-}
-
-sub authenticate {
-    my ($kernel, $session, $heap, $request) = @_[KERNEL, SESSION, HEAP, ARG0];
+    my $agent    = lc $parsed->{agent};
+    my $key      = lc $parsed->{key};
     
-    my @data   = split '\s+', trim($request);
-    my $key    = $data[1];
-    my $module = lc $data[2];
-    my $credentials;
-
     eval {
-        $credentials = NSMF::Credential->search({ 
-            nodename => $heap->{nodename},
-        })->next;
+        NSMF::AuthMngr->authenticate($agent, $key);
     };
-    
-    if($@) {
-        warn '[!!] Database Error';
+
+    if ($@) {
+        say '    = Not Found ' .$@ if $NSMF::DEBUG;
+        $heap->{client}->put("NSMF/1.0 402 UNSUPPORTED\r\n");
         return;
     }
 
-    warn 'No credentials found', return unless ( $credentials );
+    $heap->{agent}    = $agent;
+    say "    [+] Agent authenticated: $agent" if $NSMF::DEBUG;
+    $heap->{client}->put("NSMF/1.0 200 OK ACCEPTED\r\n");
+}
 
-    if ($heap->{nodename} eq $module and defined $heap->{session_id}) {
+sub identify {
+    my ($kernel, $session, $heap, $request) = @_[KERNEL, SESSION, HEAP, ARG0];
+    
+    my @data   = split /\s+/, trim($request);
+    my $module = trim lc $data[1];
+    my $netgroup = trim lc $data[2];
+    
+    
+    if ($heap->{session_id}) {
         say  "$module is already authenticated" if $NSMF::DEBUG;
         return;
     }
     
-    if ($key ~~ $credentials->password and $heap->{nodename} eq $module) {
+    if ($module ~~ @$modules) {
 
-        print_status uc($module). " authenticated!" if $NSMF::DEBUG;
+        say "    ->  " .uc($module). " supported!" if $NSMF::DEBUG;
 
+        $heap->{module_name} = $module;
         $heap->{session_id} = 1;
         $heap->{status}     = 'EST';
-        $heap->{client}->put("NSMF/1.0 200 OK ACCEPTED\r\n");
 
         eval {
-            $heap->{module} = NSMF::ModMngr->load($module);
+            $heap->{module} = NSMF::ModMngr->load(uc $module);
         };
 
         if ($@) {
             say "    [FAILED] Could not load module: $module";
+            say $@ if $NSMF::DEBUG;
         }
+   
         $heap->{session_id} = $_[SESSION]->ID;
 
         if (defined $heap->{module}) {
             # say "Session Id: " .$heap->{session_id};
             # say "Calilng Hello World Again in the already defined module";
             say "      ----> Module Call <----"; 
-
+            $heap->{client}->put("NSMF/1.0 200 OK ACCEPTED\r\n");
+            return;
             my $child = POE::Wheel::Run->new(
                 Program => sub { $heap->{module}->run  },
                 StdoutFilter => POE::Filter::Reference->new(),
@@ -174,8 +167,9 @@ sub authenticate {
             $_[HEAP]{children_by_wid}{$child->ID} = $child;
             $_[HEAP]{children_by_pid}{$child->PID} = $child;
         }
-    } else {
-        $heap->{client}->put("NSMF/1.0 401 UNAUTHORIZED\r\n");
+    } 
+    else {
+        $heap->{client}->put("NSMF/1.0 401 UNSUPPORTED\r\n");
     }
 
 }
@@ -200,9 +194,7 @@ sub got_ping {
     }
 
     say "  <- Got PING" if $NSMF::DEBUG;
-
-
-    $kernel->yield('get');
+    $kernel->yield('send_pong');
 }
 
 sub child_output {
@@ -238,30 +230,27 @@ sub child_close {
 
 sub got_post {
     my ($kernel, $heap, $request) = @_[KERNEL, HEAP, ARG0];
+
     unless ($heap->{status} eq 'EST' and $heap->{session_id}) {
         $heap->{client}->put("NSMF/1.0 400 BAD REQUEST\r\n");
         return;
     }
 
-    my $parsed;
-    $parsed = parse_request(post => $request);
+    my $parsed = parse_request(post => $request);
+
     return unless ref $parsed eq 'POST';
 
-    say Dumper $parsed;
-    my $raw_data = $parsed->{data};
-    open my ($data), '<', uncompress(decode_base64($raw_data)) or say "wa";
+    say ' -> This is a post for ' . $heap->{module_name};
+    say '    - Type: '. $parsed->{type};
+    say '    - Job Id: ' .$parsed->{job_id};
 
-#    say "Total Length: " .length $raw_data;
-#    say "DATA: " .$data. " LENGTH: " . length $data;
-
-    while( defined(my $line = <$data>)) {
+    my $data = $parsed->{data};
+    say decode_base64($_) for @$data;return;
+    for my $line (@{ $parsed->{data} }) {
         say $line;
+    #    say decode_base64(uncompress $line);
+        say uncompress decode_base64($line);
     }
-    say ' -> This is a post for ' . $heap->{nodename};
-
-    my $nodename = uc $heap->{nodename};
-   # my $module = NSMF::ModMngr->load($nodename) or say "Failed to Load Module!";
-    
 }   
 
 sub send_ping {
@@ -284,6 +273,8 @@ sub send_error {
     my ($kernel, $heap) = @_[KERNEL, HEAP];
     my $client = $heap->{client};
     warn "[!] BAD REQUEST" if $NSMF::DEBUG;
+
+        say "Sending BAD error";
     $client->put("NSMF/1.0 400 BAD REQUEST\r\n");
 }
 
@@ -291,12 +282,14 @@ sub get {
     my ($kernel, $heap, $request) = @_[KERNEL, HEAP, ARG0];
 
     unless ($heap->{status} eq 'EST' and $heap->{session_id}) {
+        say "Sending BAD GET";
         $heap->{client}->put("NSMF/1.0 400 BAD REQUEST\r\n");
         return;
     }
 
     my $req = parse_request(get => $request);
     unless (ref $req) { 
+    say 'BAD in GET';
         $heap->{client}->put('NSMF/1.0 400 BAD REQUEST');
         return;
     }

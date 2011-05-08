@@ -86,7 +86,7 @@ sub parse_request {
     return unless grep $type, @types;
     return unless defined $input;
 
-    my @request = split '\s+', $input;
+    my @request = split /\s+/, $input;
     given($type) {
         when(/AUTH/i) { 
             return bless { 

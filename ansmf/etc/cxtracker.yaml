@@ -1,9 +1,9 @@
 # Node Configuration
 node: 
-    id: ID
+    agent: KERBEROS
+    secret: fb6ef95e28842ccff7ef9a0c6b3a9f63
     nodename: CXTRACKER
-    netgroup: NETGROUP
-    secret: 5ed9927cb990116b2ea542d30f7149b9bcfeef0ee0b1992d3915ae4602ffc1cb
+    netgroup: LAN
 
 server:
     server: 127.0.0.1

@@ -39,8 +39,9 @@ sub run {
  
     say "    -> Sending Custom PING";
     $self->ping();
-    my $payload = encode_base64( compress( "1"x34850 ) );
-    $self->post(pcap => $payload);
+    #my $payload = "1"x34850;
+    #$self->post(pcap => $payload);
+    $self->post(pcap => 'files');
 #    say Dumper uncompress(decode_base64($payload));
 #    open my $file2, '>', '/tmp/test.pdf' or die 'Cant open file';
 #    print $file2 uncompress(decode_base64 $payload);

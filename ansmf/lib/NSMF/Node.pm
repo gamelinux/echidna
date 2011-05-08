@@ -31,7 +31,7 @@ sub new {
     my $class = shift;
 
     bless {
-        id          => undef,
+        agent       => undef,
     	nodename    => undef,
     	netgroup    => undef,
     	server      => undef,
@@ -59,7 +59,7 @@ sub load_config {
 
     $self->{config_path} =  $path;
     $self->{name}        =  ref($self)          // 'NSMF::Node';
-    $self->{id}          =  $config->{id}       // '';
+    $self->{agent}       =  $config->{agent}    // '';
     $self->{nodename}    =  $config->{nodename} // '';
     $self->{netgroup}    =  $config->{netgroup} // '';
     $self->{server}      =  $config->{server}   // '0.0.0.0';
@@ -136,12 +136,19 @@ sub post {
         unless ref $poe_heap;
 
     srand (time ^ $$ ^ unpack "%L*", `ps axww | gzip -f`);
-    say '   [*] Payload Length: ' .length $data;
+    say '   [*] Data Size: ' .length $data;
    
+say "BEFORE: $data";
+    $data =~ s/ /_/g;
+say "AFTER: $data";
+    my $encoded_data = encode_base64($data);
+    say $encoded_data;
     my $payload = 'POST ' .$type. ' ' . int(rand(10000)). " NSMF/1.0\r\n\n";
-    $payload   .= $data;
+    $payload   .= $encoded_data;
+    say Dumper $payload;
     $poe_heap->{server}->put($payload);
 }
+
 # Returns the actual session
 sub session {
     my ($self) = @_;
@@ -150,10 +157,10 @@ sub session {
     return $self->{__handlers}->{_sessid};
 }
 
-sub id {
+sub agent {
     my ($self, $arg) = @_;
-    $self->{id} = $arg if defined_args($arg);
-    return $self->{id};
+    $self->{agent} = $arg if defined_args($arg);
+    return $self->{agent};
 }
 
 sub nodename {
