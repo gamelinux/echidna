@@ -19,7 +19,7 @@ our $VERSION = '0.1';
 our $cxtdir;
 
 sub  hello {
-    say "Hello from CXTRACKER Node!!";
+    say "   Hello from CXTRACKER Node!!";
 }
 sub run {
     my ($self, $kernel, $heap) = @_;
@@ -58,7 +58,6 @@ sub _process {
     say "[*] File $file processed in $process_time seconds" if (NSMF::DEBUG);
 
     $start_time   = $end_time;
-    say Dumper $sessions;
     $self->post(cxt => $sessions);
     $end_time     = time();
     $process_time = $end_time - $start_time;
@@ -116,7 +115,7 @@ sub _get_sessions {
       close FILE;
       say "Sessions data:\n$sessions_data" if NSMF::DEBUG;
       return $sessions_data;
-      }
+    }
 }
 
 1;

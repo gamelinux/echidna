@@ -182,7 +182,6 @@ sub got_pong {
     return unless $heap->{stage} eq 'EST';
 
     say "    <- Got PONG ";
-    say "    ----------------";
     $heap->{pong_recv} = time();
 
     $kernel->delay(send_ping => 60);

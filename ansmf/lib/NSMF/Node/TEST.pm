@@ -41,7 +41,8 @@ sub run {
     $self->ping();
     #my $payload = "1"x34850;
     #$self->post(pcap => $payload);
-    $self->post(pcap => 'files');
+    my $payload = "A"x100;
+    $self->post(pcap => $payload);
 #    say Dumper uncompress(decode_base64($payload));
 #    open my $file2, '>', '/tmp/test.pdf' or die 'Cant open file';
 #    print $file2 uncompress(decode_base64 $payload);

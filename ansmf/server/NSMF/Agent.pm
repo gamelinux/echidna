@@ -1,5 +1,6 @@
 package NSMF::Agent;
 
+use strict;
 use NSMF::Driver;
 
 use base qw(Data::ObjectDriver::BaseObject);

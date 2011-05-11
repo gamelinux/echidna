@@ -66,7 +66,7 @@ sub dispatcher {
     my $ID_REQUEST   = '^ID (\w)+ NSMF\/1.0$';
     my $PING_REQUEST = 'PING (\d)+ NSMF/1.0';
     my $PONG_REQUEST = 'PONG (\d)+ NSMF/1.0';
-    my $POST_REQUEST = '^POST (\w)+ (\d)+ NSMF\/1.0'."\r\n\n".'(\w)+';
+    my $POST_REQUEST = '^POST (\w)+ (\d)+ NSMF\/1.0'."\n\n".'(\w)+';
     my $GET_REQUEST  = '^GET (\w)+ NSMF\/1.0$';
 
     my $action;
@@ -244,13 +244,22 @@ sub got_post {
     say '    - Type: '. $parsed->{type};
     say '    - Job Id: ' .$parsed->{job_id};
 
+    my $append;
     my $data = $parsed->{data};
-    say decode_base64($_) for @$data;return;
     for my $line (@{ $parsed->{data} }) {
-        say $line;
-    #    say decode_base64(uncompress $line);
-        say uncompress decode_base64($line);
+        $append .= $line;
     }
+
+    my @sessions = split /\n/, decode_base64 $append;
+    
+    my $module = $heap->{module};
+    for my $session ( @sessions ) {
+        next unless $module->validate( $session );
+
+        $module->save( $session ) or say $module->errstr;
+        say "    Session saved";
+    }
+    
 }   
 
 sub send_ping {
