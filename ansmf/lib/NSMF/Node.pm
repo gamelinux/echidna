@@ -138,17 +138,8 @@ sub post {
     srand (time ^ $$ ^ unpack "%L*", `ps axww | gzip -f`);
     say '   [*] Data Size: ' .length $data;
    
-    #$data =~ s/ /_/g;
-    my $encoded_data = encode_base64($data);
-    my $payload = 'POST ' .$type. ' ' . int(rand(10000)). " NSMF/1.0\n\n";
-    $payload   .= $encoded_data;
-    say "\n\nPayload:";
-    say Dumper $payload;
-    say "Encoded Data:";
-    say Dumper $encoded_data;
-    say "Decoded Data:";
-    say decode_base64($encoded_data);
-    
+    my $payload = 'POST ' .$type. ' ' . int(rand(10000)). " NSMF/1.0\n\n" .encode_base64($data);
+
     $poe_heap->{server}->put($payload);
 }
 

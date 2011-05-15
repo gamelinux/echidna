@@ -6,6 +6,7 @@ use base qw(Exporter);
 use Data::Dumper;
 use Carp qw(croak);
 our @EXPORT = qw(
+    puts
     print_status 
     print_error 
     trim
@@ -16,6 +17,12 @@ our @EXPORT = qw(
 );
 our $VERSION = '0.1';
 
+sub puts {
+
+    return unless $NSMF::DEBUG;
+    say for @_;
+}
+
 sub parse_request {
     my ($type, $input) = @_;
 
@@ -24,10 +31,8 @@ sub parse_request {
         $type = keys %hash;
         $input = $hash{$type};
     }
-    my @types = (
-        'auth',
-        'get',
-        'post',
+    my @types = qw(
+        auth id get post
     );
     #$type = undef;
     return unless grep $type, @types;
@@ -42,6 +47,12 @@ sub parse_request {
                 key       => $request[2],
                 tail     => $request[3],
             }, 'AUTH';
+        }
+        when(/id/i) {
+            return bless {
+                method => $request[0] // undef,
+                node   => $request[1] // undef,
+            }, 'ID';
         }
         when(/get/i) {
             return bless {

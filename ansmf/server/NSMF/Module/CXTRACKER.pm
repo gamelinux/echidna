@@ -48,13 +48,18 @@ sub validate {
     }
 
     my @elements = split /\|/, $session;
+    
+    # verify number of elements
     unless(@elements == 15) {
-        warn "[*] Error: Not valid Nr. of session args format";
-        return;
+        die "Invalid number of elements";
     }
 
-    say "   -> Valid Session!";
-
+    # verify duplicate in db
+    my $class = ref $self;
+    if ($class->search({ session_id => $elements[0] })->next) {
+        die { status => 'error', message => 'Duplicated Session' };
+    }
+   
     1;
  
 }
@@ -63,8 +68,15 @@ sub save {
     my ($self, $session) = @_;
 
     # validation
-    #say " Session Id must be integer " unless $session =~ /\d+/;
-    
+    eval {
+        $self->validate( $session );
+    };
+
+    if ($@) {
+        say "  ->  Session validation failed: " .$@->{message};
+        return;
+    }
+
     my @tokens = split /\|/, $session;
 
     $self->session_id( $tokens[0] );
@@ -85,8 +97,11 @@ sub save {
     $self->ip_version( 4 );
 
     # if everything is ok
-    $self->SUPER::save or warn $self->errstr;
+    if ($self->SUPER::save) {
+        return 1;
+    } 
         
+    return;
 }
 
 

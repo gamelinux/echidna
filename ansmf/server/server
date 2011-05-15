@@ -39,10 +39,8 @@ new POE::Component::Server::TCP(
 
 sub connected {
     my ($session, $heap) = @_[SESSION, HEAP];
-    if ($NSMF::DEBUG) {
-        print_status "Client connected.";
-        say "- Session ID: " . $session->ID;
-    }
+    
+    puts " [+] Client connected: ". $heap->{remote_ip};
 
     # Initialization
     $heap->{status}     = 'REQ';
@@ -54,9 +52,9 @@ sub connected {
 
 sub disconnected {
     my ($session, $heap) = @_[SESSION, HEAP];
-   say "Client with ", $session->ID, " disconnected" if $NSMF::DEBUG;
+    puts "Client with ", $session->ID, " disconnected";
 }
 
-print_status 'Server Initialized ..';
+puts 'Server Initialized ..';
 POE::Kernel->run();
 exit(0);

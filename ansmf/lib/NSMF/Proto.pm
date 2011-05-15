@@ -68,7 +68,7 @@ sub dispatcher {
                     $heap->{stage} = 'EST';
                     say "  [response] = OK ACCEPTED";
                     $kernel->yield('run');
-                    $kernel->delay(ping => 3);
+                    $kernel->delay(send_ping => 3);
                     return; }
                 when(/^NSMF\/1.0 401 UNSUPPORTED/i) { 
                     say "  [response] = UNSUPPORTED"; 
@@ -94,14 +94,9 @@ sub dispatcher {
                         say "Failed to parse";
                         return;
                     }
-                    my $data = uncompress(decode_base64( $req->{data} ));
-                    say "Method: " .$req->{method};
-                    say "Params: " .$req->{param};
-#                    say Dumper $data; 
                     }
                 default: {
                     say " UNKNOWN RESPONSE: $request";
-#                    say Dumper $request;
                     return; }
             }
         }

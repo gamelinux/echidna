@@ -13,15 +13,16 @@ sub authenticate {
     })->next;
 
     if ($agent and ref $agent eq 'NSMF::Agent') {
+
         if ($agent->agent_password eq $key) {
             return 1;
         }
         else { 
-            croak 'Incorret Password';
+            croak { status => 'error', message => 'Incorrect Password' };
         }
     } 
     else {
-        croak 'Agent Not Found';
+        croak {status => 'error', message => 'Agent Not Found'};
     }
 }
 

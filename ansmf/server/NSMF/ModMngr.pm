@@ -22,13 +22,13 @@ sub load {
         eval "use $module_path";
 
         if($@) {
-            die "Failed to Load Module $module_name";
+            die { status => 'error', message => "Failed to Load Module $module_name" };
         } else {
             return $module_path->new;
         }
     }
 
-    return; 
+    die { status => 'error', message => 'Module Not Enabled' }; 
 }
 
 1;
