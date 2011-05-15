@@ -51,7 +51,7 @@ sub validate {
     
     # verify number of elements
     unless(@elements == 15) {
-        die "Invalid number of elements";
+        die { status => 'errpr', message => 'Invalid number of elements' };
     }
 
     # verify duplicate in db
@@ -72,7 +72,7 @@ sub save {
         $self->validate( $session );
     };
 
-    if ($@) {
+    if (ref $@) {
         say "  ->  Session validation failed: " .$@->{message};
         return;
     }
