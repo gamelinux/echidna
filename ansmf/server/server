@@ -10,7 +10,7 @@ use POE::Component::Server::TCP;
 # NSMF Imports
 use NSMF;
 use NSMF::Util;
-use NSMF::Proto;
+use NSMF::ProtoFactory;
 use NSMF::ConfigMngr;
 
 # Misc
@@ -20,7 +20,7 @@ our $VERSION = '0.1';
 
 # Configuration
 my $config  = NSMF::ConfigMngr->instance;
-my $proto   = NSMF::Proto->instance;
+my $proto   = NSMF::ProtoFactory->create("JSON");
 
 # Server 
 new POE::Component::Server::TCP(
@@ -52,7 +52,7 @@ sub connected {
 
 sub disconnected {
     my ($session, $heap) = @_[SESSION, HEAP];
-    puts "Client with ", $session->ID, " disconnected";
+    puts "Client with " . $session->ID . " disconnected";
 }
 
 puts 'Server Initialized ..';
