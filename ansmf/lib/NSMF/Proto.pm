@@ -5,9 +5,6 @@ use v5.10;
 
 use POE;
 use NSMF::Util;
-use Data::Dumper;
-use Compress::Zlib;
-use MIME::Base64;
 
 my $instance;
 
@@ -45,87 +42,19 @@ sub states {
 sub dispatcher {
     my ($kernel, $heap, $request) = @_[KERNEL, HEAP, ARG0];
 
-    say "  [error] Response is Empty" unless $request;
-
-    my $action = '';
-    given($heap->{stage}) {
-        when(/REQ/) {
-            given($request) {
-                when(/^NSMF\/1.0 200 OK ACCEPTED/i) { 
-                    $action = 'identify';
-                    say "  [response] = OK ACCEPTED"; }
-                when(/^NSMF\/1.0 UNAUTHORIZED/i) { 
-                    say "  [response] = NOT ACCEPTED"; 
-                    return; }
-                default: {
-                    say " UNKNOWN RESPONSE: $request";
-                    return; }
-            }
-        }
-        when(/SYN/i) {
-            given($request) {
-                when(/^NSMF\/1.0 200 OK ACCEPTED/i) { 
-                    $heap->{stage} = 'EST';
-                    say "  [response] = OK ACCEPTED";
-                    $kernel->yield('run');
-                    $kernel->delay(send_ping => 3);
-                    return; }
-                when(/^NSMF\/1.0 401 UNSUPPORTED/i) { 
-                    say "  [response] = UNSUPPORTED"; 
-                    return; }
-                default: {
-                    say " UNKNOWN RESPONSE: $request";
-                    return; }
-            }
-        }
-        when(/EST/i) {
-            given($request) {
-                when(/^NSMF\/1.0 200 OK ACCEPTED\r\n$/i) {
-                     say "  -> EST ACCEPTED";
-                }
-                when(/^PONG (\d)+ NSMF\/1.0\r\n$/i) {
-                    $action = 'got_pong'; }
-                when(/^PING (\d)+ NSMF\/1.0\r\n$/i) {
-                    $action = 'got_ping'; }
-                when(/POST/i) {
-                    my $req = parse_request(post => $request);
-    
-                    unless (ref $req eq 'POST') {
-                        say "Failed to parse";
-                        return;
-                    }
-                    }
-                default: {
-                    say " UNKNOWN RESPONSE: $request";
-                    return; }
-            }
-        }
-    }
-
-    $kernel->yield($action) if $action;
+    say "dispatcher";
 }
 ################ AUTHENTICATE ###################
 sub authenticate {
     my ($kernel, $heap, $response) = @_[KERNEL, HEAP, ARG0];
 
     $heap->{stage} = 'REQ';
-    my $agent    = $heap->{agent};
-    my $secret   = $heap->{secret};
-
-    my $payload = "AUTH $agent $secret NSMF/1.0";
-    $heap->{server}->put($payload);
 }
 
 sub identify {
     my ($kernel, $heap, $response) = @_[KERNEL, HEAP, ARG0];
 
-    my $nodename = $heap->{nodename};
-    my $payload = "ID " .$nodename. " NSMF/1.0";
-    say '-> Identifying ' .$nodename;
-    print_error 'Nodename, Secret not defined on Identification Stage' unless defined_args($nodename);
-
     $heap->{stage} = 'SYN';     
-    $heap->{server}->put("ID $nodename NSMF/1.0");
 }
 
 ################ END AUTHENTICATE ##################
@@ -138,12 +67,6 @@ sub send_ping {
 
     # Verify Established Connection
     return unless $heap->{stage} eq 'EST';
-
-    say "    -> Sending PING..";
-
-    my $ping_sent = time();
-    $heap->{server}->put("PING " .$ping_sent. " NSMF/1.0\r\n");
-    $heap->{ping_sent} = $ping_sent;
 }
 
 sub send_pong {
@@ -151,11 +74,6 @@ sub send_pong {
 
     # Verify Established Connection
     return unless $heap->{stage} eq 'EST';
-
-    my $ping_time = time();
-    $heap->{server}->put("PONG " .$ping_time. " NSMF/1.0\r\n");
-    say "    -> Sending PONG..";
-    $heap->{ping_sent} = $ping_time;
 }
 
 sub got_ping {
@@ -163,11 +81,6 @@ sub got_ping {
 
     # Verify Established Connection
     return unless $heap->{stage} eq 'EST';
-
-    say "    <- Got PING ";
-    $heap->{ping_recv} = time();
-
-    $kernel->yield('send_pong');
 }
 
 sub got_pong {
@@ -175,14 +88,7 @@ sub got_pong {
 
     # Verify Established Connection
     return unless $heap->{stage} eq 'EST';
-
-    say "    <- Got PONG ";
-    $heap->{pong_recv} = time();
-
-    $kernel->delay(send_ping => 60);
 }
-
 ################ END KEEP ALIVE ###################
-
 
 1;
