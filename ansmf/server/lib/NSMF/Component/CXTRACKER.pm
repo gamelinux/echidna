@@ -1,11 +1,10 @@
-package NSMF::Module::CXTRACKER;
+package NSMF::Component::CXTRACKER;
 
 use strict;
 use v5.10;
 
-use base qw(NSMF::Module);
-use Data::Dumper;
-
+use base qw(NSMF::Component);
+use Module::Pluggable require => 1;
 use NSMF::Driver;
 
 __PACKAGE__->install_properties({
@@ -36,6 +35,8 @@ __PACKAGE__->install_properties({
 
 sub hello {
     say "Hello World from CXTRACKER Module!!";
+    my $self = shift;
+    $_->hello for $self->plugins;
 }
 
 sub validate {

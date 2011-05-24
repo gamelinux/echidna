@@ -2,7 +2,6 @@ package NSMF::ModMngr;
 
 use NSMF;
 use NSMF::Util;
-use NSMF::ConfigMngr;
 
 use Data::Dumper;
 
@@ -13,12 +12,13 @@ sub load {
     my ($self, $module_name) = @_;
 
     my $module_path;
-    my $config  = NSMF::ConfigMngr->instance;
+    my $nsmf    = NSMF->new;
+    my $config  = $nsmf->config;
     my $modules = $config->{modules};
     
     if (lc $module_name ~~ @$modules) {
     
-        $module_path = 'NSMF::Module::' . uc($module_name);
+        $module_path = 'NSMF::Component::' . uc($module_name);
         eval "use $module_path";
 
         if($@) {

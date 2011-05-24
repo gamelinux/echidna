@@ -55,14 +55,14 @@ sub _process {
     $end_time     = time();
     $process_time = $end_time - $start_time;
 
-    say "[*] File $file processed in $process_time seconds" if (NSMF::DEBUG);
+    say "[*] File $file processed in $process_time seconds" if ($NSMF::DEBUG);
 
     $start_time   = $end_time;
     $self->post(cxt => $sessions);
     $end_time     = time();
     $process_time = $end_time - $start_time;
 
-    say "[*] Session record sent in $process_time seconds" if (NSMF::DEBUG);
+    say "[*] Session record sent in $process_time seconds" if ($NSMF::DEBUG);
 
     say "[W] Deleting file: $file";
     unlink($file) or print_error "Failed to delete $file";
@@ -80,7 +80,7 @@ sub _get_sessions {
     my $sessions_data = qq();
 
     if (open (FILE, $sfile)) {
-        if (NSMF::DEBUG) {
+        if ($NSMF::DEBUG) {
             my $filelen=`wc -l $sfile |awk '{print \$1'}`;
             my $filesize=`ls -lh $sfile |awk '{print \$5}'`;
 
@@ -113,7 +113,7 @@ sub _get_sessions {
       }
 
       close FILE;
-      say "Sessions data:\n$sessions_data" if NSMF::DEBUG;
+      say "Sessions data:\n$sessions_data" if $NSMF::DEBUG;
       return $sessions_data;
     }
 }

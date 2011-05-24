@@ -5,23 +5,20 @@ use strict;
 
 use Carp;
 use YAML::Tiny;
-use Data::Dumper;
 
 our $debug;
 my $instance;
 my ($server, $settings);
 
 sub instance {
-    my ($class) = @_;
-
     unless (defined $instance) {
         $instance = bless {
             name     => 'NSMFServer',
             server   => '127.0.0.1',
             port     => 10101,
             settings => {},
-            modules    => [],
-        }, $class;
+            modules  => [],
+        }, __PACKAGE__;
 
         return $instance;
     }
@@ -32,8 +29,9 @@ sub instance {
 sub load {
     my ($self, $file) = @_;
 
-    return unless ref($self) eq 'NSMF::ConfigMngr';
+    return unless ref $self eq 'NSMF::ConfigMngr';
 
+    __PACKAGE__->instance;
     my $yaml = YAML::Tiny->read($file);
     croak 'Could not parse configuration file.' unless $yaml;
 
@@ -59,6 +57,27 @@ sub address {
 
 sub port {
     return $instance->{port} // croak '[!] No port defined.';
+}
+
+sub modules {
+    my $self = shift;
+    return unless ref $self eq __PACKAGE__;
+
+    return $instance->{modules};
+}
+
+sub protocol {
+    my $self = shift;
+    return unless ref $self eq __PACKAGE__;
+
+    return $instance->{settings}->{protocol};
+}
+
+sub debug_on {
+    my $self = shift;
+    return unless ref $self eq __PACKAGE__;
+
+    return $instance->{settings}->{debug};
 }
 
 1;

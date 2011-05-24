@@ -71,7 +71,7 @@ sub load_config {
         next unless($line); # empty line
         # EXAMPLE=/something/that/is/string/repesented
         if (my ($key, $value) = ($line =~ m/(\w+)\s*=\s*(.*)$/)) {
-           warn "[W] Read keys and values from config: $key:$value\n" if NSMF::DEBUG > 0;
+           warn "[W] Read keys and values from config: $key:$value\n" if $NSMF::DEBUG > 0;
            $config->{$key} = $value;
         }else {
           croak "[E] Not valid configfile format in: '$file'";
@@ -92,7 +92,7 @@ Public interface for automatic file configuration reading.
 =head2 load_config
 
 Reads the configuration file and loads variables.
-Takes a config file and NSMF::DEBUG as input, and returns a hash of config options.
+Takes a config file and $NSMF::DEBUG as input, and returns a hash of config options.
 
 =head2 load_yaml
 

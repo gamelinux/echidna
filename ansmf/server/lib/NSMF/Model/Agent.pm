@@ -1,4 +1,4 @@
-package NSMF::Agent;
+package NSMF::Model::Agent;
 
 use strict;
 use NSMF::Driver;

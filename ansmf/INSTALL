@@ -2,7 +2,9 @@ DEPENDENCIES:
 
 - POE
 - ObjectDriver
-- YAML Tiny
+- Perl YAML::Tiny
+- Perl Log::Dispatch
+- Perl Module::Pluggable
 
 INSTALL:
-    prompt>> sudo apt-get install libpoe-perl libdata-objectdriver-perl libyaml-tiny-perl
+    prompt>> sudo apt-get install libpoe-perl libdata-objectdriver-perl libyaml-tiny-perl liblog-dispatch-perl

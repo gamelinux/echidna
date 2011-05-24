@@ -1,4 +1,4 @@
-package NSMF::Proto;
+package NSMF::Proto::HTTP;
 
 use v5.10;
 use strict;
@@ -8,7 +8,6 @@ use NSMF::Data;
 use NSMF::Util;
 use NSMF::ModMngr;
 use NSMF::AuthMngr;
-use NSMF::ConfigMngr;
 
 use POE;
 use POE::Session;
@@ -19,10 +18,12 @@ use Carp;
 use Data::Dumper;
 use Compress::Zlib;
 use MIME::Base64;
+
 our $VERSION = '0.1';
 
 my $instance;
-my $config = NSMF::ConfigMngr->instance;
+my $nsmf = NSMF->new;
+my $config = $nsmf->config;
 my $modules = $config->{modules} // [];
 
 sub instance {
@@ -37,7 +38,7 @@ sub instance {
 sub states {
     my ($self) = @_;
 
-    return unless ref($self) eq 'NSMF::Proto';
+    return unless ref $self ~~ /NSMF::Proto/;
 
     return [
         'dispatcher',

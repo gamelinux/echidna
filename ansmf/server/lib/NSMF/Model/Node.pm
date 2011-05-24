@@ -1,4 +1,4 @@
-package NSMF::Node;
+package NSMF::Model::Node;
 
 use NSMF::Driver;
 use Cache::Memcached;

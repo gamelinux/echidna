@@ -17,7 +17,6 @@ use Compress::Zlib;
 use POE;
 
 # Misc 
-use POSIX;
 use Data::Dumper;
 
 use Carp;
