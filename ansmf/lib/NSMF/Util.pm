@@ -36,10 +36,8 @@ sub defined_args {
 
     return unless @args;
 
-    for (@args) {
-        when(undef) {
-            return;
-        }
+    for my $arg (@args) {
+        return if ( ! defined($arg) );
     }
 
     return 1;
@@ -61,7 +59,7 @@ sub log {
     my $dt = DateTime->now;
 
     $Data::Dumper::Terse = 1;
-    
+
     $logfile //= 'debug.log';
     open(my $fh, ">>", $logfile) or die $!;
     say $fh $dt->datetime;
