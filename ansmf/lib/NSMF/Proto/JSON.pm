@@ -67,19 +67,18 @@ sub dispatcher {
         when(/REQ/) {
             given($method) {
                 when(/^authenticate/i) {
-                    given($json->{result}) {
-                        when(/^accepted/i) { 
-                            $action = 'identify';
-                            say "  [response] = OK ACCEPTED";
-                        }
-                        when(/not accepted/i) {
-                            say "  [response] = NOT ACCEPTED"; 
-                            return;
-                        }
-                        default: {
-                            say "  UNKOWN RESPONSE: $request";
-                            return;
-                        }
+                    if ( defined($json->{result}) ) {
+                        $action = 'identify';
+                        say "  [response] = OK ACCEPTED";
+                    }
+                    elsif ( defined($json->{error}) ) {
+                        say "  [response] = NOT ACCEPTED";
+                        return;
+                    }
+                    else {
+                        say Dumper($json);
+                        say "  UNKOWN AUTH RESPONSE: $request";
+                        return;
                     }
                 }
                 default: {
@@ -91,18 +90,16 @@ sub dispatcher {
         when(/SYN/i) {
             given($method) {
                 when(/^identify/i) {
-                    given($json->{result}) {
-                        when(/^accepted/i) { 
-                            $heap->{stage} = 'EST';
-                            say "  [response] = OK ACCEPTED";
-                            $kernel->yield('run');
-                            $kernel->delay('send_ping' => 3);
-                            return;
-                        }
-                        default: {
-                            say "  [response] = UNSUPPORTED"; 
-                            return;
-                        }
+                    if ( defined($json->{result}) ) {
+                        $heap->{stage} = 'EST';
+                        say "  [response] = OK ACCEPTED";
+                        $kernel->yield('run');
+                        $kernel->delay('send_ping' => 3);
+                        return;
+                    }
+                    else {
+                        say "  [response] = UNSUPPORTED";
+                        return;
                     }
                 }
                 default: {
@@ -114,7 +111,7 @@ sub dispatcher {
         when(/EST/i) {
             given($method) {
                 when(/^ping/i) {
-                    if ( exists($json->{result}) )
+                    if ( defined($json->{result}) )
                     {
                         $action = 'got_pong';
                     }
@@ -262,7 +259,7 @@ sub jsonrpc_result_method
 {
     my ($self, $json) = @_;
 
-    if ( ! defined_args($json->{id}, $json->{result}) &&
+    if ( ! defined_args($json->{id}) &&
          ! defined_args($json->{method}) )
     {
         return "";
