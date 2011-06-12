@@ -56,6 +56,11 @@ use constant {
     "message" => "BAD request."
   },
 
+  JSONRPC_NSMF_UNAUTHORIZED => {
+    "code" => -2,
+    "message" => "Unauthorized."
+  },
+
   #
   # AUTH
   JSONRPC_NSMF_AUTH_UNSUPPORTED => {
@@ -132,7 +137,6 @@ sub dispatcher {
     given($json->{"method"}) {
       when(/authenticate/) { }
       when(/identify/) { }
-      when(/get/) { }
       when(/ping/) {
         $action = 'got_ping';
       }
@@ -141,6 +145,9 @@ sub dispatcher {
       }
       when(/post/i) {
         $action = 'got_post';
+      }
+      when(/get/i) {
+        $action = 'get';
       }
       default: {
         say Dumper($json);
@@ -238,9 +245,9 @@ sub identify {
                 CloseEvent  => "child_close",
             );
 
-            $_[KERNEL]->sig_child($child->PID, "child_signal");
-            $_[HEAP]{children_by_wid}{$child->ID} = $child;
-            $_[HEAP]{children_by_pid}{$child->PID} = $child;
+            $kenrel->sig_child($child->PID, "child_signal");
+            $heap->{children_by_wid}{$child->ID} = $child;
+            $heap->{children_by_pid}{$child->PID} = $child;
         }
     }
     else {
@@ -260,11 +267,11 @@ sub got_ping {
     my ($kernel, $heap, $json) = @_[KERNEL, HEAP, ARG0];
     my $self = shift;
 
-    my $parsed = $self->jsonrpc_validate($json, [".timestamp"]);
+    my ($ret, $response) = $self->jsonrpc_validate($json, [".timestamp"]);
 
-    if ( keys %{$parsed} ) {
+    if ( $ret != 0 ) {
       say "Incomplete PING request.";
-      $heap->{client}->put(encode_json($parsed));
+      $heap->{client}->put($self->json_error_create($json, JSONRPC_NSMF_UNAUTHORIZED));
       return;
     }
 
@@ -273,7 +280,7 @@ sub got_ping {
     $heap->{ping_recv} = $ping_time if $ping_time;
 
     unless ($heap->{status} eq 'EST' and $heap->{session_id}) {
-        $heap->{client}->put(encode_json($self->json_result_create($json, "unauthorized")));
+        $heap->{client}->put($self->json_error_create($json, JSONRPC_NSMF_UNAUTHORIZED));
         return;
     }
 
@@ -291,17 +298,18 @@ sub child_error {
 }
 
 sub child_signal {
+    my ($heap) = @_[HEAP];
     #say "   * PID: $_[ARG1] exited with status $_[ARG2]";
-    my $child = delete $_[HEAP]{children_by_pid}{$_[ARG1]};
+    my $child = delete $heap->{children_by_pid}{$_[ARG1]};
 
     return unless defined $child;
 
-    delete $_[HEAP]{children_by_wid}{$child->ID};
+    delete $heap->{children_by_wid}{$child->ID};
 }
 
 sub child_close {
-    my $wid = $_[ARG0];
-    my $child = delete $_[HEAP]{children_by_wid}{$wid};
+    my ($heap, $wid) = @_[HEAP, ARG0];
+    my $child = delete $heap->{children_by_wid}{$wid};
 
     unless (defined $child) {
     #    say "Wheel Id: $wid closed";
@@ -309,45 +317,41 @@ sub child_close {
     }
 
     #say "   * PID: " .$child->PID. " closed";
-    delete $_[HEAP]{children_by_pid}{$child->PID};
+    delete $heap->{children_by_pid}{$child->PID};
 }
 
 sub got_post {
-    my ($kernel, $heap, $request) = @_[KERNEL, HEAP, ARG0];
+    my ($kernel, $heap, $json) = @_[KERNEL, HEAP, ARG0];
+    my $self = shift;
 
     unless ($heap->{status} eq 'EST' and $heap->{session_id}) {
-        $heap->{client}->put("NSMF/1.0 400 BAD REQUEST\r\n");
+        $heap->{client}->put($self->json_result_create($json, "bad request"));
         return;
     }
 
-    my $parsed = parse_request(post => $request);
+    my ($ret, $response) = $self->jsonrpc_validate($json, [".type", ".jobid", "#data"]);
 
-    return unless ref $parsed eq 'POST';
+    if ( $ret != 0 ) {
+      say "Incomplete POST request.";
+      $heap->{client}->put($response);
+      return;
+    }
 
     say ' -> This is a post for ' . $heap->{module_name};
-    say '    - Type: '. $parsed->{type};
-    say '    - Job Id: ' .$parsed->{job_id};
-
-    my $append;
-    my $data = $parsed->{data};
-    for my $line (@{ $parsed->{data} }) {
-        $append .= $line;
-    }
-
-    my @sessions = split /\n/, decode_base64 $append;
+    say '    - Type: '. $json->{params}{type};
+    say '    - Job Id: ' . $json->{params}{job_id};
 
     my $module = $heap->{module};
-    for my $session ( @sessions ) {
-        next unless $module->validate( $session );
+    $module->validate( $json->{params} );
+    $module->save( $json->{params} ) or say $module->errstr;
 
-        $module->save( $session ) or say $module->errstr;
-        say "    Session saved";
-    }
-
+    # need to reply here
+    say "    Session saved";
 }
 
 sub send_ping {
     my ($kernel, $heap, $request) = @_[KERNEL, HEAP, ARG0];
+    my $self = shift;
 
     say '  -> Sending PING';
     my $payload = "PING " .time. " NSMF/1.0\r\n";
@@ -360,39 +364,41 @@ sub send_pong {
 
     say '  -> Sending PONG';
 
-    my $payload = $self->json_result_create($json, {
+    my $response = $self->json_result_create($json, {
         "timestamp" => time()
     });
 
-    $heap->{client}->put(encode_json($payload));
+    $heap->{client}->put($response);
 }
 
 sub send_error {
     my ($kernel, $heap, $json) = @_[KERNEL, HEAP, ARG0];
+    my $self = shift;
+
     warn "[!] BAD REQUEST" if $NSMF::DEBUG;
     $heap->{client}->put($self->json_error_create($json, JSONRPC_NSMF_BAD_REQUEST));
 }
 
 sub get {
-    my ($kernel, $heap, $request) = @_[KERNEL, HEAP, ARG0];
+    my ($kernel, $heap, $json) = @_[KERNEL, HEAP, ARG0];
+    my $self = shift;
 
     unless ($heap->{status} eq 'EST' and $heap->{session_id}) {
-        say "Sending BAD GET";
-        $heap->{client}->put("NSMF/1.0 400 BAD REQUEST\r\n");
+        $heap->{client}->put($self->json_error_create($json, JSONRPC_NSMF_BAD_REQUEST));
         return;
     }
 
-    my $req = parse_request(get => $request);
-    unless (ref $req) {
-    say 'BAD in GET';
-        $heap->{client}->put('NSMF/1.0 400 BAD REQUEST');
-        return;
+    my ($ret, $response) = $self->jsonrpc_validate($json, [".type", ".jobid", "#data"]);
+
+    if ( $ret != 0 ) {
+      say "Incomplete GET request.";
+      $heap->{client}->put($response);
+      return;
     }
 
     # search data
     my $payload = encode_base64( compress( 'A'x1000 ) );
-    $heap->{client}->put('POST ANumbers NSMF/1.0' ."\r\n". $payload);
-
+    $heap->{client}->put($self->json_result_create($json, $payload));
 }
 
 #

@@ -223,9 +223,9 @@ sub got_pong {
 
     $heap->{pong_recv} = time();
 
-    my $latency = $heap->{pong_recv} - $heap->{ping_recv};
+    my $latency = $heap->{pong_recv} - $heap->{ping_sent};
 
-    say "    <- Got PONG " . ($latency > 5) ? "Latency (" .$latency. "s" : "";
+    say '    <- Got PONG ' . (($latency > 3) ? ( "Latency (" .$latency. "s)" ) : "");
 
     $kernel->delay(send_ping => 60);
 }
@@ -250,7 +250,7 @@ sub jsonrpc_method_create
     return {
         "jsonrpc" => "2.0",
         "method" => $method,
-        "params" => $params // "",
+        "params" => $params // '',
         "id" => $id
     };
 }
