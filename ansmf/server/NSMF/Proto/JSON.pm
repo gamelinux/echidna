@@ -245,7 +245,7 @@ sub identify {
                 CloseEvent  => "child_close",
             );
 
-            $kenrel->sig_child($child->PID, "child_signal");
+            $kernel->sig_child($child->PID, "child_signal");
             $heap->{children_by_wid}{$child->ID} = $child;
             $heap->{children_by_pid}{$child->PID} = $child;
         }
@@ -298,7 +298,7 @@ sub child_error {
 }
 
 sub child_signal {
-    my ($heap) = @_[HEAP];
+    my $heap = $_[HEAP];
     #say "   * PID: $_[ARG1] exited with status $_[ARG2]";
     my $child = delete $heap->{children_by_pid}{$_[ARG1]};
 
