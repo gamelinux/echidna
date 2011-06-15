@@ -1,0 +1,321 @@
+------------------------------------------------------------------------------
+ 0. INTRODUCTION
+------------------------------------------------------------------------------
+
+The NSMF core has defined data structure for each of the expected NSM data
+types:
+  * Event (Alert),
+  * Session,
+  * Statitisic, and
+  * Full Packet.
+
+The data types are described below.
+
+------------------------------------------------------------------------------
+ 1. EVENT (ALERT)
+------------------------------------------------------------------------------
+
+In PERL format
+
+{
+  "event" => {
+    "id" => 1407,
+    "timestamp" => 1231223123.124233,
+    "classification" => 0,
+  },
+  "node" => {
+    "id" => 1,
+  },
+  "net" => {
+    "version" => 4,
+    "protocol" => 6,
+    "source" => {
+      "ip" => "61.34.18.49",
+      "port" => 3545
+    },
+    "destination" => {
+      "ip" => "192.168.1.56",
+      "port" => 13
+    }
+  },
+  "signature" => {
+    "type" => 1
+    "id" => 527,
+    "revision" => 8,
+    "message" => "DELETED BAD ALERT Unknown Traffic."
+    "priority" => 2,
+    "classification" => "bad-unknown",
+  },
+  "vendor-meta" => {
+    "u2_event_id" => 1
+    "u2_filename" => "snort.u2.1234131123"
+  }
+}
+
+
+The field descriptions are:
+  * event
+    - An object describing the general event attributes
+
+      * id
+        - The unique event ID of the node which generated the event (alert).
+
+      * timestamp
+        - The node's best timestamp (in unix epoch and microseconds appended)
+          of when the event (alert) occured.
+
+      * classification
+        - The classification of the event (alert). 0 = not yet classified.
+
+  * node
+    - An object representing the general node attributes
+
+    * id
+      - The unique node ID which generated the event (alert).
+
+  * net
+    - An object describing the network information. The object contains:
+
+      * version
+        - The IP version being used: 4 = IPv4, 6 = IPv6.
+
+      * protocol
+        - The protocol version being using: 1 = ICMP, 6 = TCP, 17 = UDP.
+
+      * source
+        - A mandatory object describing the source/originator IP information.
+          The object contains:
+
+          * ip
+            - The source/originating IP address of the event(alert).
+
+          * port
+            - The source/originating port of the event (alert). For ICMP
+              traffic the port refers to the ICMP type.
+
+      * destination
+        - An optional object describing the destination/recipient IP
+          information of the event (if appropriate). The object contains:
+
+          * ip
+            - The destination/receiving IP address of the event (alert).
+
+          * port
+            - The destination/receiving port of the event (alert). For ICMP
+              traffic the port refers to the ICMP code.
+
+  * signature
+    - An object describing the signature (rule, behaviour, etc) that triggered
+      the event (alert).
+
+      * type
+        - The type ID of the signature (eg. Snort rule = 1, prads rule = 2)
+
+      * id
+        - The unique ID for this type of signature (eg. Snort SID)
+
+      * revision
+        - The revision number of this signature (eg. Snort SID-REV)
+
+      * message
+        - An OPTIONAL succinct message that describes the signature's purpose.
+
+      * priority
+        - The specific priority associated with this type of signature
+
+      * category
+        - A general universal category that this signature belows to (eg.
+          Snort classification such as "bad-unknown")
+
+  * vendor-meta
+    - An extendible object that defines any additional, vendor specific
+      information pertaining to the event (alert).
+
+      For example:
+
+      * u2_event_id
+        - The associated unified2 event ID.
+
+      * u2_filename
+        - The unified2 file that contained the event (alert).
+
+
+
+------------------------------------------------------------------------------
+ 2. SESSION
+------------------------------------------------------------------------------
+
+In PERL format
+
+{
+  "session" => {
+    "id" => 1407,
+    "timestamp" => 1231223123.124233,
+    "times" => {
+      "start" => 1231223123.124233,
+      "end" => 1231333133.565345
+      "duration" => 10.441112
+    }
+  },
+  "node" => {
+    "id" => 1,
+  },
+  "net" => {
+    "version" => 4,
+    "protocol" => 6,
+    "source" => {
+      "ip" => "61.34.18.49",
+      "port" => 3545,
+      "total_packets" => 232,
+      "total_bytes" => 3242
+      "flags" => 23,
+    },
+    "destination" => {
+      "ip" => "192.168.1.56",
+      "port" => 13,
+      "total_packets" => 232,
+      "total_bytes" => 3242
+      "flags" => 21,
+    }
+  },
+  data => {
+    "filename" => "pcap.1213123123",
+    "offset" => 234235
+    "length" => 2342
+  },
+  "vendor-meta" => {
+    "cxt_id" => 1
+  }
+}
+
+
+The field descriptions are:
+  * node
+    - An object representing the general node attributes
+
+    * id
+      - The unique node ID which generated the session.
+
+  * session
+    - An object describing the general session attributes
+
+      * id
+        - The unique session ID of the node which detected the session.
+
+      * timestamp
+        - The node's best timestamp (in unix epoch and microseconds appended)
+          of when the session occured.
+
+      * times
+        - An object that represents the temporal attributes (in unix poch and
+          microseconds appended) of when the session occured.
+
+        * start
+          - The node's best timestamp (in unix epoch and microseconds
+            appended) of when the session started.
+
+        * end
+          - The node's best timestamp (in unix epoch and microseconds
+            appended) of when the session ended.
+
+        * duration
+          - The node's best estimate of duration for the session.
+
+  * net
+    - An object describing the network information. The object contains:
+
+      * version
+        - The IP version being used: 4 = IPv4, 6 = IPv6.
+
+      * protocol
+        - The protocol version being using: 1 = ICMP, 6 = TCP, 17 = UDP.
+
+      * source
+        - A mandatory object describing the source/originator IP information
+          of the session. The object contains:
+
+          * ip
+            - The source/originating IP address of the session.
+
+          * port
+            - The source/originating port of the session. For ICMP traffic the
+              port refers to the ICMP type.
+
+          * total_packets
+            - The total number of packets originating from the source IP
+              during the session.
+
+          * total_bytes
+            - The total number of bytes originating from the source IP during
+              the session.
+
+          * flags
+            - The cumulative protocol flags of packets originating from the
+              source IP seen during the session.
+
+  * data
+      * destination
+        - A mandatory object describing the destination/recipient IP
+            information of the session. The object contains:
+
+          * ip
+            - The destination/receiving IP address of the session.
+
+          * port
+            - The destination/receiving port of the session. For ICMP traffic
+              the port refers to the ICMP code.
+
+          * total_packets
+            - The total number of packets originating from the destination IP
+              during the session.
+
+          * total_bytes
+            - The total number of bytes originating from the destination IP
+              during the session.
+
+          * flags
+            - The cumulative protocol flags of packets originating from the
+              destination IP seen during the session.
+
+  * data
+    - An object that stores the location attributes for the raw session data.
+
+      * filename
+        - The filename of the pcap (or full packet capture) that contains the
+          session.
+
+      * offset
+        - The byte offset to the first byte of the first packet in the
+          sesssion.
+
+      * length
+        - The length in bytes from the first byte of the first packet to the
+          the last byte of the last packet inclusive.
+
+  * vendor-meta
+    - An extendible object that defines any additional, vendor specific
+      information pertaining to the session.
+
+      For example:
+
+      * cxt_id
+        - The associated cxtracker session ID.
+
+
+
+------------------------------------------------------------------------------
+ 3. STATISTIC
+------------------------------------------------------------------------------
+
+TBD
+
+
+
+------------------------------------------------------------------------------
+ 4. FULL PACKET
+------------------------------------------------------------------------------
+
+TBD
+
+
+
