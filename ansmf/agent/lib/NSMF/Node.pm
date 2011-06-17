@@ -8,7 +8,7 @@ use base qw(NSMF::Action);
 # NSMF Imports
 use NSMF;
 use NSMF::Core qw(init);
-use NSMF::Util;
+use NSMF::Common::Util;
 use NSMF::Config;
 
 use MIME::Base64;

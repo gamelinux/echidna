@@ -2,7 +2,7 @@ package NSMF::Config;
 
 use strict;
 use v5.10;
-use NSMF::Util;
+use NSMF::Common::Util;
 use Carp qw(croak);
 use YAML::Tiny;
 our $VERSION = '0.1';

@@ -6,7 +6,7 @@ use strict;
 use v5.10;
 
 use NSMF;
-use NSMF::Util;
+use NSMF::Common::Util;
 use NSMF::Node::Daemonlogger;
 
 my $config_file = '../etc/daemonlogger.yaml';

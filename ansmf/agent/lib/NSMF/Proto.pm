@@ -4,7 +4,7 @@ use strict;
 use v5.10;
 
 use POE;
-use NSMF::Util;
+use NSMF::Common::Util;
 
 my $instance;
 

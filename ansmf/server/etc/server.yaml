@@ -5,7 +5,7 @@ port: 10101
 # Settings
 settings:
     debug: 1
-    # protocol: json 
+    protocol: http 
     # http default
 
 # Enable Modules

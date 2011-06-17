@@ -4,7 +4,7 @@ use v5.10;
 use strict;
 
 use NSMF;
-use NSMF::Util;
+use NSMF::Common::Util;
 use NSMF::ModMngr;
 use NSMF::AuthMngr;
 use NSMF::ConfigMngr;

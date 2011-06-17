@@ -9,29 +9,14 @@ use POE qw(Component::Server::TCP);
 
 # NSMF Imports
 use NSMF;
-use NSMF::Util;
-<<<<<<< HEAD
-=======
-use NSMF::ProtoFactory;
-use NSMF::ConfigMngr;
-
-# Misc
-use Data::Dumper;
->>>>>>> 4931d83022ea8f230dcb07c8f107316f66b5f6ce
+use NSMF::Common::Util;
 
 our $VERSION = '0.1';
 
 # Configuration
-<<<<<<< HEAD
-my $nsmf = NSMF->new;
-my ($config, $proto);
-
-$config  = $nsmf->config;
-$proto   = $nsmf->proto;
-=======
-my $config  = NSMF::ConfigMngr->instance;
-my $proto   = NSMF::ProtoFactory->create("JSON");
->>>>>>> 4931d83022ea8f230dcb07c8f107316f66b5f6ce
+my $nsmf    = NSMF->new;
+my $config  = $nsmf->config;
+my $proto   = $nsmf->proto;
 
 # Server 
 new POE::Component::Server::TCP(

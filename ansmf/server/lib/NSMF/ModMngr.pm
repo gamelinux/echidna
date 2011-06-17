@@ -1,7 +1,7 @@
 package NSMF::ModMngr;
 
 use NSMF;
-use NSMF::Util;
+use NSMF::Common::Util;
 
 use Data::Dumper;
 
