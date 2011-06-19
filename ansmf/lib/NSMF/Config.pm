@@ -46,7 +46,7 @@ sub load_yaml {
     # Other Checking
 
     return {
-        id        => $node->{id},
+        agent     => $node->{agent},
         nodename  => $node->{nodename},
         netgroup  => $node->{netgroup},
         secret    => $node->{secret},

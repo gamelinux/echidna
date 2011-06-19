@@ -1,0 +1,8 @@
+DEPENDENCIES:
+
+- POE
+- ObjectDriver
+- YAML Tiny
+
+INSTALL:
+    prompt>> sudo apt-get install libpoe-perl libdata-objectdriver-perl libyaml-tiny-perl

@@ -6,24 +6,24 @@ use strict;
 # POE Imports
 use POE;
 use POE::Component::Server::TCP;
-use POE::Filter::Reference;
 
 # NSMF Imports
 use NSMF;
 use NSMF::Util;
-use NSMF::Proto;
+use NSMF::ProtoFactory;
 use NSMF::ConfigMngr;
 
 # Misc
 use Data::Dumper;
+
 our $VERSION = '0.1';
 
 # Configuration
 my $config  = NSMF::ConfigMngr->instance;
-my $proto   = NSMF::Proto->instance;
+my $proto   = NSMF::ProtoFactory->create("JSON");
 
 # Server 
-POE::Component::Server::TCP->new(
+new POE::Component::Server::TCP(
     Alias              => $config->name,
     Address            => $config->address,
     Port               => $config->port,
@@ -31,7 +31,6 @@ POE::Component::Server::TCP->new(
     ClientDisconnected => \&disconnected,
     ClientInput => sub { 
         my ($kernel, $heap, $input) = @_[KERNEL, HEAP, ARG0];
-
         $kernel->yield('dispatcher', $input);
     },
     ClientFilter => "POE::Filter::Stream",
@@ -40,22 +39,22 @@ POE::Component::Server::TCP->new(
 
 sub connected {
     my ($session, $heap) = @_[SESSION, HEAP];
-    if ($NSMF::DEBUG) {
-        print_status "Client connected.";
-        say "- Session ID: " . $session->ID;
-    }
+    
+    puts " [+] Client connected: ". $heap->{remote_ip};
 
     # Initialization
+    $heap->{status}     = 'REQ';
     $heap->{nodename}   = undef;
     $heap->{session_id} = undef;
     $heap->{netgroup}   = undef;
+    $heap->{modules_sessions} = [];
 }
 
 sub disconnected {
     my ($session, $heap) = @_[SESSION, HEAP];
-   say "Client with ", $session->ID, " disconnected" if $NSMF::DEBUG;
+    puts "Client with " . $session->ID . " disconnected";
 }
 
-print_status 'Server Initialized ..';
+puts 'Server Initialized ..';
 POE::Kernel->run();
 exit(0);

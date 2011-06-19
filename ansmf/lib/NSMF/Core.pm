@@ -1,4 +1,4 @@
-package NSMF::Comm;
+package NSMF::Core;
 
 use strict;
 use v5.10;
@@ -6,7 +6,7 @@ use v5.10;
 # NSMF Imports
 use NSMF;
 use NSMF::Util;
-use NSMF::Proto;
+use NSMF::ProtoFactory;
 
 # POE Imports
 use POE;
@@ -18,7 +18,7 @@ use Carp qw(croak);
 use Data::Dumper;
 
 my $self;
-my $proto = NSMF::Proto->instance;
+my $proto = NSMF::ProtoFactory->create("JSON");
 
 sub init {
 
@@ -37,6 +37,7 @@ sub init {
             $_[HEAP]->{nodename} = $self->nodename;
             $_[HEAP]->{netgroup} = $self->netgroup;
             $_[HEAP]->{secret}   = $self->secret;
+            $_[HEAP]->{agent}    = $self->agent;
 
             $_[KERNEL]->yield('authenticate');
         },
@@ -61,15 +62,12 @@ sub init {
             run => \&run,
         }
     );
-
 }
 
 sub run {
     my ($kernel, $heap) = @_[KERNEL, HEAP];
+    say "-> Calling run";
     $self->run($kernel, $heap);
 }
-
-
-
 
 1;

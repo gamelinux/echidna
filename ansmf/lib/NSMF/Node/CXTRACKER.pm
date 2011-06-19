@@ -8,7 +8,6 @@ use base qw(NSMF::Node);
 
 # NSMF Imports
 use NSMF;
-use NSMF::Net;
 use NSMF::Util;
 
 # POE Imports
@@ -19,24 +18,13 @@ use Data::Dumper;
 our $VERSION = '0.1';
 our $cxtdir;
 
-sub found {
-    my ($self, $file) = @_;
-    say "Found $file";
-}
-sub new {
-    my $class = shift;
-    my $node = $class->SUPER::new;
-    $node->{__data} = {};
-
-    return $node;
-}
-
 sub  hello {
-    say "Hello from CXTRACKER Node!!";
+    say "   Hello from CXTRACKER Node!!";
 }
 sub run {
     my ($self, $kernel, $heap) = @_;
      
+    $self->register($kernel, $heap);
     print_status("Running cxtracker processing..");
 
     $self->hello();
@@ -48,39 +36,36 @@ sub run {
         interval  => 3,
         pattern   => 'stats\..+\.(\d){10}'
     });
-
-    $self->start();
 }
 
 sub _process {
     my ($self, $file) = @_;
     my $cxtdir = $self->{__settings}->{cxtdir};
     
-    return unless defined $file  and -r -w -f $file;
-    say "Processing $file";
+    return unless defined $file and -r -w -f $file;
+
     print_error 'CXTDIR undefined!' unless $cxtdir;
 
     my ($sessions, $start_time, $end_time, $process_time, $result);
 
+    say "[*] Found file: $file";
 
-        say "[*] Found file: $file";
+    $start_time   = time();
+    $sessions     = _get_sessions($file);
+    $end_time     = time();
+    $process_time = $end_time - $start_time;
 
-        $start_time   = time();
-        $sessions     = _get_sessions($file);
-        $end_time     = time();
-        $process_time = $end_time - $start_time;
+    say "[*] File $file processed in $process_time seconds" if (NSMF::DEBUG);
 
-        say "[*] File $file processed in $process_time seconds" if (NSMF::DEBUG);
+    $start_time   = $end_time;
+    $self->post(cxt => $sessions);
+    $end_time     = time();
+    $process_time = $end_time - $start_time;
 
-        $start_time   = $end_time;
-        $self->put($sessions);
-        $end_time     = time();
-        $process_time = $end_time - $start_time;
+    say "[*] Session record sent in $process_time seconds" if (NSMF::DEBUG);
 
-        say "[*] Session record sent in $process_time seconds" if (NSMF::DEBUG);
-
-        say "[W] Deleting file: $file";
-        unlink($file) or print_error "Failed to delete $file";
+    say "[W] Deleting file: $file";
+    unlink($file) or print_error "Failed to delete $file";
 }
 
 =head2 _get_sessions
@@ -123,14 +108,14 @@ sub _get_sessions {
             if ( $sessions_data eq "" ) {
                 $sessions_data = "$line";
             } else {
-                $sessions_data = "$sessions_data\n$line";
+                $sessions_data .= "\n$line";
             }
       }
 
       close FILE;
       say "Sessions data:\n$sessions_data" if NSMF::DEBUG;
       return $sessions_data;
-      }
+    }
 }
 
 1;
