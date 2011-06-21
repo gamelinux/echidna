@@ -18,7 +18,7 @@ use Carp qw(croak);
 use Data::Dumper;
 
 my $self;
-my $proto = NSMF::ProtoFactory->create("HTTP");
+my $proto = NSMF::ProtoFactory->create("JSON");
 
 sub init {
 
