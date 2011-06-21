@@ -6,7 +6,7 @@ use v5.10;
 # NSMF Imports
 use NSMF;
 use NSMF::Common::Util;
-use NSMF::ProtoFactory;
+use NSMF::ProtoMngr;
 
 # POE Imports
 use POE;
@@ -18,7 +18,7 @@ use Carp qw(croak);
 use Data::Dumper;
 
 my $self;
-my $proto = NSMF::ProtoFactory->create("JSON");
+my $proto = NSMF::ProtoMngr->create("JSON");
 
 sub init {
 
