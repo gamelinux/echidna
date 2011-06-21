@@ -1,0 +1,15 @@
+# Server Configuration
+server: localhost
+port: 10101
+
+# Settings
+settings:
+    debug: 1
+    protocol: http 
+    # http default
+
+# Enable Modules
+modules:
+    - cxtracker
+    - snort
+    - daemonlogger

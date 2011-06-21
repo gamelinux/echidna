@@ -1,0 +1,23 @@
+#!/usr/bin/perl -w
+
+use lib '../lib';
+
+use strict;
+use v5.10;
+
+use NSMF;
+use NSMF::Common::Util;
+use NSMF::Node::CXTRACKER;
+
+my $config_file = '../etc/cxtracker.yaml';
+
+# Creating new CXTRACKER Node
+my $cxt = NSMF::Node::CXTRACKER->new;
+
+# Loading configuration variables
+$cxt->load_config($config_file);
+
+# Connect and Authenticate
+$cxt->sync;
+$cxt->start;
+

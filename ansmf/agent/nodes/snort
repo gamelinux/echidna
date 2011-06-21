@@ -1,0 +1,23 @@
+#!/usr/bin/perl -w
+
+use lib '../lib';
+
+use strict;
+use v5.10;
+
+use NSMF;
+use NSMF::Common::Util;
+use NSMF::Node::SNORT;
+
+my $config_file = '../etc/snort.yaml';
+
+# Creating new SNORT Node
+my $snortu = NSMF::Node::SNORT->new;
+
+# Loading configuration variables
+$snortu->load_config($config_file);
+
+# Connect and Authenticate
+$snortu->sync;
+$snortu->start;
+

@@ -1,26 +1,22 @@
 #!/usr/bin/perl -w 
 
+use lib 'lib';
 use v5.10;
 use strict;
 
 # POE Imports
-use POE;
-use POE::Component::Server::TCP;
+use POE qw(Component::Server::TCP);
 
 # NSMF Imports
 use NSMF;
-use NSMF::Util;
-use NSMF::ProtoFactory;
-use NSMF::ConfigMngr;
-
-# Misc
-use Data::Dumper;
+use NSMF::Common::Util;
 
 our $VERSION = '0.1';
 
 # Configuration
-my $config  = NSMF::ConfigMngr->instance;
-my $proto   = NSMF::ProtoFactory->create("JSON");
+my $nsmf    = NSMF->new;
+my $config  = $nsmf->config;
+my $proto   = $nsmf->proto;
 
 # Server 
 new POE::Component::Server::TCP(
