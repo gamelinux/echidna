@@ -5,14 +5,14 @@ use lib '../lib';
 use strict;
 use v5.10;
 
-use NSMF;
-use NSMF::Common::Util;
-use NSMF::Node::CXTRACKER;
+use NSMF::Node;
+use NSMF::Node::Common::Util;
+use NSMF::Node::Component::CXTRACKER;
 
 my $config_file = '../etc/cxtracker.yaml';
 
 # Creating new CXTRACKER Node
-my $cxt = NSMF::Node::CXTRACKER->new;
+my $cxt = NSMF::Node::Component::CXTRACKER->new();
 
 # Loading configuration variables
 $cxt->load_config($config_file);

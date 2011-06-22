@@ -8,13 +8,13 @@ use strict;
 use POE qw(Component::Server::TCP);
 
 # NSMF Imports
-use NSMF;
-use NSMF::Common::Util;
+use NSMF::Server;
+use NSMF::Server::Common::Util;
 
 our $VERSION = '0.1';
 
 # Configuration
-my $nsmf    = NSMF->new;
+my $nsmf    = NSMF::Server->new();
 my $config  = $nsmf->config;
 my $proto   = $nsmf->proto;
 
