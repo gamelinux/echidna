@@ -17,7 +17,7 @@ my $instance;
 sub new {  
     unless ($instance) {
 
-        my $config_path = File::Spec->catfile('etc', 'server.yaml');
+        my $config_path = File::Spec->catfile('../etc', 'server.yaml');
 
         unless (-f -r $config_path) {
             die 'Server Configuration File Not Found';
