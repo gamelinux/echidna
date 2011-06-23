@@ -4,7 +4,7 @@ use strict;
 use v5.10;
 
 use POE;
-use NSMF::Node::Common::Util;
+use NSMF::Util;
 
 sub file_watcher {
     my ($self, $settings) = @_;

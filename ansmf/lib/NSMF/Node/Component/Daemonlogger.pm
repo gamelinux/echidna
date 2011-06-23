@@ -9,7 +9,7 @@ use base qw(NSMF::Node);
 # NSMF Imports
 use NSMF;
 use NSMF::Net;
-use NSMF::Common::Util;
+use NSMF::Util;
 
 # POE Imports
 use POE;

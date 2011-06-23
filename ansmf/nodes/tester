@@ -6,13 +6,13 @@ use strict;
 use v5.10;
 
 use NSMF;
-use NSMF::Common::Util;
 use NSMF::Node::TEST;
+use NSMF::Util;
 
 my $config_file = '../etc/cxtracker.yaml';
 
 # Creating new CXTRACKER Node
-my $cxt = NSMF::Node::TEST->new;
+my $cxt = NSMF::Node::TEST->new();
 
 # Loading configuration variables
 $cxt->load_config($config_file);

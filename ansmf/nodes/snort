@@ -5,14 +5,14 @@ use lib '../lib';
 use strict;
 use v5.10;
 
-use NSMF;
-use NSMF::Common::Util;
+use NSMF::Node;
 use NSMF::Node::SNORT;
+use NSMF::Util;
 
 my $config_file = '../etc/snort.yaml';
 
 # Creating new SNORT Node
-my $snortu = NSMF::Node::SNORT->new;
+my $snortu = NSMF::Node::SNORT->new();
 
 # Loading configuration variables
 $snortu->load_config($config_file);

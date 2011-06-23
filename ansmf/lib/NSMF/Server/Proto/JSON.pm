@@ -4,7 +4,7 @@ use v5.10;
 use strict;
 
 use NSMF::Server;
-use NSMF::Server::Common::Util;
+use NSMF::Util;
 use NSMF::Server::ModMngr;
 use NSMF::Server::AuthMngr;
 use NSMF::Server::ConfigMngr;

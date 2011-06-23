@@ -9,7 +9,7 @@ use POE qw(Component::Server::TCP);
 
 # NSMF Imports
 use NSMF::Server;
-use NSMF::Server::Common::Util;
+use NSMF::Util;
 
 our $VERSION = '0.1';
 

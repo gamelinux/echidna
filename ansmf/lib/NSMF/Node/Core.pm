@@ -6,7 +6,7 @@ use v5.10;
 
 # NSMF Imports
 use NSMF::Node;
-use NSMF::Node::Common::Util;
+use NSMF::Util;
 use NSMF::Node::ProtoMngr;
 
 # POE Imports

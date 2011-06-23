@@ -5,14 +5,14 @@ use lib '../lib';
 use strict;
 use v5.10;
 
-use NSMF;
-use NSMF::Common::Util;
+use NSMF::Node;
 use NSMF::Node::Daemonlogger;
+use NSMF::Util;
 
 my $config_file = '../etc/daemonlogger.yaml';
 
 # Creating new Daemonlogger Node
-my $cxt = NSMF::Node::Daemonlogger->new;
+my $cxt = NSMF::Node::Daemonlogger->new();
 
 # Loading configuration variables
 $cxt->load_config($config_file);

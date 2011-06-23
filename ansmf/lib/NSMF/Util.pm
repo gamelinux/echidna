@@ -1,4 +1,4 @@
-package NSMF::Node::Common::Util;
+package NSMF::Util;
 
 use strict;
 use v5.10;
@@ -15,12 +15,39 @@ our @EXPORT = qw(
     debug 
     log
 );
+
 our $VERSION = '0.1';
 
 sub puts {
 
     return unless $NSMF::DEBUG;
     say for @_;
+}
+
+sub trim {
+    my ($msg) = @_;
+    $msg =~ s/^\s+//g;
+    $msg =~ s/\s+$//g;
+    return $msg;
+}
+
+sub verify_node {
+    my ($self) = @_;
+    return unless ref($self) ~~ /NSMF::Node/;
+}
+
+sub defined_args {
+    my @args = @_;
+
+    return unless @args;
+
+    for (@args) {
+        when(undef) {
+            return;
+        }
+    }
+
+    return 1;
 }
 
 sub parse_request {
@@ -78,18 +105,6 @@ sub parse_request {
     }
 }
 
-sub trim {
-    my ($msg) = @_;
-    $msg =~ s/^\s+//g;
-    $msg =~ s/\s+$//g;
-    return $msg;
-}
-
-sub verify_node {
-    my ($self) = @_;
-    return unless ref($self) ~~ /NSMF::Node/;
-}
-
 sub print_status {
     my ($message) = @_;
     say "[*] $message";
@@ -99,20 +114,6 @@ sub print_error {
     my ($message) = @_;
     say "[!!] $message";
     exit;
-}
-
-sub defined_args {
-    my @args = @_;
-
-    return unless @args;
-
-    for (@args) {
-        when(undef) {
-            return;
-        }
-    }
-
-    return 1;
 }
 
 sub check_config {  
@@ -126,7 +127,6 @@ sub check_config {
     return 1;
 }
 
-
 sub debug {
     my @args = @_;
 
@@ -135,7 +135,6 @@ sub debug {
     foreach (@args) {
         say Dumper $_;
     }
-
 }
 
 sub log {
