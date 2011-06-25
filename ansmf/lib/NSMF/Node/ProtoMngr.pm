@@ -11,7 +11,7 @@ sub create {
     $type //= 'JSON';
     my $proto_path = 'NSMF::Node::Proto::' . uc($type);
 
-    my @protocols = NSMF->protocols;
+    my @protocols = NSMF::Node->protocols;
     if ( $proto_path ~~ @protocols ) {
         eval "use $proto_path";
         if ( $@ ) {

@@ -6,23 +6,14 @@ use base qw(Exporter);
 use Data::Dumper;
 use Carp qw(croak);
 our @EXPORT = qw(
-    puts
     print_status 
     print_error 
     trim
     defined_args 
     parse_request
-    debug 
-    log
 );
 
 our $VERSION = '0.1';
-
-sub puts {
-
-    return unless $NSMF::DEBUG;
-    say for @_;
-}
 
 sub trim {
     my ($msg) = @_;
@@ -105,17 +96,6 @@ sub parse_request {
     }
 }
 
-sub print_status {
-    my ($message) = @_;
-    say "[*] $message";
-}
-
-sub print_error {
-    my ($message) = @_;
-    say "[!!] $message";
-    exit;
-}
-
 sub check_config {  
     my $config = shift;
     my @KEYS = qw(id nodename netgroup secret server port);
@@ -127,27 +107,6 @@ sub check_config {
     return 1;
 }
 
-sub debug {
-    my @args = @_;
 
-    $Data::Dumper::Terse = 1;
-
-    foreach (@args) {
-        say Dumper $_;
-    }
-}
-
-sub log {
-    my ($message, $logfile) = @_;
-    my $dt = DateTime->now;
-
-    $Data::Dumper::Terse = 1;
-    
-    $logfile //= 'debug.log';
-    open(my $fh, ">>", $logfile) or die $!;
-    say $fh $dt->datetime;
-    say $fh Dumper $message;
-    close $fh;
-}
 
 1;

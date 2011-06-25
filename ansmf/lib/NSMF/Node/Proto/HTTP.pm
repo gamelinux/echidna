@@ -5,11 +5,13 @@ use v5.10;
 
 use POE;
 use NSMF::Util;
+use NSMF::Common::Logger;
 use Data::Dumper;
 use Compress::Zlib;
 use MIME::Base64;
 
 my $instance;
+my $logger = NSMF::Common::Logger->new();
 
 sub instance {
     unless ($instance) {
@@ -45,7 +47,7 @@ sub states {
 sub dispatcher {
     my ($kernel, $heap, $request) = @_[KERNEL, HEAP, ARG0];
 
-    say "  [error] Response is Empty" unless $request;
+    $logger->warn("  [error] Response is Empty") if ( ! defined($request) );
 
     my $action = '';
     given($heap->{stage}) {
@@ -53,12 +55,12 @@ sub dispatcher {
             given($request) {
                 when(/^NSMF\/1.0 200 OK ACCEPTED/i) { 
                     $action = 'identify';
-                    say "  [response] = OK ACCEPTED"; }
+                    $logger->debug('  [response] = OK ACCEPTED'); }
                 when(/^NSMF\/1.0 UNAUTHORIZED/i) { 
-                    say "  [response] = NOT ACCEPTED"; 
+                    $logger->debug('  [response] = NOT ACCEPTED'); 
                     return; }
                 default: {
-                    say " UNKNOWN RESPONSE: $request";
+                    $logger->debug(" UNKNOWN RESPONSE: $request");
                     return; }
             }
         }
@@ -66,22 +68,22 @@ sub dispatcher {
             given($request) {
                 when(/^NSMF\/1.0 200 OK ACCEPTED/i) { 
                     $heap->{stage} = 'EST';
-                    say "  [response] = OK ACCEPTED";
+                    $logger->debug('  [response] = OK ACCEPTED');
                     $kernel->yield('run');
                     $kernel->delay(ping => 3);
                     return; }
                 when(/^NSMF\/1.0 401 UNSUPPORTED/i) { 
-                    say "  [response] = UNSUPPORTED"; 
+                    $logger->debug('  [response] = UNSUPPORTED'); 
                     return; }
                 default: {
-                    say " UNKNOWN RESPONSE: $request";
+                    $logger->debug(" UNKNOWN RESPONSE: $request");
                     return; }
             }
         }
         when(/EST/i) {
             given($request) {
                 when(/^NSMF\/1.0 200 OK ACCEPTED\r\n$/i) {
-                     say "  -> EST ACCEPTED";
+                     $logger->debug('  -> EST ACCEPTED');
                 }
                 when(/^PONG (\d)+ NSMF\/1.0\r\n$/i) {
                     $action = 'got_pong'; }
@@ -91,17 +93,17 @@ sub dispatcher {
                     my $req = parse_request(post => $request);
     
                     unless (ref $req eq 'POST') {
-                        say "Failed to parse";
+                        $logger->debug('Failed to parse');
                         return;
                     }
                     my $data = uncompress(decode_base64( $req->{data} ));
-                    say "Method: " .$req->{method};
-                    say "Params: " .$req->{param};
-#                    say Dumper $data; 
+                    $logger->debug('Method: ' . $req->{method});
+                    $logger->debug('Params: ' . $req->{param});
+                    $logger->debug(Dumper($data)); 
                     }
                 default: {
-                    say " UNKNOWN RESPONSE: $request";
-#                    say Dumper $request;
+                    $logger->debug(" UNKNOWN RESPONSE: $request");
+                    $logger->debug(Dumper($request));
                     return; }
             }
         }
@@ -126,8 +128,9 @@ sub identify {
 
     my $nodename = $heap->{nodename};
     my $payload = "ID " .$nodename. " NSMF/1.0";
-    say '-> Identifying ' .$nodename;
-    print_error 'Nodename, Secret not defined on Identification Stage' unless defined_args($nodename);
+
+    $logger->debug('-> Identifying ' .$nodename);
+    $logger->fatal('Nodename, Secret not defined on Identification Stage') if ( ! defined_args($nodename) );
 
     $heap->{stage} = 'SYN';     
     $heap->{server}->put("ID $nodename NSMF/1.0");
@@ -142,9 +145,9 @@ sub send_ping {
     return if $heap->{shutdown};
 
     # Verify Established Connection
-    return unless $heap->{stage} eq 'EST';
+    return if ( $heap->{stage} ne 'EST' );
 
-    say "    -> Sending PING..";
+    $logger->debug('    -> Sending PING...');
 
     my $ping_sent = time();
     $heap->{server}->put("PING " .$ping_sent. " NSMF/1.0\r\n");
@@ -155,11 +158,11 @@ sub send_pong {
     my ($kernel, $heap, $response) = @_[KERNEL, HEAP, ARG0];
 
     # Verify Established Connection
-    return unless $heap->{stage} eq 'EST';
+    return if ( $heap->{stage} ne 'EST' );
 
     my $ping_time = time();
     $heap->{server}->put("PONG " .$ping_time. " NSMF/1.0\r\n");
-    say "    -> Sending PONG..";
+    $logger->debug('    -> Sending PONG...');
     $heap->{ping_sent} = $ping_time;
 }
 
@@ -167,9 +170,9 @@ sub got_ping {
     my ($kernel, $heap, $response) = @_[KERNEL, HEAP, ARG0];
 
     # Verify Established Connection
-    return unless $heap->{stage} eq 'EST';
+    return if ( $heap->{stage} ne 'EST' );
 
-    say "    <- Got PING ";
+    $logger->debug('    <- Got PING ');
     $heap->{ping_recv} = time();
 
     $kernel->yield('send_pong');
@@ -179,9 +182,9 @@ sub got_pong {
     my ($kernel, $heap, $response) = @_[KERNEL, HEAP, ARG0];
 
     # Verify Established Connection
-    return unless $heap->{stage} eq 'EST';
+    return if ( $heap->{stage} ne 'EST' );
 
-    say "    <- Got PONG ";
+    $logger->debug('    <- Got PONG ');
     $heap->{pong_recv} = time();
 
     $kernel->delay(send_ping => 60);

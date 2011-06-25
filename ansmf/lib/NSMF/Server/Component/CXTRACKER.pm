@@ -4,8 +4,12 @@ use strict;
 use v5.10;
 
 use base qw(NSMF::Server::Component);
+
 use Module::Pluggable require => 1;
 use NSMF::Server::Driver;
+use NSMF::Common::Logger;
+
+my $logger = NSMF::Common::Logger->new();
 
 __PACKAGE__->install_properties({
     columns => [
@@ -34,7 +38,7 @@ __PACKAGE__->install_properties({
 
 
 sub hello {
-    say "Hello World from CXTRACKER Module!!";
+    $logger->debug("Hello World from CXTRACKER Module!!");
     my $self = shift;
     $_->hello for $self->plugins;
 }
@@ -44,8 +48,8 @@ sub validate {
 
     $session =~ /^\d{19}/;
 
-    unless($session) {
-        warn "[*] Error: Not valid session start format in"
+    if ( ! $session) {
+        $logger->warn("[*] Error: Not valid session start format in");
     }
 
     my @elements = split /\|/, $session;
@@ -74,7 +78,7 @@ sub save {
     };
 
     if (ref $@) {
-        say "  ->  Session validation failed: " .$@->{message};
+        $logger->error("  ->  Session validation failed: " .$@->{message});;
         return;
     }
 

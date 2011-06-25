@@ -1,13 +1,17 @@
 package NSMF::Server::Model::Node;
 
+use v5.10;
+
 use NSMF::Server::Driver;
 use Cache::Memcached;
 use Data::ObjectDriver::Driver::Cache::Memcached;
+use NSMF::Common::Logger;
 
-use v5.10;
 use Data::Dumper;
 
 use base qw(Data::ObjectDriver::BaseObject);
+
+my $logger = NSMF::Common::Logger->new();
 
 __PACKAGE__->install_properties({
     columns => [
@@ -31,5 +35,5 @@ __PACKAGE__->install_properties({
 
 sub hello {
     my $self = shift;
-    say "hi!";
+    $logger->info("hi!");
 }

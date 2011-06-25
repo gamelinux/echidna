@@ -9,6 +9,7 @@ use base qw(NSMF::Node::Component);
 # NSMF Imports
 use NSMF::Node;
 use NSMF::Util;
+use NSMF::Common::Logger;
 
 # POE Imports
 use POE;
@@ -18,14 +19,16 @@ use Data::Dumper;
 our $VERSION = '0.1';
 our $cxtdir;
 
+my $logger = NSMF::Common::Logger->new();
+
 sub  hello {
-    say "   Hello from CXTRACKER Node!!";
+    $logger->debug('   Hello from CXTRACKER Node!!');
 }
 sub run {
     my ($self, $kernel, $heap) = @_;
      
     $self->register($kernel, $heap);
-    print_status("Running cxtracker processing..");
+    $logger->debug("Running cxtracker processing..");
 
     $self->hello();
 
@@ -44,28 +47,29 @@ sub _process {
     
     return unless defined $file and -r -w -f $file;
 
-    print_error 'CXTDIR undefined!' unless $cxtdir;
+    $logger->error('CXTDIR undefined!') unless $cxtdir;
 
     my ($sessions, $start_time, $end_time, $process_time, $result);
 
-    say "[*] Found file: $file";
+    $logger->info("[*] Found file: $file");
 
     $start_time   = time();
     $sessions     = _get_sessions($file);
     $end_time     = time();
     $process_time = $end_time - $start_time;
 
-    say "[*] File $file processed in $process_time seconds" if ($NSMF::DEBUG);
+    $logger->debug("[*] File $file processed in $process_time seconds");
 
     $start_time   = $end_time;
     $self->post(cxt => $sessions);
     $end_time     = time();
     $process_time = $end_time - $start_time;
 
-    say "[*] Session record sent in $process_time seconds" if ($NSMF::DEBUG);
+    $logger->debug("[*] Session record sent in $process_time seconds");
 
-    say "[W] Deleting file: $file";
-    unlink($file) or print_error "Failed to delete $file";
+    $logger->debug("[W] Deleting file: $file");
+
+    unlink($file) or $logger->error("Failed to delete $file");
 }
 
 =head2 _get_sessions
@@ -87,7 +91,7 @@ sub _get_sessions {
             chomp $filelen;
             chomp $filesize;
 
-            say "[*] File:$sfile, Lines:$filelen, Size:$filesize";
+            $logger->debug("[*] File:$sfile, Lines:$filelen, Size:$filesize");
         }
 
         # Verify the data in the session files
@@ -113,7 +117,7 @@ sub _get_sessions {
       }
 
       close FILE;
-      say "Sessions data:\n$sessions_data" if $NSMF::DEBUG;
+      $logger->debug("Sessions data:\n$sessions_data");
       return $sessions_data;
     }
 }

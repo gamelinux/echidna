@@ -10,13 +10,15 @@ use POE qw(Component::Server::TCP);
 # NSMF Imports
 use NSMF::Server;
 use NSMF::Util;
+use NSMF::Common::Logger;
 
 our $VERSION = '0.1';
 
 # Configuration
 my $nsmf    = NSMF::Server->new();
-my $config  = $nsmf->config;
-my $proto   = $nsmf->proto;
+my $config  = $nsmf->config();
+my $proto   = $nsmf->proto();
+my $logger  = NSMF::Common::Logger->new();
 
 # Server 
 new POE::Component::Server::TCP(
@@ -36,7 +38,7 @@ new POE::Component::Server::TCP(
 sub connected {
     my ($session, $heap) = @_[SESSION, HEAP];
     
-    puts " [+] Client connected: ". $heap->{remote_ip};
+    $logger->debug('Client connected: ' . $heap->{remote_ip});
 
     # Initialization
     $heap->{status}     = 'REQ';
@@ -48,9 +50,9 @@ sub connected {
 
 sub disconnected {
     my ($session, $heap) = @_[SESSION, HEAP];
-    puts "Client with " . $session->ID . " disconnected";
+    $logger->debug('Client with ' . $session->ID . ' disconnected');
 }
 
-puts 'Server Initialized ..';
+$logger->info('Server Initialized ...');
 POE::Kernel->run();
 exit(0);

@@ -5,6 +5,7 @@ use v5.10;
 
 use POE;
 use NSMF::Util;
+use NSMF::Common::Logger;
 use Data::Dumper;
 use Compress::Zlib;
 use MIME::Base64;
@@ -12,6 +13,7 @@ use MIME::Base64;
 use JSON;
 
 my $instance;
+my $logger = NSMF::Common::Logger->new();
 
 sub instance {
     unless ($instance) {
@@ -48,7 +50,7 @@ sub dispatcher {
     my ($kernel, $heap, $request) = @_[KERNEL, HEAP, ARG0];
     my $self = shift;
 
-    say "  [error] Response is Empty" unless $request;
+    $logger->warn('  [error] Response is Empty') if ( ! defined($request) );
 
     my $json = {};
 
@@ -69,21 +71,21 @@ sub dispatcher {
                 when(/^authenticate/i) {
                     if ( defined($json->{result}) ) {
                         $action = 'identify';
-                        say "  [response] = OK ACCEPTED";
+                        $logger->debug('  [response] = OK ACCEPTED');
                     }
                     elsif ( defined($json->{error}) ) {
-                        say "  [response] = NOT ACCEPTED";
+                        $logger->debug('  [response] = NOT ACCEPTED');
                         return;
                     }
                     else {
-                        say Dumper($json);
-                        say "  UNKOWN AUTH RESPONSE: $request";
+                        $logger->debug(Dumper($json));
+                        $logger->debug("  UNKOWN AUTH RESPONSE: $request");
                         return;
                     }
                 }
                 default: {
-                  say "  UNKOWN RESPONSE: $request";
-                  return;
+                    $logger->debug("  UNKOWN RESPONSE: $request");
+                    return;
                 }
             }
         }
@@ -92,19 +94,19 @@ sub dispatcher {
                 when(/^identify/i) {
                     if ( defined($json->{result}) ) {
                         $heap->{stage} = 'EST';
-                        say "  [response] = OK ACCEPTED";
+                        $logger->debug('  [response] = OK ACCEPTED');
                         $kernel->yield('run');
                         $kernel->delay('send_ping' => 3);
                         return;
                     }
                     else {
-                        say "  [response] = UNSUPPORTED";
+                        $logger->debug('  [response] = UNSUPPORTED');
                         return;
                     }
                 }
                 default: {
-                  say "  UNKOWN RESPONSE: $request";
-                  return;
+                    $logger->debug("  UNKOWN RESPONSE: $request");
+                    return;
                 }
             }
         }
@@ -121,7 +123,7 @@ sub dispatcher {
                     }
                 }
                 default: {
-                    say " UNKNOWN RESPONSE: $request";
+                    $logger->debug(" UNKNOWN RESPONSE: $request");
                     return;
                 }
             }
@@ -141,8 +143,8 @@ sub authenticate {
     my $secret   = $heap->{secret};
 
     my $payload = $self->jsonrpc_method_create("authenticate", {
-      "agent" => $agent,
-      "secret" => $secret
+        "agent" => $agent,
+        "secret" => $secret
     });
 
     $heap->{server}->put(encode_json($payload));
@@ -155,13 +157,13 @@ sub identify {
     my $nodename = $heap->{nodename};
 
     my $payload = $self->jsonrpc_method_create("identify", {
-      "module" => $nodename,
-      "netgroup" => "test"
+        "module" => $nodename,
+        "netgroup" => "test"
     });
 
-    say '-> Identifying ' . $nodename;
+    $logger->debug('-> Identifying ' . $nodename);
 
-    print_error 'Nodename, Secret not defined on Identification Stage' unless defined_args($nodename);
+    $logger->fatal('Nodename, Secret not defined on Identification Stage') if ( ! defined_args($nodename) );
 
     $heap->{stage} = 'SYN';     
     $heap->{server}->put(encode_json($payload));
@@ -177,14 +179,14 @@ sub send_ping {
     return if $heap->{shutdown};
 
     # Verify Established Connection
-    return unless $heap->{stage} eq 'EST';
+    return if ( $heap->{stage} ne 'EST' );
 
-    say "    -> Sending PING..";
+    $logger->debug('    -> Sending PING..');
 
     my $ping_sent = time();
 
     my $payload = $self->jsonrpc_method_create("ping", {
-      "timestamp" => $ping_sent
+        "timestamp" => $ping_sent
     });
 
     $heap->{server}->put(encode_json($payload));
@@ -195,11 +197,11 @@ sub send_pong {
     my ($kernel, $heap, $response) = @_[KERNEL, HEAP, ARG0];
 
     # Verify Established Connection
-    return unless $heap->{stage} eq 'EST';
+    return if ( $heap->{stage} ne 'EST' );
 
     my $ping_time = time();
     $heap->{server}->put("PONG " .$ping_time. " NSMF/1.0\r\n");
-    say "    -> Sending PONG..";
+    $logger->debug('    -> Sending PONG..');
     $heap->{ping_sent} = $ping_time;
 }
 
@@ -207,9 +209,9 @@ sub got_ping {
     my ($kernel, $heap, $response) = @_[KERNEL, HEAP, ARG0];
 
     # Verify Established Connection
-    return unless $heap->{stage} eq 'EST';
+    return if ( $heap->{stage} ne 'EST' );
 
-    say "    <- Got PING ";
+    $logger->debug('    <- Got PING ');
     $heap->{ping_recv} = time();
 
     $kernel->yield('send_pong');
@@ -219,13 +221,13 @@ sub got_pong {
     my ($kernel, $heap, $response) = @_[KERNEL, HEAP, ARG0];
 
     # Verify Established Connection
-    return unless $heap->{stage} eq 'EST';
+    return if ( $heap->{stage} ne 'EST' );
 
     $heap->{pong_recv} = time();
 
     my $latency = $heap->{pong_recv} - $heap->{ping_sent};
 
-    say '    <- Got PONG ' . (($latency > 3) ? ( "Latency (" .$latency. "s)" ) : "");
+    $logger->debug('    <- Got PONG ' . (($latency > 3) ? ( "Latency (" .$latency. "s)" ) : ""));
 
     $kernel->delay(send_ping => 60);
 }

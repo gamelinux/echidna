@@ -11,7 +11,7 @@ my $instance;
 my ($server, $settings);
 
 sub instance {
-    unless (defined $instance) {
+    if ( ! defined($instance) ) {
         $instance = bless {
             name     => 'NSMFServer',
             server   => '127.0.0.1',
@@ -19,8 +19,6 @@ sub instance {
             settings => {},
             modules  => [],
         }, __PACKAGE__;
-
-        return $instance;
     }
 
     return $instance;
@@ -29,9 +27,10 @@ sub instance {
 sub load {
     my ($self, $file) = @_;
 
-    return unless ref $self eq 'NSMF::Server::ConfigMngr';
+    return if ( ref($self) ne __PACKAGE__ );
 
-    __PACKAGE__->instance;
+    __PACKAGE__->instance();
+
     my $yaml = YAML::Tiny->read($file);
     croak 'Could not parse configuration file.' unless $yaml;
 

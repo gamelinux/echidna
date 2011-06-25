@@ -7,6 +7,7 @@ use v5.10;
 # NSMF Imports
 use NSMF::Node;
 use NSMF::Util;
+use NSMF::Common::Logger;
 use NSMF::Node::ProtoMngr;
 
 # POE Imports
@@ -20,14 +21,16 @@ use Data::Dumper;
 
 my $self;
 my $proto;
+my $logger;
 
 eval {
   $proto = NSMF::Node::ProtoMngr->create("JSON");
+  $logger = NSMF::Common::Logger->new();
 };
 
 if ( $@ )
 {
-  say Dumper($@);
+  $logger->error(Dumper($@));
 }
 
 sub init {
@@ -35,14 +38,14 @@ sub init {
     ($self) = @_;
     my ($server, $port) = ($self->server, $self->port);
 
-    print_error "Host or Port not defined." unless defined_args($server, $port);
+    $logger->error('Host or Port not defined.') if ( ! defined_args($server, $port) );
 
     POE::Component::Client::TCP->new(
         RemoteAddress => $server,
         RemotePort    => $port,
         Filter        => "POE::Filter::Stream",
         Connected => sub {
-            print_status "[+] Connected to $server:$port ...";
+            $logger->info("[+] Connected to $server:$port ...");
 
             $_[HEAP]->{nodename} = $self->nodename;
             $_[HEAP]->{netgroup} = $self->netgroup;
@@ -52,7 +55,7 @@ sub init {
             $_[KERNEL]->yield('authenticate');
         },
         ConnectError => sub {
-            print_status "Could not connect to $server:$port ...";
+            $logger->info("Could not connect to $server:$port ...");
         },
         ServerInput => sub {
             my ($kernel, $response) = @_[KERNEL, ARG0];
@@ -61,8 +64,8 @@ sub init {
         },
         ServerError => sub {
             my ($kernel, $heap) = @_[KERNEL, HEAP];
-            print_status "Lost connection to server...";
-            print_status "Going Down";
+            $logger->info("Lost connection to server...");
+            $logger->info("Going Down");
             exit;
         },
         ObjectStates => [
@@ -76,7 +79,7 @@ sub init {
 
 sub run {
     my ($kernel, $heap) = @_[KERNEL, HEAP];
-    say "-> Calling run";
+    $logger->debug('-> Calling run');
     $self->run($kernel, $heap);
 }
 

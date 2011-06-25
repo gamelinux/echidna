@@ -8,6 +8,7 @@ use NSMF::Util;
 use NSMF::Server::ModMngr;
 use NSMF::Server::AuthMngr;
 use NSMF::Server::ConfigMngr;
+use NSMF::Common::Logger;
 
 use POE;
 use POE::Session;
@@ -83,6 +84,7 @@ our $VERSION = '0.1';
 my $instance;
 my $config = NSMF::Server::ConfigMngr->instance;
 my $modules = $config->{modules} // [];
+my $logger = NSMF::Common::Logger->new();
 
 sub instance {
     return $instance if ( $instance );
@@ -115,60 +117,60 @@ sub states {
 }
 
 sub dispatcher {
-  my ($kernel, $request) = @_[KERNEL, ARG0];
+    my ($kernel, $request) = @_[KERNEL, ARG0];
 
-  my $json = {};
+    my $json = {};
 
-  eval {
-    $json = decode_json(trim($request));
-  };
+    eval {
+        $json = decode_json(trim($request));
+    };
 
-  if ( $@ ) {
-    say('Invalid JSON request: ' . $request);
-    return;
-  }
-
-  if ( exists($json->{method}) )
-  {
-    my $action = $json->{method};
-
-    given($json->{method}) {
-      when(/authenticate/) { }
-      when(/identify/) { }
-      when(/ping/) {
-        $action = 'got_ping';
-      }
-      when(/pong/) {
-        $action = 'got_pong';
-      }
-      when(/post/i) {
-        $action = 'got_post';
-      }
-      when(/get/i) {
-        $action = 'get';
-      }
-      default: {
-        say Dumper($json);
-        $action = 'send_error';
-      }
+    if ( $@ ) {
+        $logger->error('Invalid JSON request: ' . $request);
+        return;
     }
 
-    $kernel->yield($action, $json);
-  }
+    if ( exists($json->{method}) )
+    {
+        my $action = $json->{method};
+
+        given($json->{method}) {
+            when(/authenticate/) { }
+            when(/identify/) { }
+            when(/ping/) {
+                $action = 'got_ping';
+            }
+            when(/pong/) {
+                $action = 'got_pong';
+            }
+            when(/post/i) {
+                $action = 'got_post';
+            }
+            when(/get/i) {
+                $action = 'get';
+            }
+            default: {
+                $logger->debug(Dumper($json));
+                $action = 'send_error';
+            }
+        }
+
+        $kernel->yield($action, $json);
+    }
 }
 
 sub authenticate {
     my ($kernel, $session, $heap, $json) = @_[KERNEL, SESSION, HEAP, ARG0];
     my $self = shift;
 
-    say  "  -> Authentication Request" if $NSMF::Server::DEBUG;
+    $logger->debug( "  -> Authentication Request");
 
     eval {
         $self->jsonrpc_validate($json, ['$agent','$secret']);
     };
 
     if ( ref $@ ) {
-      say 'Incomplete JSON AUTH request. ' . $@->{message};
+      $logger->error('Incomplete JSON AUTH request. ' . $@->{message});
       $heap->{client}->put($@->{object});
       return;
     }
@@ -181,13 +183,13 @@ sub authenticate {
     };
 
     if ($@) {
-        say '    = Not Found ' .$@ if $NSMF::Server::DEBUG;
+        $logger->error('    = Not Found ' .$@);
         $heap->{client}->put($self->json_error_create($json, JSONRPC_NSMF_AUTH_UNSUPPORTED));
         return;
     }
 
     $heap->{agent}    = $agent;
-    say "    [+] Agent authenticated: $agent" if $NSMF::Server::DEBUG;
+    $logger->debug("    [+] Agent authenticated: $agent"); 
 
     $heap->{client}->put($self->json_result_create($json, ''));
 }
@@ -201,7 +203,7 @@ sub identify {
     };
 
     if ( ref $@ ) {
-      say 'Incomplete JSON ID request. ' . $@->{message};
+      $logger->error('Incomplete JSON ID request. ' . $@->{message});
       $heap->{client}->put($@->{object});
       return;
     }
@@ -210,13 +212,13 @@ sub identify {
     my $netgroup = trim(lc($json->{params}{netgroup}));
 
     if ($heap->{session_id}) {
-        say  "$module is already authenticated" if $NSMF::Server::DEBUG;
+        $logger->warn( "$module is already authenticated");
         return;
     }
 
     if ($module ~~ @$modules) {
 
-        say "    ->  " .uc($module). " supported!" if $NSMF::Server::DEBUG;
+        $logger->debug("    ->  " .uc($module). " supported!"); 
 
         $heap->{module_name} = $module;
         $heap->{session_id} = 1;
@@ -227,16 +229,16 @@ sub identify {
         };
 
         if ($@) {
-            say "    [FAILED] Could not load module: $module";
-            say $@ if $NSMF::Server::DEBUG;
+            $logger->error("    [FAILED] Could not load module: $module");
+            $logger->debug($@);
         }
 
         $heap->{session_id} = $_[SESSION]->ID;
 
         if (defined $heap->{module}) {
-            # say "Session Id: " .$heap->{session_id};
-            # say "Calilng Hello World Again in the already defined module";
-            say "      ----> Module Call <----";
+            # $logger->debug("Session Id: " .$heap->{session_id});
+            # $logger->debug("Calilng Hello World Again in the already defined module");
+            $logger->debug("      ----> Module Call <----");
             $heap->{client}->put($self->json_result_create($json, 'ID accepted'));
             return;
             my $child = POE::Wheel::Run->new(
@@ -262,7 +264,7 @@ sub got_pong {
     my ($kernel, $heap, $json) = @_[KERNEL, HEAP, ARG0];
     my $self = shift;
 
-    say "  <- Got PONG" if $NSMF::Server::DEBUG;
+    $logger->debug("  <- Got PONG"); 
 }
 
 sub got_ping {
@@ -274,7 +276,7 @@ sub got_ping {
     };
 
     if ( ref $@ ) {
-      say 'Incomplete PING request. ' . $@->{message};
+      $logger->error('Incomplete PING request. ' . $@->{message});
       $heap->{client}->put($@->{object});
       return;
     }
@@ -288,22 +290,22 @@ sub got_ping {
         return;
     }
 
-    say "  <- Got PING" if $NSMF::Server::DEBUG;
+    $logger->debug("  <- Got PING");
     $kernel->yield('send_pong', $json);
 }
 
 sub child_output {
     my ($kernel, $heap, $output) = @_[KERNEL, HEAP, ARG0];
-    say Dumper $output;
+    $logger->debug(Dumper($output));
 }
 
 sub child_error {
-    say "Child Error: $_[ARG0]";
+    $logger->error("Child Error: $_[ARG0]");
 }
 
 sub child_signal {
     my $heap = $_[HEAP];
-    #say "   * PID: $_[ARG1] exited with status $_[ARG2]";
+    #$logger->debug("   * PID: $_[ARG1] exited with status $_[ARG2]");
     my $child = delete $heap->{children_by_pid}{$_[ARG1]};
 
     return if ( ! defined($child) );
@@ -316,11 +318,11 @@ sub child_close {
     my $child = delete $heap->{children_by_wid}{$wid};
 
     if ( ! defined($child) ) {
-    #    say "Wheel Id: $wid closed";
+    #    $logger->debug("Wheel Id: $wid closed");
         return;
     }
 
-    #say "   * PID: " .$child->PID. " closed";
+    #$logger->debug("   * PID: " .$child->PID. " closed");
     delete $heap->{children_by_pid}{$child->PID};
 }
 
@@ -338,28 +340,28 @@ sub got_post {
     };
 
     if ( ref $@ ) {
-      say 'Incomplete POST request. ' . $@->{message};
+      $logger->error('Incomplete POST request. ' . $@->{message});
       $heap->{client}->put($@->{object});
       return;
     }
 
-    say ' -> This is a post for ' . $heap->{module_name};
-    say '    - Type: '. $json->{params}{type};
-    say '    - Job Id: ' . $json->{params}{job_id};
+    $logger->debug(' -> This is a post for ' . $heap->{module_name});
+    $logger->debug('    - Type: '. $json->{params}{type});
+    $logger->debug('    - Job Id: ' . $json->{params}{job_id});
 
     my $module = $heap->{module};
     $module->validate( $json->{params} );
-    $module->save( $json->{params} ) or say $module->errstr;
+    $module->save( $json->{params} ) or $logger->error($module->errstr);
 
     # need to reply here
-    say "    Session saved";
+    $logger->debug("    Session saved");
 }
 
 sub send_ping {
     my ($kernel, $heap, $request) = @_[KERNEL, HEAP, ARG0];
     my $self = shift;
 
-    say '  -> Sending PING';
+    $logger->debug('  -> Sending PING');
     my $payload = "PING " .time. " NSMF/1.0\r\n";
     $heap->{client}->put($payload);
 }
@@ -368,7 +370,7 @@ sub send_pong {
     my ($kernel, $heap, $json) = @_[KERNEL, HEAP, ARG0];
     my $self = shift;
 
-    say '  -> Sending PONG';
+    $logger->debug('  -> Sending PONG');
 
     my $response = $self->json_result_create($json, {
         "timestamp" => time()
@@ -399,7 +401,7 @@ sub get {
     };
 
     if ( ref $@ ) {
-      say 'Incomplete GET request. ' . $@->{message};
+      $logger->error('Incomplete GET request. ' . $@->{message});
       $heap->{client}->put($@->{object});
       return;
     }

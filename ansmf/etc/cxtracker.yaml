@@ -10,5 +10,6 @@ server:
     port: 10101
 
 settings:
+    debug: 1
     cxtdir: '/var/lib/cxtracker/'
 

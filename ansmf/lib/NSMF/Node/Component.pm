@@ -8,6 +8,7 @@ use base qw(NSMF::Node::Action);
 # NSMF Imports
 use NSMF::Node;
 use NSMF::Node::Core qw(init);
+use NSMF::Common::Logger;
 use NSMF::Util;
 use NSMF::Node::Config;
 
@@ -25,24 +26,26 @@ our $VERSION = '0.1';
 
 our ($poe_kernel, $poe_heap);
 
+my $logger = NSMF::Common::Logger->new();
+
 # Constructor
 sub new {
     my $class = shift;
 
     bless {
         agent       => undef,
-    	nodename    => undef,
-    	netgroup    => undef,
-    	server      => undef,
+        nodename    => undef,
+        netgroup    => undef,
+        server      => undef,
         port        => undef,
-    	secret      => undef,
+        secret      => undef,
         config_path => undef,
         __data      => {},
-    	__handlers => {
-	    	_net     => undef,
-    		_db      => undef,
+        __handlers => {
+            _net     => undef,
+            _db      => undef,
             _sessid  => undef,
-    	},
+        },
         __settings => undef,
     }, $class;
 }
@@ -66,6 +69,8 @@ sub load_config {
     $self->{port}        =  $config->{port}     // '10101';
     $self->{secret}      =  $config->{secret}   // '';
     $self->{__settings}  =  $config->{settings} // {};
+
+    $logger->verbosity(5) if ( defined($logger) && $config->{settings}{debug} > 0 );
 
     return $config;
 }
@@ -136,7 +141,7 @@ sub post {
         unless ref $poe_heap;
 
     srand (time ^ $$ ^ unpack "%L*", `ps axww | gzip -f`);
-    say '   [*] Data Size: ' .length $data;
+    $logger->debug('   [*] Data Size: ' . length($data));
 
     my $payload = 'POST ' .$type. ' ' . int(rand(10000)). " NSMF/1.0\n\n" .encode_base64($data);
 

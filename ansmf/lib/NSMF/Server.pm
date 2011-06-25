@@ -6,6 +6,7 @@ use v5.10;
 use File::Spec;
 use NSMF::Server::ConfigMngr;
 use NSMF::Server::ProtoMngr;
+use NSMF::Common::Logger;
 use Module::Pluggable search_path => 'NSMF::Server::Component', sub_name => 'modules';
 use Module::Pluggable search_path => 'NSMF::Server::Worker', sub_name => 'workers';
 use Module::Pluggable search_path => 'NSMF::Server::Proto', sub_name => 'protocols';
@@ -25,7 +26,9 @@ sub new {
 
         my $config = NSMF::Server::ConfigMngr::instance;
         $config->load($config_path);
-        $DEBUG = 1 if $config->debug_on;
+
+        my $logger = NSMF::Common::Logger->new();
+        $logger->verbosity(5) if $config->debug_on;
 
         my $proto;
 
@@ -35,7 +38,7 @@ sub new {
 
         if ( ref($@) )
         {
-            say Dumper($@);
+            $logger->fatal(Dumper($@));
         }
 
         $instance = bless {
@@ -55,7 +58,6 @@ sub config {
     my ($self) = @_;
 
     return unless ref $instance eq __PACKAGE__;
-    die 'Configuration not set' unless $instance->{__config};
 
     return $instance->{__config} // die { status => 'error', message => 'No Configuration File Enabled' }; 
 }
