@@ -33,7 +33,6 @@ use v5.10;
 #
 use NSMF::Node;
 use NSMF::Node::Component::CXTRACKER;
-use NSMF::Util;
 
 my $config_file = '../etc/cxtracker.yaml';
 

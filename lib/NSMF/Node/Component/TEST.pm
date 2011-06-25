@@ -37,8 +37,7 @@ use POE;
 #
 # NSMF INCLUDES
 #
-use NSMF;
-use NSMF::Util;
+use NSMF::Common::Util;
 
 #
 # GLOBALS

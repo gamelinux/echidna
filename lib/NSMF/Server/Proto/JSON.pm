@@ -32,7 +32,6 @@ use v5.10;
 use Compress::Zlib;
 use Data::Dumper;
 use Date::Format;
-use JSON;
 use MIME::Base64;
 use POE;
 use POE::Session;
@@ -42,69 +41,14 @@ use POE::Filter::Reference;
 #
 # NSMF INCLUDES
 #
+use NSMF::Common::JSON;
 use NSMF::Common::Logger;
+use NSMF::Common::Util;
 use NSMF::Server;
 use NSMF::Server::AuthMngr;
 use NSMF::Server::ConfigMngr;
 use NSMF::Server::ModMngr;
-use NSMF::Util;
 
-#
-# CONSTANTS
-#
-use constant {
-  # JSONRPC defined errors
-  JSONRPC_ERR_PARSE            => {
-      code => -32700,
-      message => 'Invalid JSON was received.'
-  },
-  JSONRPC_ERR_INVALID_REQUEST  => {
-      code => -32600,
-      message => 'The JSON sent is not a valid Request object.'
-  },
-  JSONRPC_ERR_METHOD_NOT_FOUND => {
-      code => -32601,
-      message => 'The method does not exist / is not available.'
-  },
-  JSONRPC_ERR_INVALID_PARAMS   => {
-      code => -32602,
-      message => 'Invalid method parameters.'
-  },
-  JSONRPC_ERR_INTERNAL         => {
-      code => -32603,
-      message => 'An internal error encountered.'
-  },
-
-  #
-  # APPLICATION ERRORS
-  #
-
-  #
-  # GENERAL
-  JSONRPC_NSMF_BAD_REQUEST => {
-    code => -1,
-    message => 'BAD request.'
-  },
-
-  JSONRPC_NSMF_UNAUTHORIZED => {
-    code => -2,
-    message => 'Unauthorized.'
-  },
-
-  #
-  # AUTH
-  JSONRPC_NSMF_AUTH_UNSUPPORTED => {
-    code => -10,
-    message => 'AUTH unsupported.'
-  },
-
-  #
-  # IDENT
-  JSONRPC_NSMF_IDENT_UNSUPPORTED => {
-    code => -20,
-    message => 'IDENT unsupported.'
-  },
-};
 
 #
 # GLOBALS
@@ -150,7 +94,7 @@ sub dispatcher {
     my $json = {};
 
     eval {
-        $json = decode_json(trim($request));
+        $json = json_decode(trim($request));
     };
 
     if ( $@ ) {
@@ -194,7 +138,7 @@ sub authenticate {
     $logger->debug( "  -> Authentication Request");
 
     eval {
-        $self->jsonrpc_validate($json, ['$agent','$secret']);
+        json_validate($json, ['$agent','$secret']);
     };
 
     if ( ref $@ ) {
@@ -212,14 +156,14 @@ sub authenticate {
 
     if ($@) {
         $logger->error('    = Not Found ' .$@);
-        $heap->{client}->put($self->json_error_create($json, JSONRPC_NSMF_AUTH_UNSUPPORTED));
+        $heap->{client}->put(json_error_create($json, JSONRPC_NSMF_AUTH_UNSUPPORTED));
         return;
     }
 
     $heap->{agent}    = $agent;
     $logger->debug("    [+] Agent authenticated: $agent"); 
 
-    $heap->{client}->put($self->json_result_create($json, ''));
+    $heap->{client}->put(json_result_create($json, ''));
 }
 
 sub identify {
@@ -227,7 +171,7 @@ sub identify {
     my $self = shift;
 
     eval {
-        $self->jsonrpc_validate($json, ['$module','$netgroup']);
+        json_validate($json, ['$module','$netgroup']);
     };
 
     if ( ref $@ ) {
@@ -267,7 +211,7 @@ sub identify {
             # $logger->debug("Session Id: " .$heap->{session_id});
             # $logger->debug("Calilng Hello World Again in the already defined module");
             $logger->debug("      ----> Module Call <----");
-            $heap->{client}->put($self->json_result_create($json, 'ID accepted'));
+            $heap->{client}->put(json_result_create($json, 'ID accepted'));
             return;
             my $child = POE::Wheel::Run->new(
                 Program => sub { $heap->{module}->run  },
@@ -283,7 +227,7 @@ sub identify {
         }
     }
     else {
-        $heap->{client}->put($self->json_error_create($json, JSONRPC_NSMF_IDENT_UNSUPPORTED));
+        $heap->{client}->put(json_error_create($json, JSONRPC_NSMF_IDENT_UNSUPPORTED));
     }
 
 }
@@ -300,7 +244,7 @@ sub got_ping {
     my $self = shift;
 
     eval {
-        $self->jsonrpc_validate($json, ['$timestamp']);
+        json_validate($json, ['$timestamp']);
     };
 
     if ( ref $@ ) {
@@ -314,7 +258,7 @@ sub got_ping {
     $heap->{ping_recv} = $ping_time if $ping_time;
 
     if ( $heap->{status} ne 'EST' || ! $heap->{session_id}) {
-        $heap->{client}->put($self->json_error_create($json, JSONRPC_NSMF_UNAUTHORIZED));
+        $heap->{client}->put(json_error_create($json, JSONRPC_NSMF_UNAUTHORIZED));
         return;
     }
 
@@ -359,12 +303,12 @@ sub got_post {
     my $self = shift;
 
     if ( $heap->{status} ne 'EST' || ! $heap->{session_id}) {
-        $heap->{client}->put($self->json_result_create($json, 'Bad request'));
+        $heap->{client}->put(json_result_create($json, 'Bad request'));
         return;
     }
 
     eval {
-        my ($ret, $response) = $self->jsonrpc_validate($json, ['$type', '$jobid', '%data']);
+        my ($ret, $response) = json_validate($json, ['$type', '$jobid', '%data']);
     };
 
     if ( ref $@ ) {
@@ -400,7 +344,7 @@ sub send_pong {
 
     $logger->debug('  -> Sending PONG');
 
-    my $response = $self->json_result_create($json, {
+    my $response = json_result_create($json, {
         "timestamp" => time()
     });
 
@@ -412,7 +356,7 @@ sub send_error {
     my $self = shift;
 
     warn "[!] BAD REQUEST" if $NSMF::Server::DEBUG;
-    $heap->{client}->put($self->json_error_create($json, JSONRPC_NSMF_BAD_REQUEST));
+    $heap->{client}->put(json_error_create($json, JSONRPC_NSMF_BAD_REQUEST));
 }
 
 sub get {
@@ -420,12 +364,12 @@ sub get {
     my $self = shift;
 
     if ( $heap->{status} ne 'EST' || ! $heap->{session_id}) {
-        $heap->{client}->put($self->json_error_create($json, JSONRPC_NSMF_BAD_REQUEST));
+        $heap->{client}->put(json_error_create($json, JSONRPC_NSMF_BAD_REQUEST));
         return;
     }
 
     eval {
-       my ($ret, $response) = $self->jsonrpc_validate($json, ['$type', '$jobid', '%data']);
+       my ($ret, $response) = json_validate($json, ['$type', '$jobid', '%data']);
     };
 
     if ( ref $@ ) {
@@ -436,178 +380,7 @@ sub get {
 
     # search data
     my $payload = encode_base64( compress( 'A'x1000 ) );
-    $heap->{client}->put($self->json_result_create($json, $payload));
-}
-
-#
-# PRIVATES
-#
-
-# TODO: move to a dedicated lib
-# function will modifiy JSON object in place
-# function will raise exception via 'die' perhaps should be 'warn' on invalidation
-# key lookup (need to change)
-# wrap in eval {}
-#      $ (scalar)
-#      @ (array)
-#      % (object)
-#
-sub jsonrpc_validate
-{
-    my ($self, $json, $mandatory, $optional) = @_;
-
-    my $type_map = {
-        '%' => "HASH",
-        '@' => "ARRAY",
-        '$' => "",
-        "#" => "HASH",
-        "*" => "ARRAY",
-        "+" => "SCALAR",
-        "." => ""
-    };
-
-    if ( ! exists($json->{"params"}) )
-    {
-        die {
-            status => 'error',
-            message => 'No params defined.',
-            object => $self->json_error_create($json, JSONRPC_ERR_INVALID_PARAMS)
-        };
-    }
-    elsif ( ref($json->{"params"}) eq "HASH" )
-    {
-        # check all mandatory arguments
-        for my $arg ( @{ $mandatory } )
-        {
-            my $type = substr($arg, 0, 1);
-            my $param = substr($arg, 1);
-
-            if ( ! defined($json->{"params"}{$param}) )
-            {
-                die {
-                    status => 'error',
-                    message => 'Mandatory param"' . $param . '" not found.',
-                    object => $self->json_error_create($json, JSONRPC_ERR_INVALID_PARAMS)
-                };
-            }
-            elsif ( ref($json->{"params"}{$param}) ne $type_map->{$type} )
-            {
-                die {
-                    status => 'error',
-                    message => 'Some params are not of the correct type. Expected "' . $param . '" to be of type "' .$type_map->{$type}. '". Got "' .ref( $json->{params}{$param} ). '"',
-                    object => $self->json_error_create($json, JSONRPC_ERR_INVALID_PARAMS)
-                };
-            };
-        }
-    }
-    elsif ( ref($json->{"params"}) eq "ARRAY" )
-    {
-        my $params_by_name = {};
-
-        # check all mandatory arguments
-        for my $arg ( @{ $mandatory } )
-        {
-            my $type = substr($arg, 0, 1);
-            my $param = substr($arg, 1);
-
-            # check we have parameters still on the list
-            if ( @{ $json->{"params"} } )
-            {
-                if ( ref( @{ $json->{"params"} }[0]) eq $type_map->{$type} )
-                {
-                    $params_by_name->{$param} = shift( @{$json->{"params"}} );
-                }
-                else
-                {
-                    die {
-                        status => 'error',
-                        message => 'Some params are not of the correct type. Expected "' . $param . '" to be of type "' .$type_map->{$type}. '". Got "' .ref( @{$json->{params}}[0] ). '"',
-                        object => $self->json_error_create($json, JSONRPC_ERR_INVALID_PARAMS)
-                    };
-                }
-            }
-            else
-            {
-                die {
-                    status => 'error',
-                    message => 'Some params are not of the correct type. Expected "' . $param . '" to be of type "' .$type_map->{$type}. '". Got "' .ref( @{$json->{params}}[0] ). '"',
-                    object => $self->json_error_create($json, JSONRPC_ERR_INVALID_PARAMS)
-                };
-            }
-        }
-
-        # check all optional arguments
-        for my $arg ( @{ $optional } )
-        {
-            my $type = substr($arg, 0, 1);
-            my $param = substr($arg, 1);
-
-            # check we have parameters still on the list
-            if ( @{ $json->{"params"} } )
-            {
-                if ( ref( @{ $json->{"params"} }[0]) eq $type_map->{$type} )
-                {
-                    $params_by_name->{$param} = shift( @{$json->{"params"}} );
-                }
-                else
-                {
-                    die {
-                        status => 'error',
-                        message => 'Some params are not of the correct type. Expected "' . $param . '" to be of type "' .$type_map->{$type}. '". Got "' .ref( @{$json->{params}}[0] ). '"',
-                        object => $self->json_error_create($json, JSONRPC_ERR_INVALID_PARAMS)
-                    };
-                };
-            }
-            else
-            {
-                last;
-            }
-        }
-
-        # replace by-position parameters with by-name
-        $json->{"params"} = $params_by_name;
-    }
-    else
-    {
-        die {
-            status => 'error',
-            message => 'Specified params corrupted or of unknown type.',
-            object => $self->json_error_create($json, JSONRPC_ERR_INVALID_PARAMS)
-        };
-    }
-}
-
-sub json_response_create
-{
-  my ($self, $type, $json, $data) = @_;
-
-  # no response should occur if not of type result or error
-  return "" if ( ! ($type ~~ ["result", "error"]) );
-
-  # no response should occur if no id was specified (ie. notification)
-  return "" if ( ! defined($json) || ! exists($json->{id}) );
-
-  my $result = {};
-
-  $result->{id} = $json->{id};
-  $result->{$type} = $data // {};
-
-  return encode_json($result);
-}
-
-sub json_result_create
-{
-  my ($self, $json, $data) = @_;
-
-  return $self->json_response_create("result", $json, $data);
-}
-
-sub json_error_create
-{
-  my ($self, $json, $data) = @_;
-
-  return $self->json_response_create("error", $json, $data);
+    $heap->{client}->put(json_result_create($json, $payload));
 }
 
 1;
-

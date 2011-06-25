@@ -41,10 +41,10 @@ use POE;
 # NSMF INCLUDES
 #
 use NSMF::Common::Logger;
+use NSMF::Common::Util;
 use NSMF::Node;
 use NSMF::Node::Config;
 use NSMF::Node::Core qw(init);
-use NSMF::Util;
 
 #
 # GLOBALS

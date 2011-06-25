@@ -31,15 +31,15 @@ use v5.10;
 #
 use Compress::Zlib;
 use Data::Dumper;
-use JSON;
 use MIME::Base64;
 use POE;
 
 #
 # NSMF INCLUDES
 #
-use NSMF::Util;
+use NSMF::Common::JSON;
 use NSMF::Common::Logger;
+use NSMF::Common::Util;
 
 #
 # GLOBALS
@@ -87,14 +87,14 @@ sub dispatcher {
     my $json = {};
 
     eval {
-        $json = decode_json($request);
+        $json = json_decode($request);
     };
 
     if ( $@ ) {
         return;
     }
 
-    my $method = $self->jsonrpc_result_method($json);
+    my $method = json_result_method($json);
     my $action = "";
 
     given($heap->{stage}) {
@@ -174,12 +174,12 @@ sub authenticate {
     my $agent    = $heap->{agent};
     my $secret   = $heap->{secret};
 
-    my $payload = $self->jsonrpc_method_create("authenticate", {
+    my $payload = json_method_create("authenticate", {
         "agent" => $agent,
         "secret" => $secret
     });
 
-    $heap->{server}->put(encode_json($payload));
+    $heap->{server}->put(json_encode($payload));
 }
 
 sub identify {
@@ -188,7 +188,7 @@ sub identify {
 
     my $nodename = $heap->{nodename};
 
-    my $payload = $self->jsonrpc_method_create("identify", {
+    my $payload = json_method_create("identify", {
         "module" => $nodename,
         "netgroup" => "test"
     });
@@ -198,7 +198,7 @@ sub identify {
     $logger->fatal('Nodename, Secret not defined on Identification Stage') if ( ! defined_args($nodename) );
 
     $heap->{stage} = 'SYN';     
-    $heap->{server}->put(encode_json($payload));
+    $heap->{server}->put(json_encode($payload));
 }
 
 ################ END AUTHENTICATE ##################
@@ -217,11 +217,11 @@ sub send_ping {
 
     my $ping_sent = time();
 
-    my $payload = $self->jsonrpc_method_create("ping", {
+    my $payload = json_method_create("ping", {
         "timestamp" => $ping_sent
     });
 
-    $heap->{server}->put(encode_json($payload));
+    $heap->{server}->put(json_encode($payload));
     $heap->{ping_sent} = $ping_sent;
 }
 
@@ -265,53 +265,5 @@ sub got_pong {
 }
 
 ################ END KEEP ALIVE ###################
-
-# PRIVATE TODO
-
-sub jsonrpc_method_create
-{
-    my ($self, $method, $params) = @_;
-
-    my $id = int(rand(65536));
-
-    while ( defined($self->{json_method_map}->{$id}) )
-    {
-        $id = int(rand(65536));
-    }
-
-    $self->{json_method_map}->{$id} = $method;
-
-    return {
-        "jsonrpc" => "2.0",
-        "method" => $method,
-        "params" => $params // '',
-        "id" => $id
-    };
-}
-
-sub jsonrpc_result_method
-{
-    my ($self, $json) = @_;
-
-    if ( ! defined_args($json->{id}) &&
-         ! defined_args($json->{method}) )
-    {
-        return "";
-    }
-
-    my $method = "";
-
-    if ( defined($self->{json_method_map}->{$json->{id}}) )
-    {
-        $method = $self->{json_method_map}->{$json->{id}};
-        delete($self->{json_method__map}->{$json->{id}});
-    }
-    elsif ( defined($json->{method}) )
-    {
-        $method = $json->{method};
-    }
-
-    return $method;
-}
 
 1;

@@ -41,18 +41,16 @@ use POE::Wheel::Run;
 #
 # NSMF INCLUDES
 #
-use NSMF::Server;
-use NSMF::Util;
 use NSMF::Common::Logger;
-use NSMF::Server::ModMngr;
+use NSMF::Common::Util;
+use NSMF::Server;
 use NSMF::Server::AuthMngr;
 use NSMF::Server::ConfigMngr;
+use NSMF::Server::ModMngr;
 
 #
 # GLOBALS
 #
-our $VERSION = '0.1';
-
 my $instance;
 my $config = NSMF::Server::ConfigMngr->instance;
 my $logger = NSMF::Common::Logger->new();

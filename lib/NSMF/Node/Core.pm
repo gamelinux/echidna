@@ -38,10 +38,10 @@ use Data::Dumper;
 #
 # NSMF INCLUDES
 #
+use NSMF::Common::Logger;
+use NSMF::Common::Util;
 use NSMF::Node;
 use NSMF::Node::ProtoMngr;
-use NSMF::Common::Logger;
-use NSMF::Util;
 
 #
 # GLOBALS

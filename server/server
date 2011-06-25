@@ -36,8 +36,8 @@ use POE qw(Component::Server::TCP);
 #
 # NSMF INCLUDES
 #
-use NSMF::Server;
 use NSMF::Common::Logger;
+use NSMF::Server;
 
 #
 # GLOBALS
