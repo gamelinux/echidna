@@ -1,24 +1,49 @@
+#
+# This file is part of the NSM framework
+#
+# Copyright (C) 2010-2011, Edward Fjellskål <edwardfjellskaal@gmail.com>
+#                          Eduardo Urias    <windkaiser@gmail.com>
+#                          Ian Firns        <firnsy@securixlive.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License Version 2 as
+# published by the Free Software Foundation.  You may not use, modify or
+# distribute this program under any other version of the GNU General
+# Public License.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+#
 package NSMF::Node::SNORT;
 
+use warnings;
 use strict;
 use v5.10;
 
-# NSMF::Node Subclass
-use base qw(NSMF::Node);
+use base qw(NSMF::Node::Component);
 
-# NSMF Imports
-use NSMF;
-use NSMF::Util;
-
-# POE Imports
+#
+# PERL INCLUDES
+#
+use Data::Dumper;
 use POE;
 
-# Misc
-use Data::Dumper;
-our $VERSION = '0.1';
+#
+# NSMF INCLUDES
+#
+use NSMF::Node;
+use NSMF::Util;
 
-# These are POE elements that help us interact with the POE Kernel and Heap storage
-#my ($kernel, $heap);
+#
+# GLOBALS
+#
+our $VERSION = '0.1';
 
 sub new {
     my $class = shift;

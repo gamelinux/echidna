@@ -1,8 +1,46 @@
+#
+# This file is part of the NSM framework
+#
+# Copyright (C) 2010-2011, Edward Fjellskål <edwardfjellskaal@gmail.com>
+#                          Eduardo Urias    <windkaiser@gmail.com>
+#                          Ian Firns        <firnsy@securixlive.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License Version 2 as
+# published by the Free Software Foundation.  You may not use, modify or
+# distribute this program under any other version of the GNU General
+# Public License.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+#
 package NSMF::Server::Proto::HTTP;
 
-use v5.10;
+use warnings;
 use strict;
+use v5.10;
 
+#
+# PERL INCLUDES
+#
+use Data::Dumper;
+use Date::Format;
+use Compress::Zlib;
+use MIME::Base64;
+use POE;
+use POE::Session;
+use POE::Filter::Reference;
+use POE::Wheel::Run;
+
+#
+# NSMF INCLUDES
+#
 use NSMF::Server;
 use NSMF::Util;
 use NSMF::Common::Logger;
@@ -10,22 +48,15 @@ use NSMF::Server::ModMngr;
 use NSMF::Server::AuthMngr;
 use NSMF::Server::ConfigMngr;
 
-use POE;
-use POE::Session;
-use POE::Wheel::Run;
-use POE::Filter::Reference;
-
-use Date::Format;
-use Data::Dumper;
-use Compress::Zlib;
-use MIME::Base64;
+#
+# GLOBALS
+#
 our $VERSION = '0.1';
 
 my $instance;
 my $config = NSMF::Server::ConfigMngr->instance;
 my $logger = NSMF::Common::Logger->new();
 my $modules = $config->{modules} // [];
-
 
 my $ACCEPTED = 'NSMF/1.0 200 OK ACCEPTED';
 

@@ -1,29 +1,58 @@
+#
+# This file is part of the NSM framework
+#
+# Copyright (C) 2010-2011, Edward Fjellskål <edwardfjellskaal@gmail.com>
+#                          Eduardo Urias    <windkaiser@gmail.com>
+#                          Ian Firns        <firnsy@securixlive.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License Version 2 as
+# published by the Free Software Foundation.  You may not use, modify or
+# distribute this program under any other version of the GNU General
+# Public License.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+#
 package NSMF::Server::Proto::JSON;
 
-use v5.10;
+use warnings;
 use strict;
+use v5.10;
 
-use NSMF::Server;
-use NSMF::Util;
-use NSMF::Server::ModMngr;
-use NSMF::Server::AuthMngr;
-use NSMF::Server::ConfigMngr;
-use NSMF::Common::Logger;
-
+#
+# PERL INCLUDES
+#
+use Compress::Zlib;
+use Data::Dumper;
+use Date::Format;
+use JSON;
+use MIME::Base64;
 use POE;
 use POE::Session;
 use POE::Wheel::Run;
 use POE::Filter::Reference;
 
-use Date::Format;
-use Data::Dumper;
-use Compress::Zlib;
-use MIME::Base64;
+#
+# NSMF INCLUDES
+#
+use NSMF::Common::Logger;
+use NSMF::Server;
+use NSMF::Server::AuthMngr;
+use NSMF::Server::ConfigMngr;
+use NSMF::Server::ModMngr;
+use NSMF::Util;
 
-use JSON;
-
+#
+# CONSTANTS
+#
 use constant {
-
   # JSONRPC defined errors
   JSONRPC_ERR_PARSE            => {
       code => -32700,
@@ -78,9 +107,8 @@ use constant {
 };
 
 #
-
-our $VERSION = '0.1';
-
+# GLOBALS
+#
 my $instance;
 my $config = NSMF::Server::ConfigMngr->instance;
 my $modules = $config->{modules} // [];

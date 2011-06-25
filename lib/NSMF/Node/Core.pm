@@ -1,31 +1,57 @@
+#
+# This file is part of the NSM framework
+#
+# Copyright (C) 2010-2011, Edward Fjellskål <edwardfjellskaal@gmail.com>
+#                          Eduardo Urias    <windkaiser@gmail.com>
+#                          Ian Firns        <firnsy@securixlive.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License Version 2 as
+# published by the Free Software Foundation.  You may not use, modify or
+# distribute this program under any other version of the GNU General
+# Public License.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+#
 package NSMF::Node::Core;
 
 use warnings;
 use strict;
 use v5.10;
 
-# NSMF Imports
-use NSMF::Node;
-use NSMF::Util;
-use NSMF::Common::Logger;
-use NSMF::Node::ProtoMngr;
+#
+# PERL INCLUDES
 
-# POE Imports
 use POE;
 use POE::Filter::Stream;
 use POE::Component::Client::TCP;
-
-# Misc
 use Carp qw(croak);
 use Data::Dumper;
 
+#
+# NSMF INCLUDES
+#
+use NSMF::Node;
+use NSMF::Node::ProtoMngr;
+use NSMF::Common::Logger;
+use NSMF::Util;
+
+#
+# GLOBALS
+#
 my $self;
 my $proto;
-my $logger;
+my $logger = NSMF::Common::Logger->new();
 
 eval {
   $proto = NSMF::Node::ProtoMngr->create("JSON");
-  $logger = NSMF::Common::Logger->new();
 };
 
 if ( $@ )

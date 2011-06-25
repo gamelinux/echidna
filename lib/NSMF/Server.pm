@@ -1,22 +1,54 @@
+#
+# This file is part of the NSM framework
+#
+# Copyright (C) 2010-2011, Edward Fjellskål <edwardfjellskaal@gmail.com>
+#                          Eduardo Urias    <windkaiser@gmail.com>
+#                          Ian Firns        <firnsy@securixlive.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License Version 2 as
+# published by the Free Software Foundation.  You may not use, modify or
+# distribute this program under any other version of the GNU General
+# Public License.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+#
 package NSMF::Server;
 
+use warnings;
 use strict;
 use v5.10;
 
+#
+# PERL INCLUDES
+#
+use Data::Dumper;
 use File::Spec;
-use NSMF::Server::ConfigMngr;
-use NSMF::Server::ProtoMngr;
-use NSMF::Common::Logger;
 use Module::Pluggable search_path => 'NSMF::Server::Component', sub_name => 'modules';
 use Module::Pluggable search_path => 'NSMF::Server::Worker', sub_name => 'workers';
 use Module::Pluggable search_path => 'NSMF::Server::Proto', sub_name => 'protocols';
-use Data::Dumper;
 
-our $DEBUG; 
+#
+# NSMF INCLUDES
+#
+use NSMF::Common::Logger;
+use NSMF::Server::ConfigMngr;
+use NSMF::Server::ProtoMngr;
+
+#
+# GLOBALS
+#
 my $instance;
 
 sub new {  
-    unless ($instance) {
+    if ( ! defined($instance) ) {
 
         my $config_path = File::Spec->catfile('../etc', 'server.yaml');
 
@@ -46,8 +78,6 @@ sub new {
             __config      => $config,
             __proto       => $proto, 
         }, __PACKAGE__;
-        
-        return $instance;
     }
 
     return $instance;
