@@ -312,4 +312,60 @@ sub get {
     
 }
 
+sub parse_request {
+    my ($type, $input) = @_;
+
+    if (ref $type) {
+        my %hash = %$type;
+        $type = keys %hash;
+        $input = $hash{$type};
+    }
+    my @types = qw(
+        auth id get post
+    );
+   
+    return unless grep $type, @types;
+    return unless defined $input;
+
+    my @request = split '\s+', $input;
+    given($type) {
+        when(/auth/i) { 
+            return bless { 
+                method   => $request[0],
+                agent    => $request[1],
+                key       => $request[2],
+                tail     => $request[3],
+            }, 'AUTH';
+        }
+        when(/id/i) {
+            return bless {
+                method => $request[0] // undef,
+                node   => $request[1] // undef,
+            }, 'ID';
+        }
+        when(/get/i) {
+            return bless {
+                method => $request[0] // undef,
+                type   => $request[1] // undef,
+                job_id => $request[2] // undef,
+                tail   => $request[3] // undef,
+                query  => $request[4] // undef,
+            }, 'GET';
+        }
+        when(/post/i) {
+
+            my @data;
+            push @data, $request[$_] for (4..$#request);
+            return bless {
+                method => $request[0] // undef,
+                type   => $request[1] // undef,
+                job_id => $request[2] // undef,
+                tail   => $request[3] // undef,
+                data   => \@data // undef,
+            }, 'POST';
+        }
+    }
+}
+
+
 1;

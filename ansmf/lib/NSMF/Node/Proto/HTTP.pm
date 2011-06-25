@@ -192,5 +192,52 @@ sub got_pong {
 
 ################ END KEEP ALIVE ###################
 
+sub parse_request {
+    my ($type, $input) = @_;
+
+    if (ref $type) {
+        my %hash = %$type;
+        $type = keys %hash;
+        $input = $hash{$type};
+    }
+    my @types = (
+        'auth',
+        'get',
+        'post',
+    );
+
+    return unless grep $type, @types;
+    return unless defined $input;
+
+    my @request = split /\s+/, $input;
+    given($type) {
+        when(/AUTH/i) { 
+            return bless { 
+                method   => $request[0],
+                nodename => $request[1],
+                netgroup => $request[2],
+                tail     => $request[3],
+            }, 'AUTH';
+        }
+        when(/GET/i) {
+            return bless {
+                method => $request[0] // undef,
+                type   => $request[1] // undef,
+                job_id => $request[2] // undef,
+                tail   => $request[3] // undef,
+                query  => $request[4] // undef,
+            }, 'POST';
+        }
+        when(/POST/i) {
+            return bless {
+                method => $request[0] // undef,
+                type   => $request[1] // undef,
+                job_id => $request[2] // undef,
+                tail   => $request[3] // undef,
+                data   => $request[4] // undef,
+            }, 'POST';
+        }
+    }
+}
 
 1;
