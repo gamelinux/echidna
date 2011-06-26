@@ -6,6 +6,13 @@ port: 10101
 settings:
     debug: 1
     protocol: json
+    database:
+        type: mysql
+        name: nsmf
+        user: nsmf
+        pass: passw0rd.
+        host: localhost
+        port: 3306
 
 # Enable Modules
 modules:

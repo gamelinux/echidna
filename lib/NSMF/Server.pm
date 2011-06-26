@@ -34,12 +34,14 @@ use File::Spec;
 use Module::Pluggable search_path => 'NSMF::Server::Component', sub_name => 'modules';
 use Module::Pluggable search_path => 'NSMF::Server::Worker', sub_name => 'workers';
 use Module::Pluggable search_path => 'NSMF::Server::Proto', sub_name => 'protocols';
+use Module::Pluggable search_path => 'NSMF::Server::DB', sub_name => 'databases';
 
 #
 # NSMF INCLUDES
 #
 use NSMF::Common::Logger;
 use NSMF::Server::ConfigMngr;
+use NSMF::Server::DBMngr;
 use NSMF::Server::ProtoMngr;
 
 #
@@ -56,16 +58,18 @@ sub new {
             die 'Server Configuration File Not Found';
         }
 
-        my $config = NSMF::Server::ConfigMngr::instance;
+        my $config = NSMF::Server::ConfigMngr::instance();
         $config->load($config_path);
 
         my $logger = NSMF::Common::Logger->new();
         $logger->verbosity(5) if $config->debug_on;
 
         my $proto;
+        my $database;
 
         eval {
-            $proto = NSMF::Server::ProtoMngr->create($config->protocol);
+            $database = NSMF::Server::DBMngr->create($config->database());
+            $proto = NSMF::Server::ProtoMngr->create($config->protocol());
         };
 
         if ( ref($@) )
@@ -76,6 +80,7 @@ sub new {
         $instance = bless {
             __config_path => $config_path,
             __config      => $config,
+            __database    => $database,
             __proto       => $proto, 
         }, __PACKAGE__;
     }
@@ -87,7 +92,7 @@ sub new {
 sub config {
     my ($self) = @_;
 
-    return unless ref $instance eq __PACKAGE__;
+    return if ( ref($instance) ne __PACKAGE__ );
 
     return $instance->{__config} // die { status => 'error', message => 'No Configuration File Enabled' }; 
 }
@@ -96,9 +101,18 @@ sub config {
 sub proto {
     my ($self) = @_;
 
-    return unless ref $instance eq __PACKAGE__;
+    return if ( ref($instance) ne __PACKAGE__ );
 
     return $instance->{__proto} // die { status => 'error', message => 'No Protocol Enabled' };
+}
+
+# get method for database singleton object
+sub database {
+    my ($self) = @_;
+
+    return if ( ref($instance) ne __PACKAGE__ );
+
+    return $instance->{__database} // die { status => 'error', message => 'No Database Enabled' };
 }
 
 1;

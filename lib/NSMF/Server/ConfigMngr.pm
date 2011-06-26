@@ -94,6 +94,13 @@ sub modules {
     return $instance->{modules};
 }
 
+sub database {
+    my $self = shift;
+    return unless ref $self eq __PACKAGE__;
+
+    return $instance->{settings}->{database};
+}
+
 sub protocol {
     my $self = shift;
     return unless ref $self eq __PACKAGE__;
