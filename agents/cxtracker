@@ -1,3 +1,4 @@
+#!/usr/bin/perl
 #
 # This file is part of the NSM framework
 #
@@ -20,42 +21,28 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #
-package NSMF::Node::TEST;
+
+use lib '../lib';
 
 use warnings;
 use strict;
 use v5.10;
 
-use base qw(NSMF::Node::Component);
-
-#
-# PERL INCLUDES
-#
-use Data::Dumper;
-use POE;
-
 #
 # NSMF INCLUDES
 #
-use NSMF::Common::Util;
+use NSMF::Agent;
+use NSMF::Agent::Component::CXTRACKER;
 
-#
-# GLOBALS
-#
-our $VERSION = '0.1';
+my $config_file = '../etc/cxtracker.yaml';
 
-# Here is your main()
-sub run {
-    my ($self, $kernel, $heap) = @_;
+# Creating new CXTRACKER Node
+my $cxt = NSMF::Agent::Component::CXTRACKER->new();
 
-    # This provides the necessary data to the Node module for use of the put method
-    $self->register($kernel, $heap);
+# Loading configuration variables
+$cxt->load_config($config_file);
 
-    # At this point the Node is already authenticated so we can begin our work
-    print_status("Running test processing..");
- 
-    say "    -> Sending Custom PING";
-    $self->ping();
-}
+# Connect and Authenticate
+$cxt->sync;
+$cxt->start;
 
-1;

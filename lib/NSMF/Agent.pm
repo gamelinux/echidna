@@ -20,35 +20,15 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #
-package NSMF::Node::ProtoMngr;
+package NSMF::Agent;
 
 use warnings;
 use strict;
 use v5.10;
 
 #
-# NSMF INCLUDES
+# PERL INCLUDES
 #
-use NSMF::Node;
-
-sub create {
-    my ($self, $type) = @_;
-
-    $type //= 'JSON';
-    my $proto_path = 'NSMF::Node::Proto::' . uc($type);
-
-    my @protocols = NSMF::Node->protocols;
-    if ( $proto_path ~~ @protocols ) {
-        eval "use $proto_path";
-        if ( $@ ) {
-            die { status => 'error', message => 'Failed to Load Protocol ' . $@ };
-        }
-
-        return $proto_path->instance();
-    }
-    else {
-        die { status => 'error', message => 'Protocol Not Supported.' };
-    }
-}
+use Module::Pluggable search_path => 'NSMF::Agent::Proto', sub_name => 'protocols';
 
 1;

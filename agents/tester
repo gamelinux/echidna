@@ -31,18 +31,18 @@ use v5.10;
 #
 # NSMF INCLUDES
 #
-use NSMF::Node;
-use NSMF::Node::Component::SNORT;
+use NSMF::Agent;
+use NSMF::Agent::Component::TEST;
 
-my $config_file = '../etc/snort.yaml';
+my $config_file = '../etc/cxtracker.yaml';
 
-# Creating new SNORT Node
-my $snortu = NSMF::Node::Component::SNORT->new();
+# Creating new TEST Node
+my $cxt = NSMF::Agent::Component::TEST->new();
 
 # Loading configuration variables
-$snortu->load_config($config_file);
+$cxt->load_config($config_file);
 
 # Connect and Authenticate
-$snortu->sync;
-$snortu->start;
+$cxt->sync;
+$cxt->start;
 

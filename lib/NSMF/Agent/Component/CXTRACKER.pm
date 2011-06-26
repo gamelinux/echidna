@@ -20,13 +20,13 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #
-package NSMF::Node::Component::CXTRACKER;
+package NSMF::Agent::Component::CXTRACKER;
 
 use warnings;
 use strict;
 use v5.10;
 
-use base qw(NSMF::Node::Component);
+use base qw(NSMF::Agent::Component);
 
 #
 # PERL INCLUDES
@@ -37,9 +37,9 @@ use POE;
 #
 # NSMF INCLUDES
 #
+use NSMF::Agent;
 use NSMF::Common::Logger;
 use NSMF::Common::Util;
-use NSMF::Node;
 
 #
 # GLOBALS

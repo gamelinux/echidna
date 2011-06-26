@@ -1,4 +1,3 @@
-#!/usr/bin/perl
 #
 # This file is part of the NSM framework
 #
@@ -21,28 +20,42 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #
-
-use lib '../lib';
+package NSMF::Agent::Component::TEST;
 
 use warnings;
 use strict;
 use v5.10;
 
+use base qw(NSMF::Agent::Component);
+
+#
+# PERL INCLUDES
+#
+use Data::Dumper;
+use POE;
+
 #
 # NSMF INCLUDES
 #
-use NSMF::Node;
-use NSMF::Node::Component::DAEMONLOGGER;
+use NSMF::Common::Util;
 
-my $config_file = '../etc/daemonlogger.yaml';
+#
+# GLOBALS
+#
+our $VERSION = '0.1';
 
-# Creating new DAEMONLOGGER Node
-my $cxt = NSMF::Node::Component::DAEMONLOGGER->new();
+# Here is your main()
+sub run {
+    my ($self, $kernel, $heap) = @_;
 
-# Loading configuration variables
-$cxt->load_config($config_file);
+    # This provides the necessary data to the Node module for use of the put method
+    $self->register($kernel, $heap);
 
-# Connect and Authenticate
-$cxt->sync;
-$cxt->start;
+    # At this point the Node is already authenticated so we can begin our work
+    print_status("Running test processing..");
+ 
+    say "    -> Sending Custom PING";
+    $self->ping();
+}
 
+1;

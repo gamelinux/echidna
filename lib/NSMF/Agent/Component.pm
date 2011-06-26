@@ -20,13 +20,13 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #
-package NSMF::Node::Component;
+package NSMF::Agent::Component;
 
 use warnings;
 use strict;
 use v5.10;
 
-use base qw(NSMF::Node::Action);
+use base qw(NSMF::Agent::Action);
 
 #
 # PERL INCLUDES
@@ -40,11 +40,11 @@ use POE;
 #
 # NSMF INCLUDES
 #
+use NSMF::Agent;
+use NSMF::Agent::Config;
+use NSMF::Agent::Core qw(init);
 use NSMF::Common::Logger;
 use NSMF::Common::Util;
-use NSMF::Node;
-use NSMF::Node::Config;
-use NSMF::Node::Core qw(init);
 
 #
 # GLOBALS
@@ -83,10 +83,10 @@ sub load_config {
     return unless ref($self) ~~ /$package/;
 #    return unless $path ~~ /[a-zA-Z0-9-\.]+/;
 
-    my $config = NSMF::Node::Config::load($path);
+    my $config = NSMF::Agent::Config::load($path);
 
     $self->{config_path} =  $path;
-    $self->{name}        =  ref($self)          // 'NSMF::Node::Component';
+    $self->{name}        =  ref($self)          // 'NSMF::Agent::Component';
     $self->{agent}       =  $config->{agent}    // '';
     $self->{nodename}    =  $config->{nodename} // '';
     $self->{netgroup}    =  $config->{netgroup} // '';
@@ -120,7 +120,7 @@ sub sync {
    my ($self) = @_;
 
    return unless  defined_args($self->server, $self->port);
-   NSMF::Node::Core::init( $self );
+   NSMF::Agent::Core::init( $self );
 }
 
 sub register {

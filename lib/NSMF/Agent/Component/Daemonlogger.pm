@@ -20,13 +20,13 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #
-package NSMF::Node::Daemonlogger;
+package NSMF::Agent::Component::Daemonlogger;
 
 use warnings;
 use strict;
 use v5.10;
 
-use base qw(NSMF::Node::Component);
+use base qw(NSMF::Agent::Component);
 
 #
 # PERL INCLUDES

@@ -20,7 +20,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #
-package NSMF::Node::Core;
+package NSMF::Agent::Core;
 
 use warnings;
 use strict;
@@ -38,10 +38,10 @@ use Data::Dumper;
 #
 # NSMF INCLUDES
 #
+use NSMF::Agent;
+use NSMF::Agent::ProtoMngr;
 use NSMF::Common::Logger;
 use NSMF::Common::Util;
-use NSMF::Node;
-use NSMF::Node::ProtoMngr;
 
 #
 # GLOBALS
@@ -51,7 +51,7 @@ my $proto;
 my $logger = NSMF::Common::Logger->new();
 
 eval {
-  $proto = NSMF::Node::ProtoMngr->create("JSON");
+  $proto = NSMF::Agent::ProtoMngr->create("JSON");
 };
 
 if ( $@ )

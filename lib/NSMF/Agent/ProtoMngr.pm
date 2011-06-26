@@ -1,4 +1,3 @@
-#!/usr/bin/perl
 #
 # This file is part of the NSM framework
 #
@@ -21,8 +20,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #
-
-use lib '../lib';
+package NSMF::Agent::ProtoMngr;
 
 use warnings;
 use strict;
@@ -31,18 +29,26 @@ use v5.10;
 #
 # NSMF INCLUDES
 #
-use NSMF::Node;
-use NSMF::Node::Component::CXTRACKER;
+use NSMF::Agent;
 
-my $config_file = '../etc/cxtracker.yaml';
+sub create {
+    my ($self, $type) = @_;
 
-# Creating new CXTRACKER Node
-my $cxt = NSMF::Node::Component::CXTRACKER->new();
+    $type //= 'JSON';
+    my $proto_path = 'NSMF::Agent::Proto::' . uc($type);
 
-# Loading configuration variables
-$cxt->load_config($config_file);
+    my @protocols = NSMF::Agent->protocols;
+    if ( $proto_path ~~ @protocols ) {
+        eval "use $proto_path";
+        if ( $@ ) {
+            die { status => 'error', message => 'Failed to Load Protocol ' . $@ };
+        }
 
-# Connect and Authenticate
-$cxt->sync;
-$cxt->start;
+        return $proto_path->instance();
+    }
+    else {
+        die { status => 'error', message => 'Protocol Not Supported.' };
+    }
+}
 
+1;
