@@ -56,10 +56,8 @@ sub defined_args {
 
     return unless @args;
 
-    for (@args) {
-        when(undef) {
-            return;
-        }
+    for my $arg (@args) {
+        return if ( ! defined($arg) );
     }
 
     return 1;
@@ -73,7 +71,7 @@ sub verify_node {
     return unless ref($self) ~~ /NSMF::Node/;
 }
 
-sub check_config {  
+sub check_config {
     my $config = shift;
     my @KEYS = qw(id nodename netgroup secret server port);
 
