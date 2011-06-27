@@ -2,8 +2,121 @@
  0. INTRODUCTION
 ------------------------------------------------------------------------------
 
-The NSMF core has defined data structure for each of the expected NSM data
-types:
+The NSMF core has defined a number of data structure for the consistent
+representation of it's internal data states.
+
+The data structures are collectively grouped under the following:
+  * Infrastructure
+  * NSM data
+  * Policy and Control
+
+
+
+------------------------------------------------------------------------------
+ 1.0. INFRASTRUCTURE
+------------------------------------------------------------------------------
+
+The infrastructure data types are broken down in to the following types:
+  * Agent, and
+  * Node.
+
+The data types are described below.
+
+
+------------------------------------------------------------------------------
+ 1.1. AGENT
+------------------------------------------------------------------------------
+
+"agent" => {
+  "id" => 527,
+  "name" => "paladin"
+  "password" => "hash",
+  "description" => "complete network security monitoring.",
+  "ip" => "2001:db8:85a3::7334",
+  "network" => "dmz",
+  "status" => {
+    "state" => 1
+    "timestamp" => 1231223123.124233,
+  }
+}
+
+The field descriptions are:
+  * id
+    - The unique agent ID which represents a system of node(s)
+
+  * name
+    - A literal name for the agent
+
+  * password
+    - The unique agent password use to authenticate itself to he server
+
+  * description
+    - A literal description of for the agent
+
+  * ip
+    - The IP address of the agent
+
+  * network
+    - A literal name for the network that the agent is monitoring
+
+  * status
+    - A status object describing the last known status of the agent
+      The object contains:
+
+    * state
+      - The last known state of the agent
+
+    * timestamp
+      - The timestamp (in unix epoch and microseconds appended) of the last
+        known state
+
+
+------------------------------------------------------------------------------
+ 1.2. NODE (AGENT COMPONENT)
+------------------------------------------------------------------------------
+
+"node" => {
+  "id" => 527,
+  "name" => "paladin"
+  "description" => "complete network security monitoring.",
+  "type" => "cxtracker",
+  "status" => {
+    "active" => 1
+    "timestamp" => 1231223123.124233,
+  }
+}
+
+The field descriptions are:
+  * id
+    - The unique agent ID which represents a system of node(s)
+
+  * name
+    - A literal name for the node
+
+  * description
+    - A literal description for the node
+
+  * type
+    - The literal type name for the node
+
+  * status
+    - A status object describing the last known status of the node
+      The object contains:
+
+    * state
+      - The last known state of the node
+
+    * timestamp
+      - The timestamp (in unix epoch and microseconds appended) of the last
+        known state
+
+
+
+------------------------------------------------------------------------------
+ 2.0. NSM DATA
+------------------------------------------------------------------------------
+
+The NSM data types are broken down in to the following types:
   * Event (Alert),
   * Session,
   * Statitisic, and
@@ -11,13 +124,14 @@ types:
 
 The data types are described below.
 
+
 ------------------------------------------------------------------------------
- 1. EVENT (ALERT)
+ 2.1. EVENT (ALERT)
 ------------------------------------------------------------------------------
 
 In PERL format
 
-{
+"event" => {
   "event" => {
     "id" => 1407,
     "timestamp" => 1231223123.124233,
@@ -58,55 +172,55 @@ The field descriptions are:
     - An object describing the general event attributes
 
       * id
-        - The unique event ID of the node which generated the event (alert).
+        - The unique event ID of the node which generated the event (alert)
 
       * timestamp
         - The node's best timestamp (in unix epoch and microseconds appended)
-          of when the event (alert) occured.
+          of when the event (alert) occured
 
       * classification
-        - The classification of the event (alert). 0 = not yet classified.
+        - The classification of the event (alert). 0 = not yet classified
 
   * node
     - An object representing the general node attributes
 
     * id
-      - The unique node ID which generated the event (alert).
+      - The unique node ID which generated the event (alert)
 
   * net
     - An object describing the network information. The object contains:
 
       * version
-        - The IP version being used: 4 = IPv4, 6 = IPv6.
+        - The IP version being used: 4 = IPv4, 6 = IPv6
 
       * protocol
-        - The protocol version being using: 1 = ICMP, 6 = TCP, 17 = UDP.
+        - The protocol version being using: 1 = ICMP, 6 = TCP, 17 = UDP
 
       * source
-        - A mandatory object describing the source/originator IP information.
+        - A mandatory object describing the source/originator IP information
           The object contains:
 
           * ip
-            - The source/originating IP address of the event(alert).
+            - The source/originating IP address of the event(alert)
 
           * port
             - The source/originating port of the event (alert). For ICMP
-              traffic the port refers to the ICMP type.
+              traffic the port refers to the ICMP type
 
       * destination
         - An optional object describing the destination/recipient IP
           information of the event (if appropriate). The object contains:
 
           * ip
-            - The destination/receiving IP address of the event (alert).
+            - The destination/receiving IP address of the event (alert)
 
           * port
             - The destination/receiving port of the event (alert). For ICMP
-              traffic the port refers to the ICMP code.
+              traffic the port refers to the ICMP code
 
   * signature
     - An object describing the signature (rule, behaviour, etc) that triggered
-      the event (alert).
+      the event (alert)
 
       * type
         - The type ID of the signature (eg. Snort rule = 1, prads rule = 2)
@@ -118,7 +232,7 @@ The field descriptions are:
         - The revision number of this signature (eg. Snort SID-REV)
 
       * message
-        - An OPTIONAL succinct message that describes the signature's purpose.
+        - An OPTIONAL succinct message that describes the signature's purpose
 
       * priority
         - The specific priority associated with this type of signature
@@ -129,25 +243,24 @@ The field descriptions are:
 
   * vendor-meta
     - An extendible object that defines any additional, vendor specific
-      information pertaining to the event (alert).
+      information pertaining to the event (alert)
 
       For example:
 
       * u2_event_id
-        - The associated unified2 event ID.
+        - The associated unified2 event ID
 
       * u2_filename
-        - The unified2 file that contained the event (alert).
-
+        - The unified2 file that contained the event (alert)
 
 
 ------------------------------------------------------------------------------
- 2. SESSION
+ 2.2. SESSION
 ------------------------------------------------------------------------------
 
 In PERL format
 
-{
+"session" => {
   "session" => {
     "id" => 1407,
     "timestamp" => 1231223123.124233,
@@ -194,64 +307,64 @@ The field descriptions are:
     - An object representing the general node attributes
 
     * id
-      - The unique node ID which generated the session.
+      - The unique node ID which generated the session
 
   * session
     - An object describing the general session attributes
 
       * id
-        - The unique session ID of the node which detected the session.
+        - The unique session ID of the node which detected the session
 
       * timestamp
         - The node's best timestamp (in unix epoch and microseconds appended)
-          of when the session occured.
+          of when the session occured
 
       * times
         - An object that represents the temporal attributes (in unix poch and
-          microseconds appended) of when the session occured.
+          microseconds appended) of when the session occured
 
         * start
           - The node's best timestamp (in unix epoch and microseconds
-            appended) of when the session started.
+            appended) of when the session started
 
         * end
           - The node's best timestamp (in unix epoch and microseconds
-            appended) of when the session ended.
+            appended) of when the session ended
 
         * duration
-          - The node's best estimate of duration for the session.
+          - The node's best estimate of duration for the session
 
   * net
     - An object describing the network information. The object contains:
 
       * version
-        - The IP version being used: 4 = IPv4, 6 = IPv6.
+        - The IP version being used: 4 = IPv4, 6 = IPv6
 
       * protocol
-        - The protocol version being using: 1 = ICMP, 6 = TCP, 17 = UDP.
+        - The protocol version being using: 1 = ICMP, 6 = TCP, 17 = UDP
 
       * source
         - A mandatory object describing the source/originator IP information
           of the session. The object contains:
 
           * ip
-            - The source/originating IP address of the session.
+            - The source/originating IP address of the session
 
           * port
             - The source/originating port of the session. For ICMP traffic the
-              port refers to the ICMP type.
+              port refers to the ICMP type
 
           * total_packets
             - The total number of packets originating from the source IP
-              during the session.
+              during the session
 
           * total_bytes
             - The total number of bytes originating from the source IP during
-              the session.
+              the session
 
           * flags
             - The cumulative protocol flags of packets originating from the
-              source IP seen during the session.
+              source IP seen during the session
 
   * data
       * destination
@@ -259,63 +372,148 @@ The field descriptions are:
             information of the session. The object contains:
 
           * ip
-            - The destination/receiving IP address of the session.
+            - The destination/receiving IP address of the session
 
           * port
             - The destination/receiving port of the session. For ICMP traffic
-              the port refers to the ICMP code.
+              the port refers to the ICMP code
 
           * total_packets
             - The total number of packets originating from the destination IP
-              during the session.
+              during the session
 
           * total_bytes
             - The total number of bytes originating from the destination IP
-              during the session.
+              during the session
 
           * flags
             - The cumulative protocol flags of packets originating from the
-              destination IP seen during the session.
+              destination IP seen during the session
 
   * data
-    - An object that stores the location attributes for the raw session data.
+    - An object that stores the location attributes for the raw session data
 
       * filename
         - The filename of the pcap (or full packet capture) that contains the
-          session.
+          session
 
       * offset
         - The byte offset to the first byte of the first packet in the
-          sesssion.
+          sesssion
 
       * length
         - The length in bytes from the first byte of the first packet to the
-          the last byte of the last packet inclusive.
+          the last byte of the last packet inclusive
 
   * vendor-meta
     - An extendible object that defines any additional, vendor specific
-      information pertaining to the session.
+      information pertaining to the session
 
       For example:
 
       * cxt_id
-        - The associated cxtracker session ID.
-
+        - The associated cxtracker session ID
 
 
 ------------------------------------------------------------------------------
- 3. STATISTIC
+ 2.3. STATISTIC
+------------------------------------------------------------------------------
+
+TBD
+
+"statistic" => {
+
+}
+
+
+------------------------------------------------------------------------------
+ 2.4. FULL PACKET
 ------------------------------------------------------------------------------
 
 TBD
 
+"data" => {
+
+}
+
 
 
 ------------------------------------------------------------------------------
- 4. FULL PACKET
+ 3.0. POLICY AND CONTROL
 ------------------------------------------------------------------------------
 
-TBD
+The policy and control data types are broken down in to the following types:
+  * Signature,
+
+The data types are described below.
+
+
+------------------------------------------------------------------------------
+ 3.1. SIGNATURE
+------------------------------------------------------------------------------
+
+"signature" => {
+  "type" => 1
+  "id" => 527,
+  "revision" => 8,
+  "message" => "DELETED BAD ALERT Unknown Traffic."
+  "priority" => 2,
+  "classification" => "bad-unknown",
+  "vendor-meta" => {
+    "snort" => {
+      "gid" => 3,
+      "sid" => 12355,
+      "revision" => 1,
+      "rule" => "alert tcp $EXTERNAL_NET any -> any any (msg:"Test signature");";
+    }
+  }
+}
+
+The field descriptions are:
+
+  * signature
+    - An object describing the signature (rule, behaviour, etc) that triggered
+      the event (alert)
+
+      * type
+        - The type ID of the signature (eg. Snort rule = 1, PRADS rule = 2)
+
+      * id
+        - The unique ID for this type of signature (eg. Snort SID)
+
+      * revision
+        - The revision number of this signature (eg. Snort SID-REV)
+
+      * message
+        - An OPTIONAL succinct message that describes the signature's purpose
+
+      * priority
+        - The specific priority associated with this type of signature
+
+      * category
+        - A general universal category that this signature belows to (eg.
+          Snort classification such as "bad-unknown")
+
+  * vendor-meta
+    - An extendible object that defines any additional, vendor specific
+      information pertaining to the session
+
+      For example:
+
+      * snort
+        - A snort vendor object representing a raw snort signature
+
+          * gid
+            - The Generator ID of the snort rule
+
+          * sid
+            - The ID of the snort rule
+
+          * revision
+            - The Revision of the snort rule
+
+          * rule
+            - The complete snort rule
 
 
 
