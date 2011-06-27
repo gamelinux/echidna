@@ -27,6 +27,5 @@ use strict;
 use v5.10;
 
 sub dispatcher { die 'Dispatcher requires to be overriden' }
- 
 
 1;
