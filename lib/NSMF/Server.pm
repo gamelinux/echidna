@@ -62,7 +62,7 @@ sub new {
         $config->load($config_path);
 
         my $logger = NSMF::Common::Logger->new();
-        $logger->verbosity(5) if $config->debug_on;
+        $logger->load($config->logging());
 
         my $proto;
         my $database;

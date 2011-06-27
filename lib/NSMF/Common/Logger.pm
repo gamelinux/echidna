@@ -3,9 +3,15 @@ package NSMF::Common::Logger;
 use strict;
 use v5.10;
 
-use base qw(Exporter);
+#
+# PERL INCLUDES
+#
 use Data::Dumper; 
+use POSIX qw(strftime);
 
+#
+# CONSTANTS
+#
 use constant {
   FATAL => 0,
   ERROR => 1,
@@ -15,15 +21,20 @@ use constant {
   CHAOS => 5
 };
 
-our @EXPORT = qw();
-
+#
+# GLOBALS
+#
 my $instance;
 
 sub new {
     if ( ! defined($instance) )
     {
         $instance = bless {
-            _verbosity => INFO,
+            _level => INFO,
+            _timestamp => undef,
+            _timestamp_format => undef,
+            _warn_is_fatal => 0,
+            _error_is_fatal => 0,
             _file => undef,
             _file_handle => undef,
         }, __PACKAGE__;
@@ -39,7 +50,27 @@ sub load {
 
     __PACKAGE__->new();
 
-    $self->{_verbosity} = $args->{verbosity} // INFO;
+    # calculate verbosity level
+    given($args->{level}) {
+        when (/fatal/) {
+            $self->{_level} = FATAL;
+        }
+        when (/error/) {
+            $self->{_level} = ERROR;
+        }
+        when (/warn/) {
+            $self->{_level} = WARN;
+        }
+        when (/info/) {
+            $self->{_level} = INFO;
+        }
+        when (/debug/) {
+            $self->{_level} = DEBUG;
+        }
+    };
+
+    $self->{_timestamp} = $args->{timestamp} // 0;
+    $self->{_timestamp_format} = $args->{timestamp_format} // '%Y-%m-%d %H:%M:%S';
     $self->{_file} = $args->{file} // '';
 
     if ( -w $args->{file} )
@@ -55,68 +86,78 @@ sub load {
     return $instance;
 }
 
-sub verbosity {
+sub level {
     my ($self, $arg) = @_;
 
-    $self->{_verbosity} = $arg if ( defined($arg) );
+    $self->{_level} = $arg if ( defined($arg) );
 
-    return $self->{_verbosity};
+    return $self->{_level};
 }
 
 sub debug {
     my ($self, @args) = @_;
 
-    return if ( $self->{_verbosity} < DEBUG );
+    return if ( $self->{_level} < DEBUG );
 
     $Data::Dumper::Terse = 1;
 
-    my @dump_args = map { ref($_) ? Dumper($_) : $_ } @args;
+    @args = map { ref($_) ? Dumper($_) : $_ } @args;
 
-    say '[D] ' . join('\n', @dump_args);
+    say $self->time_now() . '[D] ' . join('\n', @args);
 }
 
 sub info {
     my ($self, @args) = @_;
 
-    return if ( $self->{_verbosity} < INFO );
+    return if ( $self->{_level} < INFO );
 
-    say '[I] ' . join('\n', @args);
+    @args = map { ref($_) ? Dumper($_) : $_ } @args;
+
+    say $self->time_now() . '[I] ' . join('\n', @args);
 }
 
 sub warn {
     my ($self, @args) = @_;
 
-    return if ( $self->{_verbosity} < WARN );
+    return if ( $self->{_level} < WARN );
 
-    say '[W] ' . join('\n', @args);
+    @args = map { ref($_) ? Dumper($_) : $_ } @args;
+
+    say $self->time_now() . '[W] ' . join('\n', @args);
 }
 
 sub error {
     my ($self, @args) = @_;
 
-    return if ( $self->{_verbosity} < ERROR );
+    return if ( $self->{_level} < ERROR );
 
-    say '[E] ' . join('\n', @args);
+    @args = map { ref($_) ? Dumper($_) : $_ } @args;
+
+    say $self->time_now() . '[E] ' . join('\n', @args);
 }
 
 
 sub fatal {
     my ($self, @args) = @_;
 
-    return if ( $self->{_verbosity} < FATAL );
+    return if ( $self->{_level} < FATAL );
 
-    say '[!] ' . join('\n', @args);
+    @args = map { ref($_) ? Dumper($_) : $_ } @args;
+
+    say $self->time_now() . '[!] ' . join('\n', @args);
     exit;
 }
 
-sub _debug {
-    my @args = @_;
+sub time_now
+{
+    my ($self) = shift;
 
-    $Data::Dumper::Terse = 1;
+    my $zone = undef;
 
-    foreach (@args) {
-        say Dumper $_;
-    }
+    return "" if ( ! defined($self->{_timestamp}) ||
+                   $self->{_timestamp} != 1 );
+
+    return strftime($self->{_timestamp_format}, (defined($zone) && ( $zone eq "local" ) ) ? localtime : gmtime) . ' ';
 }
 
 sub _log {

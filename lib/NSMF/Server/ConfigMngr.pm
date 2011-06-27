@@ -42,11 +42,7 @@ my ($server, $settings);
 sub instance {
     if ( ! defined($instance) ) {
         $instance = bless {
-            name     => 'NSMFServer',
-            server   => '127.0.0.1',
-            port     => 10101,
-            settings => {},
-            modules  => [],
+            config  => {},
         }, __PACKAGE__;
     }
 
@@ -61,58 +57,77 @@ sub load {
     __PACKAGE__->instance();
 
     my $yaml = YAML::Tiny->read($file);
+
     croak 'Could not parse configuration file.' unless $yaml;
 
-    $self->{server}   = $yaml->[0]->{server}   // '0.0.0.0';
-    $self->{port}     = $yaml->[0]->{port}     // 0;
-    $self->{settings} = $yaml->[0]->{settings} // {};
-    $self->{modules}  = $yaml->[0]->{modules}  // [];
-    map { $_ = lc $_ } @{ $self->{modules} };
-    $debug = $yaml->[0]->{settings}->{debug}   // 0;
+    my $pages = @{ $yaml };
+
+    croak 'No configuration pages available' if ( $pages == 0 );
+
+    carp('Multiple configuration pages found. Using the first') if ( $pages > 1 );
+
+    $self->{config}   = $yaml->[0];
+
+    # configure defaults
+    $self->{config}{name}                   //= 'NSMF Server';
+    $self->{config}{network}{host}          //= 'localhost';
+    $self->{config}{network}{port}          //= 10101;
+
+    $self->{config}{log}{level}             //= 'info';
+    $self->{config}{log}{timestamp}         //= 0;
+    $self->{config}{log}{timestamp_format}  //= '%Y-%m-%d %H:%M:%S';
+    $self->{config}{log}{warn_is_fatal}     //= 0;
+    $self->{config}{log}{error_is_fatal}    //= 0;
     
+    $self->{config}{protocol}               //= 'json';
+
+
+    $self->{config}{modules}                //= [];
+    map { $_ = lc $_ } @{ $self->{config}{modules} };
+
     $instance = $self;
 
     return $instance;
 }
 
 sub name {
-    return $instance->{name} // 'NSMFServer';
+    return $instance->{config}{name} // 'NSMFServer';
 }
 
-sub address {
-    return $instance->{server} // croak '[!] No server defined.';
+sub host {
+    return $instance->{config}{network}{host} // croak '[!] No server defined.';
 }
 
 sub port {
-    return $instance->{port} // croak '[!] No port defined.';
+    return $instance->{config}{network}{port} // croak '[!] No port defined.';
 }
 
 sub modules {
     my $self = shift;
-    return unless ref $self eq __PACKAGE__;
+    return if ( ref($self) ne __PACKAGE__ );
 
-    return $instance->{modules};
+    return $instance->{config}{modules};
 }
 
 sub database {
     my $self = shift;
-    return unless ref $self eq __PACKAGE__;
+    return if ( ref($self) ne __PACKAGE__ );
 
-    return $instance->{settings}->{database};
+    return $instance->{config}{database};
 }
 
 sub protocol {
     my $self = shift;
-    return unless ref $self eq __PACKAGE__;
+    return if ( ref($self) ne __PACKAGE__ );
 
-    return $instance->{settings}->{protocol};
+    return $instance->{config}{protocol};
 }
 
-sub debug_on {
+sub logging {
     my $self = shift;
-    return unless ref $self eq __PACKAGE__;
+    return if ( ref($self) ne __PACKAGE__ );
 
-    return $instance->{settings}->{debug};
+    return $instance->{config}{log};
 }
 
 1;

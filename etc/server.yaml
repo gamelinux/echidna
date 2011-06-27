@@ -1,20 +1,62 @@
-# Server Configuration
-server: localhost
-port: 10101
+#
+# NETWORK
+#
+# Specify the network settings for the server
+#
+network:
+    host: localhost
+    port: 10101
 
-# Settings
-settings:
-    debug: 1
-    protocol: json
-    database:
-        type: mysql
-        name: nsmf
-        user: nsmf
-        pass: passw0rd.
-        host: localhost
-        port: 3306
+#
+# LOG
+#
+# Specify the logging characteristics.
+#
+log:
+    level: debug
+    timestamp: 1
+#    timestamp_format: "HH:MM"
+#    error_is_fatal: 1
+#    warn_is_fatal: 1
 
-# Enable Modules
+#
+# PROTOCOL
+#
+# Specify the protocol spoken between servers, agents and clients.
+#
+# Available:
+#   - http
+#   - json
+#
+protocol: json
+
+#
+# DATABASE
+#
+# Specify the backend source for all NSMF data storage.
+#
+# Available:
+#   - mysql - Requires name, user and pass.
+#
+database:
+    type: mysql
+    name: nsmf
+    user: nsmf
+    pass: passw0rd.
+    host: localhost
+    port: 3306
+
+#
+# MODULES
+# 
+# Specify the server modules to enable. A server module allows the database to
+# understand, store and interact with different data types.
+#
+# Available:
+#   - cxtracker
+#   - snort
+#   - daemonlogger
+#
 modules:
     - cxtracker
     - snort

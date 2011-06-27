@@ -51,9 +51,9 @@ my $logger  = NSMF::Common::Logger->new();
 
 # Server 
 new POE::Component::Server::TCP(
-    Alias              => $config->name,
-    Address            => $config->address,
-    Port               => $config->port,
+    Alias              => $config->name(),
+    Address            => $config->host(),
+    Port               => $config->port(),
     ClientConnected    => \&connected, 
     ClientDisconnected => \&disconnected,
     ClientInput => sub { 
