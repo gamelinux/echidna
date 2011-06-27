@@ -37,7 +37,7 @@ use Data::Dumper;
 # CONSTANTS
 #
 use constant {
-    TABLE_VERSION => 1
+    NODE_VERSION => 1
 };
 
 #
@@ -54,6 +54,7 @@ sub create {
     return 1 if ( $self->validate() );
 
     # create node tables
+    return 1 if ( $self->create_tables_node() );
 
     # failed
     return 0;
@@ -62,16 +63,9 @@ sub create {
 sub validate {
     my ($self) = shift;
 
-    my $sth = $self->{__handle}->prepare('SELECT version FROM versions WHERE table="node"');
+    my $version = $self->version_get('node');
 
-    $sth->execute();
-    my $r = $sth->fetchall_arrayref();
-
-    # our table is valid if the node table exists and is the version expected
-    return 1 if ( @{ $r } && $r->[0][0] == TABLE_VERSION );
-
-    # failed
-    return 0;
+    return ( $self->version_get('node') == NODE_VERSION );
 }
 
 #
@@ -98,25 +92,19 @@ sub delete {
 sub create_tables_node {
     my ($self) = shift;
 
-    my $sql;
-
-    $sql = '
+    my $sql = '
 CREATE TABLE IF NOT EXISTS node (
    id          INT          NOT NULL AUTO_INCREMENT,
    name        VARCHAR(64)  NOT NULL ,
    description TEXT         NULL ,
    type        VARCHAR(64)  NOT NULL ,
-   PRIMARY KEY (`node_id`)
+   PRIMARY KEY (id),
+   UNIQUE KEY name_UNIQUE (name)
 );';
 
     $self->{__handle}->do($sql);
 
-    $sql = '
-CREATE UNIQUE INDEX name_UNIQUE ON node (name ASC);
-    ';
-
-    $self->{__handle}->do($sql);
+    return ( $self->version_set('node', NODE_VERSION) );
 }
-
 
 1;

@@ -48,6 +48,60 @@ sub new {
 }
 
 #
+# VERSION HELPERS
+#
+
+sub create_tables_version {
+    my ($self) = shift;
+
+    my $sql;
+
+    $sql = '
+CREATE TABLE IF NOT EXISTS versions (
+   name        VARCHAR(64)  NOT NULL ,
+   version     INTEGER      NOT NULL ,
+   PRIMARY KEY (name)
+);';
+
+    $self->{__handle}->do($sql);
+}
+
+sub version_set {
+  my ($self, $table, $version) = @_;
+
+  # 
+  $self->create_tables_version();
+
+  my $sql;
+
+  if ( $self->version_get($table) < 0 )
+  {
+      $sql = 'INSERT INTO versions VALUES ("' . $table . '", ' . $version . ')';
+  }
+  else
+  {
+      $sql = 'UPDATE versions SET version=' . $version . ' WHERE name="' . $table . '"';
+  }
+  
+  return ( $self->{__handle}->do($sql) > 0);
+}
+
+sub version_get {
+    my ($self, $table) = @_;
+
+    my $sth = $self->{__handle}->prepare('SELECT version FROM versions WHERE name="' . $table . '"');
+
+    $sth->execute();
+    my $r = $sth->fetchall_arrayref();
+ 
+    return -1 if ( @{ $r } == 0 );
+    
+    return $r->[0][0];
+}
+
+
+
+#
 # DATA STORE CREATION AND VALIDATION
 #
 

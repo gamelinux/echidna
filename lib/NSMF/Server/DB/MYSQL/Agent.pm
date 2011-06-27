@@ -28,4 +28,85 @@ use v5.10;
 
 use base qw(NSMF::Server::DB::MYSQL::Base);
 
+#
+# PERL CONSTANTS
+#
+use Data::Dumper;
+
+#
+# CONSTANTS
+#
+use constant {
+    AGENT_VERSION => 1
+};
+
+#
+# DATA STORE CREATION AND VALIDATION
+#
+
+
+sub create {
+    my ($self, $handle) = @_;
+
+    $self->{__handle} = $handle;
+
+    # validate tables to see if they exist
+    return 1 if ( $self->validate() );
+
+    # create node tables
+    return 1 if ( $self->create_tables_agent() );
+
+    # failed
+    return 0;
+}
+
+sub validate {
+    my ($self) = shift;
+
+    my $version = $self->version_get('agent');
+
+    return ( $self->version_get('agent') == AGENT_VERSION );
+}
+
+#
+# DATA OBJECT QUERY AND MANIPULATION
+#
+
+sub insert {
+#    $logger->warn('Base insert method needs to be overridden.');
+}
+
+sub search {
+#    $logger->warn('Base insert method needs to be overridden.');
+}
+
+sub delete {
+#    $logger->warn('Base insert method needs to be overridden.');
+}
+
+
+#
+# TABLE CREATION
+#
+
+sub create_tables_agent {
+    my ($self) = shift;
+
+    my $sql = '
+CREATE TABLE IF NOT EXISTS agent (
+    id          INT         NOT NULL AUTO_INCREMENT,
+    name        VARCHAR(64) NOT NULL ,
+    password    VARCHAR(64) NOT NULL ,
+    description TEXT        NULL ,
+    ip          VARCHAR(16) NOT NULL ,
+    network     VARCHAR(64) NULL ,
+    active      TINYINT(1)  NOT NULL DEFAULT 0 ,
+    PRIMARY KEY (id)
+);';
+
+    $self->{__handle}->do($sql);
+
+    return ( $self->version_set('agent', AGENT_VERSION) );
+}
+
 1;
