@@ -66,9 +66,13 @@ sub verbosity {
 sub debug {
     my ($self, @args) = @_;
 
-    return if ( $self->{_verbosity} < DEBUG ); 
+    return if ( $self->{_verbosity} < DEBUG );
 
-    say for @args;
+    $Data::Dumper::Terse = 1;
+
+    my @dump_args = map { ref($_) ? Dumper($_) : $_ } @args;
+
+    say '[D] ' . join('\n', @dump_args);
 }
 
 sub info {
@@ -76,7 +80,7 @@ sub info {
 
     return if ( $self->{_verbosity} < INFO );
 
-    say for @args;
+    say '[I] ' . join('\n', @args);
 }
 
 sub warn {
@@ -84,7 +88,7 @@ sub warn {
 
     return if ( $self->{_verbosity} < WARN );
 
-    say for @args;
+    say '[W] ' . join('\n', @args);
 }
 
 sub error {
@@ -92,7 +96,7 @@ sub error {
 
     return if ( $self->{_verbosity} < ERROR );
 
-    say for @args;
+    say '[E] ' . join('\n', @args);
 }
 
 
@@ -101,7 +105,7 @@ sub fatal {
 
     return if ( $self->{_verbosity} < FATAL );
 
-    say for @args;
+    say '[!] ' . join('\n', @args);
     exit;
 }
 
