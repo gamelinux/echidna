@@ -32,7 +32,7 @@ use v5.10;
 use Data::Dumper;
 use DBI;
 use DBD::mysql;
-use Module::Pluggable search_path => 'NSMF::Server::DB::MYSQL', sub_name => 'types';
+use Module::Pluggable search_path => 'NSMF::Server::DB::MYSQL', sub_name => 'data_types', except => qr/Base/;
 
 #
 # NSMF INCLUDES
@@ -45,53 +45,84 @@ use NSMF::Common::Logger;
 my $instance;
 my $type_map = {};
 my $logger = NSMF::Common::Logger->new();
-my @provides = ('event', 'session');
+my @provides = ('agent', 'node', 'event', 'session');
 my $db_dsn;
 my $db_handle;
 
 sub instance {
     if ( ! defined($instance) )
     {
-        $instance = bless({}, __PACKAGE__);
-
-        load();
+        $instance = bless({
+            __settings => undef,
+            __connection => undef,
+            __handle => undef,
+        }, __PACKAGE__);
     }
 
     return $instance;
 }
 
-sub load {
-    my $self = shift;
-    my @types = __PACKAGE__->types();
+sub create {
+    my ($self, $settings) = @_;
 
-    # establish call backs
-    for my $type ( @provides )
-    {
-        my $type_path = __PACKAGE__ . '::' . ucfirst($type);
-       
-        if ( $type_path ~~ @types ) {
-            eval "use $type_path";
-  
-            if ( $@ ) {
-                die { 'status' => 'error', 'message' => 'Unable to load callbacks for ' . $type . '(' . $@ .')' };
-            }
+    my @data_types = __PACKAGE__->data_types();
 
-            $logger->debug('  Loading ' . $type . ' callbacks.');
-            $type_map->{type} = $type_path;
-        }
-    }
+    my $host = $settings->{host} // 'localhost';
+    my $port = $settings->{port} // '3306';
+    my $name = $settings->{name} // $logger->fatal('No database name provided.');
+    my $user = $settings->{user} // $logger->fatal('No database user provided.');
+    my $pass = $settings->{pass} // $logger->fatal('No database password provided.');
+
+    $self->{__settings} = $settings;
 
     # establish connection
-    $db_dsn = "dbi:mysql:$name:$host:$port";
+    $self->{__connection} = "dbi:mysql:$name:$host:$port";
 
     eval {
-        $db_handle = DBI->connect($db_dsn, $user, $pass, { RaiseError => 1, PrintError => 0});
+        $self->{__handle} = DBI->connect($self->{__connection}, $user, $pass, { RaiseError => 0, PrintError => 0});
     };
 
     if ( $@ ) {
         $logger->fatal('Unable to connect to the database.');
     }
+
+    # load establish call backs
+    for my $data_type ( @provides )
+    {
+        my $data_type_path = __PACKAGE__ . '::' . ucfirst($data_type);
+
+        if ( $data_type_path ~~ @data_types ) {
+            eval "use $data_type_path";
+
+            if ( $@ ) {
+                die { 'status' => 'error', 'message' => 'Unable to load callbacks for ' . $data_type . '(' . $@ .')' };
+            }
+
+            $logger->debug('  Loading ' . $data_type . ' callbacks.');
+            $type_map->{$data_type} = $data_type_path->new();
+
+            if ( ! $type_map->{$data_type}->create($self->{__handle}) )
+            {
+                $logger->error('  Unable to create persistant storage.');
+            }
+
+            if ( ! $type_map->{$data_type}->validate() )
+            {
+                $logger->error('  The storage integrity is corrupt or out of date.');
+            }
+        }
+    }
+
+
+    # check the database integrity (build if required)
+
+
 }
+
+#
+# DATA MANIPULATION AND QUERY
+#
+
 
 sub insert {
     my ($self, $data) = @_;
@@ -107,7 +138,7 @@ sub insert {
             $logger->warn('Ignoring entry due to unknown format: ' . ref($entry));
             next;
         }
-        
+
         if ( $entry->{type} ~~ keys(%{ $type_map }) ) 
         {
             $logger->debug('Adding entry');
@@ -121,18 +152,19 @@ sub insert {
 }
 
 sub search {
-    my ($self, $data) = @_;
+    my ($self, $filter) = @_;
 
 }
 
 sub delete {
-    my ($self, $data) = @_;
+    my ($self, $filter) = @_;
 
 }
-
 
 sub mysql_command {
 
 }
+
+
 
 1;

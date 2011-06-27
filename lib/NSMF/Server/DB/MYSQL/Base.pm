@@ -20,12 +20,63 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #
-package NSMF::Server::DB::MYSQL::Data;
+package NSMF::Server::DB::MYSQL::Base;
 
 use warnings;
 use strict;
 use v5.10;
 
-use base qw(NSMF::Server::DB::MYSQL::Base);
+#
+# NSMF INCLUDES
+#
+use NSMF::Common::Logger;
+
+#
+# GLOBALS
+#
+my $logger = NSMF::Common::Logger->new();
+
+#
+# CONSTRUCTOR
+#
+sub new {
+    my ($class) = shift;
+
+    return bless({
+        __handle => undef,
+    }, $class);
+}
+
+#
+# DATA STORE CREATION AND VALIDATION
+#
+
+sub create {
+    $logger->warn('Base create method needs to be overridden.');
+
+    return 0;
+}
+
+sub validate {
+    $logger->warn('Base validate method needs to be overridden.');
+
+    return 0;
+}
+
+#
+# DATA OBJECT QUERY AND MANIPULATION
+#
+
+sub insert {
+    $logger->warn('Base insert method needs to be overridden.');
+}
+
+sub search {
+    $logger->warn('Base search method needs to be overridden.');
+}
+
+sub delete {
+    $logger->warn('Base delete method needs to be overridden.');
+}
 
 1;

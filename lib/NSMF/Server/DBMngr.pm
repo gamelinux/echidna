@@ -37,10 +37,23 @@ use NSMF::Server;
 #
 my $logger = NSMF::Common::Logger->new();
 
+#
+# database_settings => {
+#     type => ['mysql', 'pgsql', 'etc']
+#     host =>
+#     port =>
+#     name =>
+#     user =>
+#     pass =>
+# }
+#
+
+
 sub create {
-    my ($self, $type) = @_;
-    
-    $type //= 'MYSQL';
+    my ($self, $database) = @_;
+
+    my $type = $database->{type} // 'MYSQL';
+
     my $db_path = 'NSMF::Server::DB::' . uc($type);
 
     my @databases = NSMF::Server->databases();
@@ -49,13 +62,25 @@ sub create {
         if ( $@ ) {
             die { status => 'error', message => 'Failed to load DB source ' . $@ };
         };
-        
+
         $logger->debug("Building DB manager " . $type);
 
-        return $db_path->instance();
+        # instatiate the database object and create the connection
+        my $db = $db_path->instance();
+
+        eval {
+            $db->create($database);
+        };
+
+        if ( $@ )
+        {
+            $logger->fatal($@);
+        }
+
+        return $db;
     }
     else {
-        die { status => 'error', message => 'DB source not supported.' };
+        die { status => 'error', message => 'DB source "' . $type . '" not supported.' };
     }
 }
 

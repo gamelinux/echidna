@@ -26,4 +26,6 @@ use warnings;
 use strict;
 use v5.10;
 
+use base qw(NSMF::Server::DB::MYSQL::Base);
+
 1;
