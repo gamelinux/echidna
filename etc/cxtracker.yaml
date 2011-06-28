@@ -1,15 +1,25 @@
 # Node Configuration
-node: 
+node:
     agent: KERBEROS
+    name: CXTRACKER
     secret: fb6ef95e28842ccff7ef9a0c6b3a9f63
-    nodename: CXTRACKER
     netgroup: LAN
 
 server:
-    server: 127.0.0.1
+    host: 127.0.0.1
     port: 10101
 
 settings:
-    debug: 1
     cxtdir: '/var/lib/cxtracker/'
 
+#
+# LOG
+#
+# Specify the logging characteristics.
+#
+log:
+    level: debug
+    timestamp: 1
+#    timestamp_format: "HH:MM"
+#    error_is_fatal: 1
+#    warn_is_fatal: 1

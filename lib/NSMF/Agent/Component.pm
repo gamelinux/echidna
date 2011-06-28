@@ -36,13 +36,15 @@ use Compress::Zlib;
 use Data::Dumper;
 use MIME::Base64;
 use POE;
+use POE::Filter::Stream;
+use POE::Component::Client::TCP;
 
 #
 # NSMF INCLUDES
 #
 use NSMF::Agent;
-use NSMF::Agent::Config;
-use NSMF::Agent::Core qw(init);
+use NSMF::Agent::ConfigMngr;
+use NSMF::Agent::ProtoMngr;
 use NSMF::Common::Logger;
 use NSMF::Common::Util;
 
@@ -58,20 +60,15 @@ sub new {
     my $class = shift;
 
     bless {
-        agent       => undef,
-        nodename    => undef,
-        netgroup    => undef,
-        server      => undef,
-        port        => undef,
-        secret      => undef,
-        config_path => undef,
-        __data      => {},
-        __handlers => {
-            _net     => undef,
-            _db      => undef,
-            _sessid  => undef,
+        __config_path   => undef,
+        __config        => NSMF::Agent::ConfigMngr->instance(),
+        __proto         => undef,
+        __data          => {},
+        __handlers      => {
+            _net        => undef,
+            _db         => undef,
+            _sessid     => undef,
         },
-        __settings => undef,
     }, $class;
 }
 
@@ -79,25 +76,18 @@ sub new {
 sub load_config {
     my ($self, $path) = @_;
 
-    my $package = __PACKAGE__;
-    return unless ref($self) ~~ /$package/;
-#    return unless $path ~~ /[a-zA-Z0-9-\.]+/;
+    $self->{__config}->load($path);
 
-    my $config = NSMF::Agent::Config::load($path);
+    eval {
+        $self->{__proto} = NSMF::Agent::ProtoMngr->create($self->{__config}->protocol());
+    };
 
-    $self->{config_path} =  $path;
-    $self->{name}        =  ref($self)          // 'NSMF::Agent::Component';
-    $self->{agent}       =  $config->{agent}    // '';
-    $self->{nodename}    =  $config->{nodename} // '';
-    $self->{netgroup}    =  $config->{netgroup} // '';
-    $self->{server}      =  $config->{server}   // '0.0.0.0';
-    $self->{port}        =  $config->{port}     // '10101';
-    $self->{secret}      =  $config->{secret}   // '';
-    $self->{__settings}  =  $config->{settings} // {};
+    if ( $@ )
+    {
+        $logger->fatal($@);
+    }
 
-    $logger->verbosity(5) if ( defined($logger) && $config->{settings}{debug} > 0 );
-
-    return $config;
+    return $self->{__config};
 }
 
 # Returns actual configuration settings
@@ -106,21 +96,61 @@ sub config {
 
     return if ( ref($self) ne __PACKAGE__ );
 
-    return {
-        id       => $self->id,
-        nodename => $self->nodename,
-        server   => $self->server,
-        port     => $self->port,
-        netgroup => $self->netgroup,
-        secret   => $self->secret,
-    };
+    return $self->{__config} // die { status => 'error', message => 'No configuration file loaded.' }; 
 }
 
 sub sync {
-   my ($self) = @_;
+    my ($self) = @_;
 
-   return unless  defined_args($self->server, $self->port);
-   NSMF::Agent::Core::init( $self );
+    my $config = $self->{__config};
+    my $proto = $self->{__proto};
+
+    my $host = $config->host();
+    my $port = $config->port();
+
+    return if ( ! defined_args($host, $port) );
+
+    POE::Component::Client::TCP->new(
+        RemoteAddress => $host,
+        RemotePort    => $port,
+        Filter        => "POE::Filter::Stream",
+        Connected => sub {
+            $logger->info("[+] Connected to server ($host:$port) ...");
+
+            $_[HEAP]->{nodename} = $config->name();
+            $_[HEAP]->{netgroup} = $config->netgroup();
+            $_[HEAP]->{secret}   = $config->secret();
+            $_[HEAP]->{agent}    = $config->agent();
+
+            $_[KERNEL]->yield('authenticate');
+        },
+        ConnectError => sub {
+            $logger->warn("Could not connect to server ($host:$port) ...");
+        },
+        ServerInput => sub {
+            my ($kernel, $response) = @_[KERNEL, ARG0];
+
+            $kernel->yield(dispatcher => $response);
+        },
+        ServerError => sub {
+            my ($kernel, $heap) = @_[KERNEL, HEAP];
+            $logger->warn("Lost connection to server...");
+            $logger->info("Going Down.");
+            exit;
+        },
+        ObjectStates => [
+            $proto => $proto->states(),
+        ],
+        InlineStates => {
+            run => \&run,
+        }
+    );
+}
+
+sub run {
+    my ($kernel, $heap) = @_[KERNEL, HEAP];
+
+    $logger->debug('-> Calling run');
 }
 
 sub register {
@@ -128,6 +158,7 @@ sub register {
     $poe_kernel = $kernel;
     $poe_heap   = $heap;
 }
+
 # Send Data function
 # Requires $poe_heap to be defined with the POE HEAP
 # Must be used only after run() method has been executed.
@@ -178,46 +209,11 @@ sub session {
     my ($self) = @_;
 
     return if ( ref($self) ne __PACKAGE__ );
-    return $self->{__handlers}->{_sessid};
-}
-
-sub agent {
-    my ($self, $arg) = @_;
-    $self->{agent} = $arg if defined_args($arg);
-    return $self->{agent};
-}
-
-sub nodename {
-    my ($self, $arg) = @_;
-    $self->{nodename} = $arg if defined_args($arg);
-    return $self->{nodename};
-}
-
-sub netgroup {
-    my ($self, $arg) = @_;
-    $self->{netgroup} = $arg if defined_args($arg);
-    return $self->{netgroup};
-}
-
-sub server {
-    my ($self, $arg) = @_;
-    $self->{server} = $arg if defined_args($arg);
-    return $self->{server};
-}
-
-sub port {
-    my ($self, $arg) = @_;
-    $self->{port} = $arg if defined_args($arg);
-    return $self->{port};
-}
-
-sub secret {
-    my ($self, $arg) = @_;
-    $self->{secret} = $arg if defined_args($arg);
-    return $self->{secret};
+    return $self->{__handlers}{_sessid};
 }
 
 sub start {
     POE::Kernel->run;
 }
+
 1;

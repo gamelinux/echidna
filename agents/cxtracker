@@ -43,6 +43,6 @@ my $cxt = NSMF::Agent::Component::CXTRACKER->new();
 $cxt->load_config($config_file);
 
 # Connect and Authenticate
-$cxt->sync;
-$cxt->start;
+$cxt->sync();
+$cxt->start();
 
