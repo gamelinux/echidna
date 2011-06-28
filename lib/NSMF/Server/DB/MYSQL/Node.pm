@@ -78,14 +78,26 @@ sub validate {
 #
 
 sub insert {
+    my ($self, $data) = @_;
+
 #    $logger->warn('Base insert method needs to be overridden.');
 }
 
 sub search {
+    my ($self, $filter) = @_;
+
     $logger->debug('Looking for an node?');
 }
 
+sub update {
+    my ($self, $data, $filter) = @_;
+
+#    $logger->warn('Base insert method needs to be overridden.');
+}
+
 sub delete {
+    my ($self, $filter) = @_;
+
 #    $logger->warn('Base insert method needs to be overridden.');
 }
 

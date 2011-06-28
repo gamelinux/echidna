@@ -78,22 +78,29 @@ sub validate {
 #
 
 sub insert {
-#    $logger->warn('Base insert method needs to be overridden.');
+    my ($self, $data) = @_;
+
+    my $sql = 'INSERT INTO agent ';
+
+    my @fields = ();
+    my @values = ();
+
+    while ( my ($key, $value) = each(%{ $data }) ) {
+        $value = "'$value'" if ( $value =~ m/[^\d]/ );
+        push(@fields, $key);
+        push(@values, $value);
+    }
+
+    $sql .= '(' . join(',', @fields) . ') VALUES (' . join(',', @values) . ')';
+
+    $self->{__handle}->do($sql);
+
 }
 
 sub search {
     my ($self, $filter) = @_;
 
-    # build up the search criteria
-    my $sql = 'SELECT * FROM agent ';
-    my @where = ();
-
-    while ( my ($key, $value) = each(%{ $filter }) ) {
-        $value = "'$value'" if ( $value =~ m/[^\d]/ );
-        push(@where, $key . '=' . $value);
-    }
-
-    $sql .= 'WHERE ' . join(' AND ', @where);
+    my $sql = 'SELECT * FROM agent ' . $self->create_filter($filter);
 
     my $sth = $self->{__handle}->prepare($sql);
     $sth->execute();
@@ -111,6 +118,45 @@ sub delete {
 #    $logger->warn('Base insert method needs to be overridden.');
 }
 
+#
+# FILTER CREATION
+#
+
+sub create_filter
+{
+    my ($self, $filter) = @_;
+
+    my @fields = keys( %{ $filter } );
+
+    return '' if ( @fields == 0 );
+
+    my @where = ();
+    my $connect = 'AND';
+
+    # build up the search criteria
+    for my $field ( @fields )
+    {
+        my $criteria = '';
+
+        if ( ref($filter->{$field}) eq 'ARRAY' )
+        {
+
+
+        }
+        elsif ( $filter->{$field} =~ m/[^\d]/ )
+        {
+            $criteria = $field . "='" . $filter->{$field} . "'";
+        }
+        else
+        {
+            $criteria = $field . '=' . $filter->{$field};
+        }
+
+        push(@where, $criteria);
+    }
+
+    return 'WHERE ' . join(" $connect ", @where);
+}
 
 #
 # TABLE CREATION
@@ -134,6 +180,16 @@ CREATE TABLE agent (
 );';
 
     $self->{__handle}->do($sql);
+
+    # DEV DATA ONLY
+    # TODO: REMOVE WHEN AGENT INPUT IMPLEMENTED
+
+    $logger->info('    Inserting DEV/DEMO data');
+
+    $self->insert({
+        name => 'KERBEROS',
+        password => 'fb6ef95e28842ccff7ef9a0c6b3a9f63',
+    });
 
     return ( $self->version_set('agent', AGENT_VERSION) );
 }

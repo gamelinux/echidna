@@ -129,6 +129,10 @@ sub search {
     $logger->warn('    Base search method needs to be overridden.');
 }
 
+sub update {
+    $logger->warn('    Base update method needs to be overridden.');
+}
+
 sub delete {
     $logger->warn('    Base delete method needs to be overridden.');
 }

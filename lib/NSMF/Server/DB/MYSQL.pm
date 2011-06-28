@@ -174,6 +174,11 @@ sub search {
     $logger->warn('Ignoring filter due to unsupported type: ' . $type, @supported_types);
 }
 
+sub update {
+    my ($self, $data, $filter) = @_;
+
+}
+
 sub delete {
     my ($self, $filter) = @_;
 
