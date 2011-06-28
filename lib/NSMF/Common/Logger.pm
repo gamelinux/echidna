@@ -37,6 +37,7 @@ sub new {
             _error_is_fatal => 0,
             _file => undef,
             _file_handle => undef,
+            _file_writable => 0,
         }, __PACKAGE__;
     }
 
@@ -50,7 +51,7 @@ sub load {
 
     __PACKAGE__->new();
 
-    # calculate verbosity level
+    # determine the verbosiy level
     given($args->{level}) {
         when (/fatal/) {
             $self->{_level} = FATAL;
@@ -69,16 +70,22 @@ sub load {
         }
     };
 
-    $self->{_timestamp} = $args->{timestamp} // 0;
-    $self->{_timestamp_format} = $args->{timestamp_format} // '%Y-%m-%d %H:%M:%S';
-    $self->{_file} = $args->{file} // '';
+    # store internal represetation with sane defaults
+    $self->{_timestamp}        = $args->{timestamp}         // 0;
+    $self->{_timestamp_format} = $args->{timestamp_format}  // '%Y-%m-%d %H:%M:%S';
+    $self->{_file}             = $args->{file}              // '';
+    $self->{_warn_is_fatal}    = $args->{warn_is_fatal}     // 0;
+    $self->{_error_is_fatal}   = $args->{error_is_fatal}    // 0;
 
-    if ( -w $args->{file} )
+    # check if we want to write to a file
+    if ( $self->{_file} )
     {
         if ( ! open($self->{_file_handle}, '>' . $self->{_file}) )
         {
             die { state => 'error', message => 'Unable to open log file for writing.' };
         }
+
+        $self->{_file_writable} = 1;
     }
 
     $instance = $self;
@@ -101,9 +108,9 @@ sub debug {
 
     $Data::Dumper::Terse = 1;
 
-    @args = map { ref($_) ? Dumper($_) : $_ } @args;
+    map { $_ = ref($_) ? Dumper($_) : $_ } @args;
 
-    say $self->time_now() . '[D] ' . join('\n', @args);
+    $self->log('[D] ', @args);
 }
 
 sub info {
@@ -111,9 +118,9 @@ sub info {
 
     return if ( $self->{_level} < INFO );
 
-    @args = map { ref($_) ? Dumper($_) : $_ } @args;
+    map { $_ = ref($_) ? Dumper($_) : $_ } @args;
 
-    say $self->time_now() . '[I] ' . join('\n', @args);
+    $self->log('[I] ', @args);
 }
 
 sub warn {
@@ -121,9 +128,11 @@ sub warn {
 
     return if ( $self->{_level} < WARN );
 
-    @args = map { ref($_) ? Dumper($_) : $_ } @args;
+    map { $_ = ref($_) ? Dumper($_) : $_ } @args;
 
-    say $self->time_now() . '[W] ' . join('\n', @args);
+    $self->log('[W] ', @args);
+
+    exit if ( $self->{_warn_is_fatal} );
 }
 
 sub error {
@@ -131,9 +140,11 @@ sub error {
 
     return if ( $self->{_level} < ERROR );
 
-    @args = map { ref($_) ? Dumper($_) : $_ } @args;
+    map { $_ = ref($_) ? Dumper($_) : $_ } @args;
 
-    say $self->time_now() . '[E] ' . join('\n', @args);
+    $self->log('[E] ', @args);
+
+    exit if ( $self->{_error_is_fatal} );
 }
 
 
@@ -142,9 +153,9 @@ sub fatal {
 
     return if ( $self->{_level} < FATAL );
 
-    @args = map { ref($_) ? Dumper($_) : $_ } @args;
+    map { $_ = ref($_) ? Dumper($_) : $_ } @args;
 
-    say $self->time_now() . '[!] ' . join('\n', @args);
+    $self->log('[!] ', @args);
     exit;
 }
 
@@ -160,16 +171,30 @@ sub time_now
     return strftime($self->{_timestamp_format}, (defined($zone) && ( $zone eq "local" ) ) ? localtime : gmtime) . ' ';
 }
 
-sub _log {
-    my ($message, $logfile) = @_;
-    my $dt = DateTime->now;
 
-    $Data::Dumper::Terse = 1;
-    
-    $logfile //= 'debug.log';
-    open(my $fh, ">>", $logfile) or die $!;
-    say $fh $dt->datetime;
-    say $fh Dumper $message;
-    close $fh;
+sub log {
+    my ($self, $type, @args) = @_;
+
+    my $line = $self->time_now() . $type . join('\n', @args);
+
+    # write to stdout
+    say $line;
+
+    # write to file (as appropriate)
+    if ( $self->{_file_writable} )
+    {
+        my $fh = $self->{_file_handle};
+        say $fh $line;
+    }
 }
+
+sub DESTROY {
+    my $self = shift;
+
+    if ( $self->{_file_writable} )
+    {
+        close($self->{_file_handle});
+    }
+}
+
 1;
