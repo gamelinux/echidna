@@ -41,6 +41,11 @@ use constant {
 };
 
 #
+# GLOBALS
+#
+my $logger = NSMF::Common::Logger->new();
+
+#
 # DATA STORE CREATION AND VALIDATION
 #
 
@@ -77,7 +82,7 @@ sub insert {
 }
 
 sub search {
-#    $logger->warn('Base insert method needs to be overridden.');
+    $logger->debug('Looking for an node?');
 }
 
 sub delete {
@@ -92,8 +97,10 @@ sub delete {
 sub create_tables_node {
     my ($self) = shift;
 
+    $logger->debug('    Creating NODE tables.');
+
     my $sql = '
-CREATE TABLE IF NOT EXISTS node (
+CREATE TABLE node (
    id          INT          NOT NULL AUTO_INCREMENT,
    name        VARCHAR(64)  NOT NULL ,
    description TEXT         NULL ,

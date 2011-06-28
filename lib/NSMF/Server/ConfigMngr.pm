@@ -21,7 +21,7 @@
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #
 package NSMF::Server::ConfigMngr;
-    
+
 use warnings;
 use strict;
 use v5.10;
@@ -33,11 +33,15 @@ use Carp;
 use YAML::Tiny;
 
 #
+# NSMF INCLUDES
+#
+use NSMF::Common::Logger;
+
+#
 # GLOBALS
 #
-our $debug;
 my $instance;
-my ($server, $settings);
+my $logger = NSMF::Common::Logger->new();
 
 sub instance {
     if ( ! defined($instance) ) {
@@ -58,14 +62,16 @@ sub load {
 
     my $yaml = YAML::Tiny->read($file);
 
-    croak 'Could not parse configuration file.' unless $yaml;
+    croak 'Could not parse configuration file.' if ( ! defined($yaml) );
 
+    # determine number of pages
     my $pages = @{ $yaml };
 
-    croak 'No configuration pages available' if ( $pages == 0 );
+    croak 'No configuration page(s) available.' if ( $pages == 0 );
 
     carp('Multiple configuration pages found. Using the first') if ( $pages > 1 );
 
+    # only use the first page
     $self->{config}   = $yaml->[0];
 
     # configure defaults
@@ -78,9 +84,9 @@ sub load {
     $self->{config}{log}{timestamp_format}  //= '%Y-%m-%d %H:%M:%S';
     $self->{config}{log}{warn_is_fatal}     //= 0;
     $self->{config}{log}{error_is_fatal}    //= 0;
-    
-    $self->{config}{protocol}               //= 'json';
+    $logger->load($self->{config}{log});
 
+    $self->{config}{protocol}               //= 'json';
 
     $self->{config}{modules}                //= [];
     map { $_ = lc $_ } @{ $self->{config}{modules} };
@@ -91,7 +97,7 @@ sub load {
 }
 
 sub name {
-    return $instance->{config}{name} // 'NSMFServer';
+    return $instance->{config}{name} // 'NSMF Server';
 }
 
 sub host {

@@ -63,7 +63,7 @@ sub create {
             die { status => 'error', message => 'Failed to load DB source ' . $@ };
         };
 
-        $logger->debug("Building DB manager " . $type);
+        $logger->debug('Creating DB manager: ' . $type);
 
         # instatiate the database object and create the connection
         my $db = $db_path->instance();

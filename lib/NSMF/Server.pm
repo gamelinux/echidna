@@ -48,6 +48,7 @@ use NSMF::Server::ProtoMngr;
 # GLOBALS
 #
 my $instance;
+my $logger = NSMF::Common::Logger->new();
 
 sub new {
     if ( ! defined($instance) ) {
@@ -61,9 +62,6 @@ sub new {
         my $config = NSMF::Server::ConfigMngr::instance();
         $config->load($config_path);
 
-        my $logger = NSMF::Common::Logger->new();
-        $logger->load($config->logging());
-
         my $proto;
         my $database;
 
@@ -72,7 +70,7 @@ sub new {
             $proto = NSMF::Server::ProtoMngr->create($config->protocol());
         };
 
-        if ( ref($@) )
+        if ( $@ )
         {
             $logger->fatal(Dumper($@));
         }

@@ -55,7 +55,7 @@ use NSMF::Server::ModMngr;
 #
 my $instance;
 my $config = NSMF::Server::ConfigMngr->instance;
-my $modules = $config->{modules} // [];
+my $modules = $config->modules() // [];
 my $logger = NSMF::Common::Logger->new();
 
 sub instance {
@@ -155,7 +155,7 @@ sub authenticate {
     };
 
     if ($@) {
-        $logger->error('    = Not Found ' .$@);
+        $logger->error('    = Not Found ', $@);
         $heap->{client}->put(json_error_create($json, JSONRPC_NSMF_AUTH_UNSUPPORTED));
         return;
     }

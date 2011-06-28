@@ -45,7 +45,7 @@ use NSMF::Common::Logger;
 my $instance;
 my $type_map = {};
 my $logger = NSMF::Common::Logger->new();
-my @provides = ('agent', 'node', 'event', 'session');
+my @supported_types = ();
 my $db_dsn;
 my $db_handle;
 
@@ -87,32 +87,32 @@ sub create {
     }
 
     # load establish call backs
-    for my $data_type ( @provides )
+    for my $data_type_path ( @data_types )
     {
-        my $data_type_path = __PACKAGE__ . '::' . ucfirst($data_type);
+        my $data_type;
+        $data_type = lc($1) if ( $data_type_path =~ m/::(\w+)$/ );
 
-        if ( $data_type_path ~~ @data_types ) {
-            eval "use $data_type_path";
+        eval "use $data_type_path";
 
-            if ( $@ ) {
-                die { 'status' => 'error', 'message' => 'Unable to load callbacks for ' . $data_type . '(' . $@ .')' };
-            }
+        if ( $@ ) {
+            die { 'status' => 'error', 'message' => 'Unable to load callbacks for ' . $data_type . '(' . $@ .')' };
+        }
 
-            $logger->debug('  Loading ' . $data_type . ' callbacks.');
-            $type_map->{$data_type} = $data_type_path->new();
+        $logger->debug('  Loading ' . $data_type . ' callbacks.');
+        $type_map->{$data_type} = $data_type_path->new();
 
-            if ( ! $type_map->{$data_type}->create($self->{__handle}) )
-            {
-                $logger->error('  Unable to create persistant storage.');
-            }
+        if ( ! $type_map->{$data_type}->create($self->{__handle}) )
+        {
+            $logger->error('    Unable to create persistant storage.');
+        }
 
-            if ( ! $type_map->{$data_type}->validate() )
-            {
-                $logger->error('  The storage integrity is corrupt or out of date.');
-            }
+        if ( ! $type_map->{$data_type}->validate() )
+        {
+            $logger->error('    The storage integrity is corrupt or out of date.');
         }
     }
 
+    @supported_types = keys(%{ $type_map });
 
     # check the database integrity (build if required)
 
@@ -154,17 +154,29 @@ sub insert {
 sub search {
     my ($self, $filter) = @_;
 
+    # ensure the filter is provided
+    if ( ref($filter) ne 'HASH' && keys( %{ $filter }) == 1)
+    {
+        $logger->warn('Ignoring filter due to unknown format: ' . ref($filter));
+        return;
+    }
+
+    my $type = ( keys( %{ $filter } ) )[0];
+    $filter = $filter->{$type};
+
+    # search if our type is supported
+    if ( $type ~~ @supported_types )
+    {
+        # remove the type from the filter
+        return $type_map->{$type}->search($filter);
+    }
+
+    $logger->warn('Ignoring filter due to unsupported type: ' . $type, @supported_types);
 }
 
 sub delete {
     my ($self, $filter) = @_;
 
 }
-
-sub mysql_command {
-
-}
-
-
 
 1;

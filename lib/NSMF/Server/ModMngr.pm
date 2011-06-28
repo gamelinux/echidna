@@ -1,7 +1,7 @@
 #
 # This file is part of the NSM framework
 #
-# Copyright (C) 2010-2011, Edward Fjellskål <edwardfjellskaal@gmail.com>
+
 #                          Eduardo Urias    <windkaiser@gmail.com>
 #                          Ian Firns        <firnsy@securixlive.com>
 #
@@ -43,10 +43,10 @@ sub load {
     my $module_path;
     my $nsmf    = NSMF::Server->new();
     my $config  = $nsmf->config;
-    my $modules = $config->{modules};
-    
+    my $modules = $config->modules();
+
     if (lc $module_name ~~ @$modules) {
-    
+
         $module_path = 'NSMF::Server::Component::' . uc($module_name);
         eval "use $module_path";
 

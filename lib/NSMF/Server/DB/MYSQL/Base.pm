@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS versions (
 sub version_set {
   my ($self, $table, $version) = @_;
 
-  # 
+  #
   $self->create_tables_version();
 
   my $sql;
@@ -82,7 +82,7 @@ sub version_set {
   {
       $sql = 'UPDATE versions SET version=' . $version . ' WHERE name="' . $table . '"';
   }
-  
+
   return ( $self->{__handle}->do($sql) > 0);
 }
 
@@ -93,9 +93,9 @@ sub version_get {
 
     $sth->execute();
     my $r = $sth->fetchall_arrayref();
- 
+
     return -1 if ( @{ $r } == 0 );
-    
+
     return $r->[0][0];
 }
 
@@ -106,13 +106,13 @@ sub version_get {
 #
 
 sub create {
-    $logger->warn('Base create method needs to be overridden.');
+    $logger->warn('    Base create method needs to be overridden.');
 
     return 0;
 }
 
 sub validate {
-    $logger->warn('Base validate method needs to be overridden.');
+    $logger->warn('    Base validate method needs to be overridden.');
 
     return 0;
 }
@@ -122,15 +122,15 @@ sub validate {
 #
 
 sub insert {
-    $logger->warn('Base insert method needs to be overridden.');
+    $logger->warn('    Base insert method needs to be overridden.');
 }
 
 sub search {
-    $logger->warn('Base search method needs to be overridden.');
+    $logger->warn('    Base search method needs to be overridden.');
 }
 
 sub delete {
-    $logger->warn('Base delete method needs to be overridden.');
+    $logger->warn('    Base delete method needs to be overridden.');
 }
 
 1;

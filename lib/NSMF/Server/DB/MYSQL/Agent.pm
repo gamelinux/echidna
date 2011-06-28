@@ -41,6 +41,11 @@ use constant {
 };
 
 #
+# GLOBALS
+#
+my $logger = NSMF::Common::Logger->new();
+
+#
 # DATA STORE CREATION AND VALIDATION
 #
 
@@ -77,7 +82,29 @@ sub insert {
 }
 
 sub search {
-#    $logger->warn('Base insert method needs to be overridden.');
+    my ($self, $filter) = @_;
+
+    # build up the search criteria
+    my $sql = 'SELECT * FROM agent ';
+    my @where = ();
+
+    while ( my ($key, $value) = each(%{ $filter }) ) {
+        $value = "'$value'" if ( $value =~ m/[^\d]/ );
+        push(@where, $key . '=' . $value);
+    }
+
+    $sql .= 'WHERE ' . join(' AND ', @where);
+
+    my $sth = $self->{__handle}->prepare($sql);
+    $sth->execute();
+
+    my $ret = [];
+
+    while (my $row = $sth->fetchrow_hashref) {
+        push(@{ $ret }, $row);
+    };
+
+    return $ret;
 }
 
 sub delete {
@@ -92,8 +119,10 @@ sub delete {
 sub create_tables_agent {
     my ($self) = shift;
 
+    $logger->debug('    Creating AGENT tables.');
+
     my $sql = '
-CREATE TABLE IF NOT EXISTS agent (
+CREATE TABLE agent (
     id          INT         NOT NULL AUTO_INCREMENT,
     name        VARCHAR(64) NOT NULL ,
     password    VARCHAR(64) NOT NULL ,

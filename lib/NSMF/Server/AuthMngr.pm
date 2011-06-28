@@ -34,24 +34,35 @@ use Carp;
 #
 # NSMF INCLUDES
 #
+use NSMF::Common::Logger;
+use NSMF::Server;
 use NSMF::Server::Model::Agent;
+
+#
+# GLOBALS
+#
+my $logger = NSMF::Common::Logger->new();
 
 sub authenticate {
     my ($self, $agent_name, $key) = @_;
-    
-    my $agent = NSMF::Server::Model::Agent->search({
-        agent_name => $agent_name,
-    })->next;
 
-    if ($agent and ref($agent) eq 'NSMF::Server::Model::Agent') {
+    my $database = NSMF::Server->database();
 
-        if ($agent->agent_password eq $key) {
+    my $agent = $database->search({
+        agent => {
+            name => $agent_name,
+            #version => [gt, 1],
+        },
+    });
+
+    if ( @{ $agent } == 1 ) {
+        if ($agent->[0]->{password} eq $key) {
             return 1;
         }
-        else { 
+        else {
             croak { status => 'error', message => 'Incorrect Password' };
         }
-    } 
+    }
     else {
         croak {status => 'error', message => 'Agent Not Found'};
     }

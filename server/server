@@ -49,14 +49,14 @@ my $config  = $nsmf->config();
 my $proto   = $nsmf->proto();
 my $logger  = NSMF::Common::Logger->new();
 
-# Server 
+# Server
 new POE::Component::Server::TCP(
     Alias              => $config->name(),
     Address            => $config->host(),
     Port               => $config->port(),
-    ClientConnected    => \&connected, 
+    ClientConnected    => \&connected,
     ClientDisconnected => \&disconnected,
-    ClientInput => sub { 
+    ClientInput => sub {
         my ($kernel, $heap, $input) = @_[KERNEL, HEAP, ARG0];
         $kernel->yield('dispatcher', $input);
     },
@@ -66,7 +66,7 @@ new POE::Component::Server::TCP(
 
 sub connected {
     my ($session, $heap) = @_[SESSION, HEAP];
-    
+
     $logger->debug('Client connected: ' . $heap->{remote_ip});
 
     # Initialization
