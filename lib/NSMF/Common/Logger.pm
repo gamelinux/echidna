@@ -175,7 +175,7 @@ sub time_now
 sub log {
     my ($self, $type, @args) = @_;
 
-    my $line = $self->time_now() . $type . join('\n', @args);
+    my $line = $self->time_now() . $type . join("\n", @args);
 
     # write to stdout
     say $line;
