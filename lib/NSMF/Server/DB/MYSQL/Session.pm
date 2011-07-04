@@ -37,7 +37,7 @@ use Data::Dumper;
 # CONSTANTS
 #
 use constant {
-    SESION_VERSION => 1
+    SESSION_VERSION => 1
 };
 
 #
@@ -49,17 +49,18 @@ my $logger = NSMF::Common::Logger->new();
 # DATA STORE CREATION AND VALIDATION
 #
 
-
 sub create {
     my ($self, $handle) = @_;
 
     $self->{__handle} = $handle;
 
+    return 0 if ( ! $self->create_functions_session() );
+
     # validate tables to see if they exist
     return 1 if ( $self->validate() );
 
-    # create node tables
-    return 1 if ( $self->create_tables_node() );
+    # create session functions
+    return 1 if ( $self->create_tables_session() );
 
     # failed
     return 0;
@@ -80,13 +81,49 @@ sub validate {
 sub insert {
     my ($self, $data) = @_;
 
-#    $logger->warn('Base insert method needs to be overridden.');
+    return 0 if ( ref($data) ne 'HASH' );
+
+    # validate input
+
+
+    # set sane defaults for optional
+    $data->{data}{filename} //= '';
+    $data->{data}{offset} //= 0;
+    $data->{data}{length} //= 0;
+    $data->{vendor_meta} //= '';
+
+    my $sql = '
+INSERT INTO session
+ (session_id, timestamp, times_end, times_start, times_duration, node_id, net_version, net_protocol, net_src_ip, net_src_port, net_src_packets, net_src_bytes, net_src_flags, net_dst_ip, net_dst_port, net_dst_packets, net_dst_bytes, net_dst_flags, data_filename, data_offset, data_length) VALUES (' .
+        $data->{session}{id} . ',' .
+        $data->{session}{timestam} . ',' .
+        $data->{session}{times}{start} . ',' .
+        $data->{session}{times}{end} . ',' .
+        $data->{session}{times}{duration} . ',' .
+        $data->{node}{id} . ',' .
+        $data->{net}{version} . ',' .
+        $data->{net}{protocol} . ',' .
+        $data->{net}{src}{ip} . ',' .
+        $data->{net}{src}{port} . ',' .
+        $data->{net}{src}{total_packets} . ',' .
+        $data->{net}{src}{total_bytes} . ',' .
+        $data->{net}{src}{flags} . ',' .
+        $data->{net}{dst}{ip} . ',' .
+        $data->{net}{dst}{port} . ',' .
+        $data->{net}{dst}{total_packets} . ',' .
+        $data->{net}{dst}{total_bytes} . ',' .
+        $data->{net}{dst}{flags} . ',"' .
+        $data->{data}{filename} . '",' .
+        $data->{data}{offset} . ',' .
+        $data->{data}{length} . ')';
+
+    return ( ! $self->{__handle}->do($sql) );
 }
 
 sub search {
     my ($self, $filter) = @_;
 
-    $logger->debug('Looking for an node?');
+    $logger->debug('Looking for an session?');
 }
 
 sub update {
@@ -106,14 +143,14 @@ sub delete {
 # TABLE CREATION
 #
 
-sub create_tables_node {
+sub create_tables_session {
     my ($self) = shift;
 
     $logger->debug('    Creating SESSION tables.');
 
     my $sql = '
 CREATE TABLE session (
-   id              BIGINT       NOT NULL AUTO_INCREMENT,
+   session_id      BIGINT       NOT NULL ,
    timestamp       DATETIME     NOT NULL ,
    times_start     DATETIME     NOT NULL ,
    times_end       DATETIME     NOT NULL ,
@@ -134,20 +171,20 @@ CREATE TABLE session (
    data_filename   TEXT         NOT NULL ,
    data_offset     BIGINT       NOT NULL ,
    data_length     BIGINT       NOT NULL ,
-   vendor_meta     TEXT
-   PRIMARY KEY (id),
-);';
+   vendor_meta     TEXT,
+   PRIMARY KEY (session_id)
+)';
 
-    $self->{__handle}->do($sql);
+    return 0 if ( ! $self->{__handle}->do($sql) );
 
-    return ( $self->version_set('node', NODE_VERSION) );
+    return ( $self->version_set('session', SESSION_VERSION) );
 }
 
 #
 # STORED FUNCTINO CREATION
 #
 
-sub create_functions_sessions {
+sub create_functions_session {
     my ($self) = shift;
 
     $logger->debug('    Creating SESSION functions.');
@@ -181,7 +218,7 @@ END;
 DELIMITER ;
 ';
 
-        $self->{__handle}->do($sql);
+        return 0 if ( ! $self->{__handle}->do($sql) );
     }
 
     # create function for translating IPV6 numeric to address
@@ -201,13 +238,13 @@ BEGIN
     SET q := FLOOR(n / 65535);
     SET r := n MOD 65535;
     SET n := q;
-    SET a := CONCAT_WS(":", LPAD(CONV(r, 10, 16), 4, '0'), a);
+    SET a := CONCAT_WS(":", LPAD(CONV(r, 10, 16), 4, "0"), a);
 
     SET i := i - 1;
   END WHILE;
 
   SET a := TRIM(TRAILING ":" FROM CONCAT_WS(":",
-                                            LPAD(CONV(n, 10, 16), 4, '0'),
+                                            LPAD(CONV(n, 10, 16), 4, "0"),
                                             a));
 
   RETURN a;
@@ -215,8 +252,11 @@ END;
 //
 DELIMITER ;
 ';
-        $self->{__handle}->do($sql);
+        return 0 if ( ! $self->{__handle}->do($sql) );
     }
+
+    # success
+    return 1;
 }
 
 1;

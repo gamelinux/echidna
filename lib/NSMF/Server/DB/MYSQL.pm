@@ -79,7 +79,7 @@ sub create {
     $self->{__connection} = "dbi:mysql:$name:$host:$port";
 
     eval {
-        $self->{__handle} = DBI->connect($self->{__connection}, $user, $pass, { RaiseError => 0, PrintError => 0});
+        $self->{__handle} = DBI->connect($self->{__connection}, $user, $pass, { RaiseError => 0, PrintError => 1});
     };
 
     if ( $@ ) {
@@ -143,7 +143,7 @@ sub insert {
         elsif ( $entry->{type} ~~ keys(%{ $type_map }) )
         {
             $logger->debug('Adding entry');
-            $type_map->{$type}->insert($entry);
+            $type_map->{$entry->{type}}->insert($entry);
         }
         else
         {
