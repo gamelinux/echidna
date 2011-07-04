@@ -131,6 +131,8 @@ sub insert {
 
     $batch = [ $data ] if ( ref($data) ne 'ARRAY' );
 
+    # start transaction
+
     for my $entry ( @{ $batch } )
     {
         if ( ref($entry) ne 'HASH' )
@@ -138,17 +140,18 @@ sub insert {
             $logger->warn('Ignoring entry due to unknown format: ' . ref($entry));
             next;
         }
-
-        if ( $entry->{type} ~~ keys(%{ $type_map }) ) 
+        elsif ( $entry->{type} ~~ keys(%{ $type_map }) )
         {
             $logger->debug('Adding entry');
+            $type_map->{$type}->insert($entry);
         }
         else
         {
             $logger->warn('No callback to handle type: ' . $entry->{type});
         }
-
     }
+
+    # end transaction
 }
 
 sub search {
