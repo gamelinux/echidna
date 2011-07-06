@@ -38,43 +38,46 @@ use POE;
 # NSMF INCLUDES
 #
 use NSMF::Agent;
+use NSMF::Agent::Action;
 use NSMF::Common::Logger;
 use NSMF::Common::Util;
 
 #
 # GLOBALS
 #
-our $VERSION = '0.1';
-our $cxtdir;
 my $logger = NSMF::Common::Logger->new();
 
-sub  hello {
+sub hello {
+    my ($self) = shift;
     $logger->debug('   Hello from CXTRACKER Node!!');
 }
+
 sub run {
-    my ($self, $kernel, $heap) = @_;
+    my ($kernel, $heap) = @_[KERNEL, HEAP];
+    my $self = shift;
 
     $self->register($kernel, $heap);
     $logger->debug("Running cxtracker processing..");
 
     $self->hello();
 
-    $cxtdir = $self->{__settings}->{cxtdir};
-    $heap->{watcher} = $self->file_watcher({
-        directory => $cxtdir,
-        callback  => '_process',
+    my $settings = $self->{__config}->settings();
+
+    $logger->error('CXTDIR undefined!') unless $settings->{cxtdir};
+
+    $heap->{watcher} = NSMF::Agent::Action->file_watcher({
+        directory => $settings->{cxtdir},
+        callback  => [ $self, '_process' ],
         interval  => 3,
         pattern   => 'stats\..+\.(\d){10}'
     });
 }
 
 sub _process {
-    my ($self, $file) = @_;
-    my $cxtdir = $self->{__settings}->{cxtdir};
-    
-    return unless defined $file and -r -w -f $file;
+    my ($kernel, $heap, $file) = @_[KERNEL, HEAP, ARG0];
+    my $self = shift;
 
-    $logger->error('CXTDIR undefined!') unless $cxtdir;
+    return unless defined $file and -r -w -f $file;
 
     my ($sessions, $start_time, $end_time, $process_time, $result);
 
@@ -88,7 +91,7 @@ sub _process {
     $logger->debug("[*] File $file processed in $process_time seconds");
 
     $start_time   = $end_time;
-    $self->post(cxt => $sessions);
+    $kernel->post('node', 'post', $sessions);
     $end_time     = time();
     $process_time = $end_time - $start_time;
 
@@ -108,44 +111,78 @@ sub _process {
 
 sub _get_sessions {
     my $sfile = shift;
-    my $sessions_data = qq();
+    my $sessions_data = [];
 
-    if (open (FILE, $sfile)) {
-        if ($NSMF::DEBUG) {
-            my $filelen=`wc -l $sfile |awk '{print \$1'}`;
-            my $filesize=`ls -lh $sfile |awk '{print \$5}'`;
-
-            chomp $filelen;
-            chomp $filesize;
-
-            $logger->debug("[*] File:$sfile, Lines:$filelen, Size:$filesize");
-        }
-
-        # Verify the data in the session files
-        LINE:
+    if ( open(FILE, $sfile) ) {
+        my $cnt = 0;
+        # verify the data in the session files
         while (my $line = readline FILE) {
             chomp $line;
             $line =~ /^\d{19}/;
             unless($line) {
                 warn "[*] Error: Not valid session start format in: '$sfile'";
-                next LINE;
+                next;
             }
-            my @elements = split/\|/,$line;
+
+            my @elements = split(/\|/, $line);
+
             unless(@elements == 15) {
                 warn "[*] Error: Not valid Nr. of session args format in: '$sfile'";
-                next LINE;
+                next;
             }
-            # Things should be OK now to send to the SERVER
-            if ( $sessions_data eq "" ) {
-                $sessions_data = "$line";
-            } else {
-                $sessions_data .= "\n$line";
-            }
-      }
 
-      close FILE;
-      $logger->debug("Sessions data:\n$sessions_data");
-      return $sessions_data;
+            # build the session structs
+            push( @{ $sessions_data }, {
+                session => {
+                    id => $elements[0],
+                    timestamp => 0,
+                    times => {
+                        start => $elements[1],
+                        end   => $elements[2],
+                        duration => $elements[3],
+                    },
+                },
+                node => {
+                    id => 0,
+                },
+                net => {
+                    version => 4,
+                    protocol => $elements[4],
+                    source => {
+                        ip   => $elements[5],
+                        port => $elements[6],
+                        total_packets => $elements[9],
+                        total_bytes => $elements[10],
+                        flags => $elements[13],
+                    },
+                    destination => {
+                        ip   => $elements[7],
+                        port => $elements[8],
+                        total_packets => $elements[11],
+                        total_bytes => $elements[12],
+                        flags => $elements[14],
+                    },
+                },
+                data => {
+                    filename => 'filename.ext',
+                    offset => 0,
+                    length => 0,
+                },
+                vendor_meta => {
+                    cxt_id => $elements[0],
+                },
+            });
+
+            #XXX:
+            $cnt++;
+#            last if ( $cnt > 2 );
+        }
+
+        close FILE;
+
+#        $logger->debug('Sessions data: ', $sessions_data);
+
+        return { session => $sessions_data };
     }
 }
 

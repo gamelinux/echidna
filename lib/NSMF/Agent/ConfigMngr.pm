@@ -130,6 +130,10 @@ sub protocol {
     return $instance->{config}{protocol} // croak('[!] No protocol defined.');
 }
 
+sub settings {
+    return $instance->{config}{settings} // croak('[!] No settings defined.');
+}
+
 sub logging {
     my $self = shift;
     return if ( ref($self) ne __PACKAGE__ );

@@ -44,34 +44,44 @@ my $logger = NSMF::Common::Logger->new();
 sub file_watcher {
     my ($self, $settings) = @_;
 
-    $logger->fatal('Expected hash ref of parameters') if ( ! ref($settings) );
+    $logger->fatal('Expected hash ref of parameters. Got: ', $settings) if ( ! ref($settings) );
 
     my $dir      = $settings->{directory}  // $logger->fatal('Directory Expected');
     my $time     = $settings->{interval}   // 3;
-    my $callback = $settings->{callback}   // $logger->fatal('Callback Expected');
+    my $cb_obj   = $settings->{callback}->[0] // $logger->fatal('Callback Expected');
+    my $cb_func  = $settings->{callback}->[1] // $logger->fatal('Callback Expected');
     my $regex    = $settings->{pattern}    // $logger->fatal('Regex Expected');
 
     return POE::Session->create(
         inline_states => {
-            _start => sub { 
-                $_[KERNEL]->yield('watch'); 
+            _start => sub {
+                $_[KERNEL]->yield('watch');
                 $_[KERNEL]->alias_set('file_seeker');
+                $_[HEAP]->{dir} = $dir;
+                $_[HEAP]->{callback} = $cb_func;
+                $_[HEAP]->{time} = $time;
             },
             watch => sub {
-                my ($kernel) = $_[KERNEL];
+                my ($kernel, $heap) = @_[KERNEL, HEAP];
                 my $file_back;
+
+                $logger->debug("    Checking dir $dir");
+
                 opendir my $dh, $dir or die "Could not open $dir";
                 while ( my $file = readdir($dh)) {
                     if ( -f "$dir/$file" and $file =~ /$regex/) {
                         $file_back = $dir . $file;
                         last;
                     }
-                } 
+                }
                 closedir $dh;
-                $self->$callback($file_back);
-                $kernel->delay( watch => $time);
+                $kernel->yield($heap->{callback}, $file_back);
+                $kernel->delay( watch => $time );
             },
-        }
+        },
+        object_states => [
+            $cb_obj => [ $cb_func ]
+        ]
     );
 }
 

@@ -86,10 +86,12 @@ sub validate {
     }
 
     my @elements = split /\|/, $session;
-    
+
+    # validate session object
+
     # verify number of elements
     unless(@elements == 15) {
-        die { status => 'errpr', message => 'Invalid number of elements' };
+        die { status => 'error', message => 'Invalid number of elements' };
     }
 
     # verify duplicate in db
@@ -97,51 +99,19 @@ sub validate {
     if ($class->search({ session_id => $elements[0] })->next) {
         die { status => 'error', message => 'Duplicated Session' };
     }
-   
-    1;
- 
+
+    return 1;
 }
 
 sub save {
     my ($self, $session) = @_;
 
     # validation
-    eval {
-        $self->validate( $session );
-    };
+    $self->validate( $session );
 
-    if (ref $@) {
-        $logger->error("  ->  Session validation failed: " .$@->{message});;
-        return;
-    }
+    my $db = NSMF::Server->database();
 
-    my @tokens = split /\|/, $session;
-
-    $self->session_id( $tokens[0] );
-    $self->start_time( $tokens[1] );
-    $self->end_time( $tokens[2] );
-    $self->duration( $tokens[3] );
-    $self->ip_proto( $tokens[4] );
-    $self->src_ip( $tokens[5] );
-    $self->src_port( $tokens[6] );
-    $self->dst_ip( $tokens[7] );
-    $self->dst_port( $tokens[8] );
-    $self->src_pkts( $tokens[9] );
-    $self->src_bytes( $tokens[10] );
-    $self->dst_pkts( $tokens[11] );
-    $self->dst_bytes( $tokens[12] );
-    $self->src_flags( $tokens[13] );
-    $self->dst_flags( $tokens[14] );
-    $self->ip_version( 4 );
-
-    # if everything is ok
-    if ($self->SUPER::save) {
-        return 1;
-    } 
-        
-    return;
+    return $db->insert($session);
 }
-
-
 
 1;

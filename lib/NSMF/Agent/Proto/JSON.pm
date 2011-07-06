@@ -71,6 +71,7 @@ sub states {
         # -> To Server
         'send_ping',
         'send_pong',
+        'post',
 
         # -> From Server
         'got_ping',
@@ -265,5 +266,29 @@ sub got_pong {
 }
 
 ################ END KEEP ALIVE ###################
+
+sub post {
+    my ($kernel, $heap, $data) = @_[KERNEL, HEAP, ARG0];
+    my $self = shift;
+
+    return if $heap->{shutdown};
+
+    # verify established connection
+    return if ( $heap->{stage} ne 'EST' );
+
+    $logger->debug('    -> Sending POST..');
+
+    # TODO: validate type croak on fail
+    #if ( ref($type) ) {
+    #   my %hash = %$data;
+    #   $type = keys %hash;
+    #   $data = $hash{$type};
+    #}
+
+    my $payload = json_method_create('post', $data);
+    $heap->{server}->put(json_encode($payload));
+
+    $logger->debug('   [*] Data Size: ' . length(json_encode($payload)))
+}
 
 1;

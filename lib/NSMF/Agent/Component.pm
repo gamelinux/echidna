@@ -26,8 +26,6 @@ use warnings;
 use strict;
 use v5.10;
 
-use base qw(NSMF::Agent::Action);
-
 #
 # PERL INCLUDES
 #
@@ -51,7 +49,6 @@ use NSMF::Common::Util;
 #
 # GLOBALS
 #
-our $VERSION = '0.1';
 our ($poe_kernel, $poe_heap);
 my $logger = NSMF::Common::Logger->new();
 
@@ -69,6 +66,7 @@ sub new {
             _db         => undef,
             _sessid     => undef,
         },
+        __main          => \&run,
     }, $class;
 }
 
@@ -111,6 +109,7 @@ sub sync {
     return if ( ! defined_args($host, $port) );
 
     POE::Component::Client::TCP->new(
+        Alias         => 'node',
         RemoteAddress => $host,
         RemotePort    => $port,
         Filter        => "POE::Filter::Stream",
@@ -140,17 +139,16 @@ sub sync {
         },
         ObjectStates => [
             $proto => $proto->states(),
+            $self => [ 'run' ]
         ],
-        InlineStates => {
-            run => \&run,
-        }
     );
 }
 
 sub run {
     my ($kernel, $heap) = @_[KERNEL, HEAP];
+    my $self = shift;
 
-    $logger->debug('-> Calling run');
+    $logger->fatal('Base run call needs to be overridden.');
 }
 
 sub register {
@@ -175,32 +173,6 @@ sub ping {
     return unless ref $poe_heap;
 
     my $payload = 'PING ' .time(). ' NSMF/1.0' ."\r\n";
-    $poe_heap->{server}->put($payload);
-}
-
-sub post {
-    my ($self, $type, $data) = @_;
-
-   if (ref $type) {
-       my %hash = %$type;
-       $type = keys %hash;
-       $data = $hash{$type};
-   }
-   my @valid_types = qw(
-        pcap
-        cxt
-    );
-    croak 'POST Data Type Not Supported'
-        unless $type ~~ @valid_types;
-
-    croak 'POE HEAP Instance Not Found'
-        unless ref $poe_heap;
-
-    srand (time ^ $$ ^ unpack "%L*", `ps axww | gzip -f`);
-    $logger->debug('   [*] Data Size: ' . length($data));
-
-    my $payload = 'POST ' .$type. ' ' . int(rand(10000)). " NSMF/1.0\n\n" .encode_base64($data);
-
     $poe_heap->{server}->put($payload);
 }
 

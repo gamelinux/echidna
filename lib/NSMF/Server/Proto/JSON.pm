@@ -89,7 +89,7 @@ sub states {
 }
 
 sub dispatcher {
-    my ($kernel, $request) = @_[KERNEL, ARG0];
+    my ($kernel, $heap, $request) = @_[KERNEL, HEAP, ARG0];
 
     my $json = {};
 
@@ -98,7 +98,7 @@ sub dispatcher {
     };
 
     if ( $@ ) {
-        $logger->error('Invalid JSON request: ' . $request);
+        $logger->error('Invalid JSON request' . $request);
         return;
     }
 
@@ -318,15 +318,24 @@ sub got_post {
     }
 
     $logger->debug(' -> This is a post for ' . $heap->{module_name});
-    $logger->debug('    - Type: '. $json->{params}{type});
-    $logger->debug('    - Job Id: ' . $json->{params}{job_id});
+#    $logger->debug('    - Type: '. $json->{params}{type});
+#    $logger->debug('    - Job Id: ' . $json->{params}{job_id});
 
     my $module = $heap->{module};
-    $module->validate( $json->{params} );
-    $module->save( $json->{params} ) or $logger->error($module->errstr);
 
-    # need to reply here
-    $logger->debug("    Session saved");
+    eval {
+        $module->save( $json->{params} );
+    };
+
+    if ( $@ ) {
+        $logger->error($@);
+    }
+    else
+    {
+        $logger->debug("    Session saved");
+
+        # need to reply here
+    }
 }
 
 sub send_ping {
