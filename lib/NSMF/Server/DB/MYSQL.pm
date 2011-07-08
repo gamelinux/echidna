@@ -127,28 +127,37 @@ sub create {
 sub insert {
     my ($self, $data) = @_;
 
-    my $batch = [];
+    if ( ! ref($data) eq 'HASH' )
+    {
+        $logger->warn('Ignoring entry due to uknown format');
+        return 0;
+    }
 
-    $batch = [ $data ] if ( ref($data) ne 'ARRAY' );
+    my ($type, $batch) = each(%{ $data });
+
+    if ( ! ($type ~~ @supported_types) )
+    {
+        $logger->warn('No callback to handle type: ' . $type, @supported_types);
+        return 0;
+    }
+
+    $logger->debug('DATA REF: ' . ref($data));
+    $batch = [ $batch ] if ( ref($batch) ne 'ARRAY' );
 
     # start transaction
 
     for my $entry ( @{ $batch } )
     {
+        $logger->debug($entry);
         if ( ref($entry) ne 'HASH' )
         {
             $logger->warn('Ignoring entry due to unknown format: ' . ref($entry));
             next;
         }
-        elsif ( $entry->{type} ~~ keys(%{ $type_map }) )
-        {
-            $logger->debug('Adding entry');
-            $type_map->{$entry->{type}}->insert($entry);
-        }
-        else
-        {
-            $logger->warn('No callback to handle type: ' . $entry->{type});
-        }
+
+        $logger->debug('Adding entry');
+
+        $type_map->{$type}->insert($entry);
     }
 
     # end transaction
@@ -161,7 +170,7 @@ sub search {
     if ( ref($filter) ne 'HASH' && keys( %{ $filter }) == 1)
     {
         $logger->warn('Ignoring filter due to unknown format: ' . ref($filter));
-        return;
+        return [];
     }
 
     my $type = ( keys( %{ $filter } ) )[0];

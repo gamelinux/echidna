@@ -36,6 +36,7 @@ use Module::Pluggable require => 1;
 #
 # NSMF INCLUDES
 #
+use NSMF::Server;
 use NSMF::Server::Driver;
 use NSMF::Common::Logger;
 
@@ -79,24 +80,21 @@ sub hello {
 sub validate {
     my ($self, $session) = @_;
 
-    $session =~ /^\d{19}/;
+    my $db = NSMF::Server->database();
 
-    if ( ! $session) {
-        $logger->warn("[*] Error: Not valid session start format in");
-    }
-
-    my @elements = split /\|/, $session;
-
+    return 1;
     # validate session object
 
     # verify number of elements
-    unless(@elements == 15) {
-        die { status => 'error', message => 'Invalid number of elements' };
-    }
 
     # verify duplicate in db
-    my $class = ref $self;
-    if ($class->search({ session_id => $elements[0] })->next) {
+    my $dup = $db->search({
+        session => {
+            session_id => $session->{session}{id},
+        }
+    });
+
+    if ( @{ $dup } ) {
         die { status => 'error', message => 'Duplicated Session' };
     }
 
@@ -109,9 +107,12 @@ sub save {
     # validation
     $self->validate( $session );
 
+#
+
+
     my $db = NSMF::Server->database();
 
-    return $db->insert($session);
+    return $db->insert( { session => $session } );
 }
 
 1;

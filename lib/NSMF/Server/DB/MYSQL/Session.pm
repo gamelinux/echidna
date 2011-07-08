@@ -94,7 +94,7 @@ sub insert {
 
     my $sql = '
 INSERT INTO session
- (session_id, timestamp, times_end, times_start, times_duration, node_id, net_version, net_protocol, net_src_ip, net_src_port, net_src_packets, net_src_bytes, net_src_flags, net_dst_ip, net_dst_port, net_dst_packets, net_dst_bytes, net_dst_flags, data_filename, data_offset, data_length) VALUES (' .
+ (session_id, timestamp, times_end, times_start, times_duration, node_id, net_version, net_protocol, net_src_ip, net_src_port, net_src_total_packets, net_src_total_bytes, net_src_flags, net_dst_ip, net_dst_port, net_dst_total_packets, net_dst_total_bytes, net_dst_flags, data_filename, data_offset, data_length) VALUES (' .
         $data->{session}{id} . ',' .
         $data->{session}{timestam} . ',' .
         $data->{session}{times}{start} . ',' .
@@ -126,7 +126,18 @@ INSERT INTO session
 sub search {
     my ($self, $filter) = @_;
 
-    $logger->debug('Looking for an session?');
+    my $sql = 'SELECT * FROM session ' . $self->create_filter($filter);
+
+    my $sth = $self->{__handle}->prepare($sql);
+    $sth->execute();
+
+    my $ret = [];
+
+    while (my $row = $sth->fetchrow_hashref) {
+        push(@{ $ret }, $row);
+    };
+
+    return $ret;
 }
 
 sub update {
@@ -153,28 +164,28 @@ sub create_tables_session {
 
     my $sql = '
 CREATE TABLE session (
-   session_id      BIGINT       NOT NULL ,
-   timestamp       DATETIME     NOT NULL ,
-   times_start     DATETIME     NOT NULL ,
-   times_end       DATETIME     NOT NULL ,
-   times_duration  DATETIME     NOT NULL ,
-   node_id         BIGINT       NOT NULL ,
-   net_version     INT          NOT NULL ,
-   net_protocol    TINYINT      NOT NULL ,
-   net_src_ip      DECIMAL(39)  NOT NULL ,
-   net_src_port    SMALLINT     NOT NULL ,
-   net_src_packets BIGINT       NOT NULL ,
-   net_src_bytes   BIGINT       NOT NULL ,
-   net_src_flags   TINYINT      NOT NULL ,
-   net_dst_ip      DECIMAL(39)  NOT NULL ,
-   net_dst_port    SMALLINT     NOT NULL ,
-   net_dst_packets BIGINT       NOT NULL ,
-   net_dst_bytes   BIGINT       NOT NULL ,
-   net_dst_flags   TINYINT      NOT NULL ,
-   data_filename   TEXT         NOT NULL ,
-   data_offset     BIGINT       NOT NULL ,
-   data_length     BIGINT       NOT NULL ,
-   vendor_meta     TEXT,
+   session_id            BIGINT       NOT NULL ,
+   timestamp             DATETIME     NOT NULL ,
+   times_start           DATETIME     NOT NULL ,
+   times_end             DATETIME     NOT NULL ,
+   times_duration        DATETIME     NOT NULL ,
+   node_id               BIGINT       NOT NULL ,
+   net_version           INT          NOT NULL ,
+   net_protocol          TINYINT      NOT NULL ,
+   net_src_ip            DECIMAL(39)  NOT NULL ,
+   net_src_port          SMALLINT     NOT NULL ,
+   net_src_total_packets BIGINT       NOT NULL ,
+   net_src_total_bytes   BIGINT       NOT NULL ,
+   net_src_flags         TINYINT      NOT NULL ,
+   net_dst_ip            DECIMAL(39)  NOT NULL ,
+   net_dst_port          SMALLINT     NOT NULL ,
+   net_dst_total_packets BIGINT       NOT NULL ,
+   net_dst_total_bytes   BIGINT       NOT NULL ,
+   net_dst_flags         TINYINT      NOT NULL ,
+   data_filename         TEXT         NOT NULL ,
+   data_offset           BIGINT       NOT NULL ,
+   data_length           BIGINT       NOT NULL ,
+   vendor_meta           TEXT,
    PRIMARY KEY (session_id)
 )';
 

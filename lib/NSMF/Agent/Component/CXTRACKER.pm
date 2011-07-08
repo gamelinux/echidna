@@ -81,25 +81,26 @@ sub _process {
 
     my ($sessions, $start_time, $end_time, $process_time, $result);
 
-    $logger->info("[*] Found file: $file");
+    $logger->info("Found file: $file");
 
     $start_time   = time();
     $sessions     = _get_sessions($file);
     $end_time     = time();
     $process_time = $end_time - $start_time;
 
-    $logger->debug("[*] File $file processed in $process_time seconds");
+    $logger->debug("File $file processed in $process_time seconds");
 
     $start_time   = $end_time;
-    $kernel->post('node', 'post', $sessions);
+    for my $session ( @{ $sessions } )
+    {
+        $kernel->post('node', 'post', $session);
+    }
     $end_time     = time();
     $process_time = $end_time - $start_time;
 
-    $logger->debug("[*] Session record sent in $process_time seconds");
+    $logger->debug("Session record sent in $process_time seconds");
 
-    $logger->debug("[W] Deleting file: $file");
-
-    unlink($file) or $logger->error("Failed to delete $file");
+    unlink($file) or $logger->error("Failed to delete: $file");
 }
 
 =head2 _get_sessions
@@ -120,14 +121,14 @@ sub _get_sessions {
             chomp $line;
             $line =~ /^\d{19}/;
             unless($line) {
-                warn "[*] Error: Not valid session start format in: '$sfile'";
+                $logger->error("Not valid session start format in: '$sfile'");
                 next;
             }
 
             my @elements = split(/\|/, $line);
 
             unless(@elements == 15) {
-                warn "[*] Error: Not valid Nr. of session args format in: '$sfile'";
+                $logger->error("Not valid number of session args format in: '$sfile'");
                 next;
             }
 
@@ -172,17 +173,11 @@ sub _get_sessions {
                     cxt_id => $elements[0],
                 },
             });
-
-            #XXX:
-            $cnt++;
-#            last if ( $cnt > 2 );
         }
 
         close FILE;
 
-#        $logger->debug('Sessions data: ', $sessions_data);
-
-        return { session => $sessions_data };
+        return $sessions_data;
     }
 }
 

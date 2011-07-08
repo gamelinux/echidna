@@ -98,7 +98,8 @@ sub dispatcher {
     };
 
     if ( $@ ) {
-        $logger->error('Invalid JSON request' . $request);
+        $logger->error('Invalid JSON request');
+        $logger->debug($request);
         return;
     }
 
