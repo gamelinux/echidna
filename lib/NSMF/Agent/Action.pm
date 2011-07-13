@@ -67,15 +67,19 @@ sub file_watcher {
 
                 $logger->debug("    Checking dir $dir");
 
-                opendir my $dh, $dir or die "Could not open $dir";
-                while ( my $file = readdir($dh)) {
-                    if ( -f "$dir/$file" and $file =~ /$regex/) {
-                        $file_back = $dir . $file;
-                        last;
+                if( opendir my $dh, $dir ) {
+                    while ( my $file = readdir($dh)) {
+                        if ( -f "$dir/$file" and $file =~ /$regex/) {
+                            $file_back = $dir . $file;
+                            last;
+                        }
                     }
+                    closedir($dh);
+                    $kernel->yield($heap->{callback}, $file_back);
                 }
-                closedir $dh;
-                $kernel->yield($heap->{callback}, $file_back);
+                else {
+                    $logger->error("Could not open $dir");
+                }
                 $kernel->delay( watch => $time );
             },
         },

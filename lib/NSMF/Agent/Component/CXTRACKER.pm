@@ -77,11 +77,18 @@ sub _process {
     my ($kernel, $heap, $file) = @_[KERNEL, HEAP, ARG0];
     my $self = shift;
 
-    return unless defined $file and -r -w -f $file;
 
-    my ($sessions, $start_time, $end_time, $process_time, $result);
+    return unless defined $file;
+
+    if ( ! ( -r -w -f $file ) )
+    {
+        $logger->info('Insufficient permissions to operate on file: ' . $file);
+        return;
+    };
 
     $logger->info("Found file: $file");
+
+    my ($sessions, $start_time, $end_time, $process_time, $result);
 
     $start_time   = time();
     $sessions     = _get_sessions($file);
@@ -114,6 +121,7 @@ sub _get_sessions {
     my $sfile = shift;
     my $sessions_data = [];
 
+    $logger->debug('Session file found: ' . $sfile);
     if ( open(FILE, $sfile) ) {
         my $cnt = 0;
         # verify the data in the session files

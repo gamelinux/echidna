@@ -94,28 +94,30 @@ sub insert {
 
     my $sql = '
 INSERT INTO session
- (session_id, timestamp, times_end, times_start, times_duration, node_id, net_version, net_protocol, net_src_ip, net_src_port, net_src_total_packets, net_src_total_bytes, net_src_flags, net_dst_ip, net_dst_port, net_dst_total_packets, net_dst_total_bytes, net_dst_flags, data_filename, data_offset, data_length) VALUES (' .
-        $data->{session}{id} . ',' .
-        $data->{session}{timestam} . ',' .
-        $data->{session}{times}{start} . ',' .
-        $data->{session}{times}{end} . ',' .
-        $data->{session}{times}{duration} . ',' .
-        $data->{node}{id} . ',' .
-        $data->{net}{version} . ',' .
-        $data->{net}{protocol} . ',' .
-        $data->{net}{src}{ip} . ',' .
-        $data->{net}{src}{port} . ',' .
-        $data->{net}{src}{total_packets} . ',' .
-        $data->{net}{src}{total_bytes} . ',' .
-        $data->{net}{src}{flags} . ',' .
-        $data->{net}{dst}{ip} . ',' .
-        $data->{net}{dst}{port} . ',' .
-        $data->{net}{dst}{total_packets} . ',' .
-        $data->{net}{dst}{total_bytes} . ',' .
-        $data->{net}{dst}{flags} . ',"' .
-        $data->{data}{filename} . '",' .
-        $data->{data}{offset} . ',' .
-        $data->{data}{length} . ')';
+ (session_id, timestamp, times_start, times_end, times_duration, node_id, net_version, net_protocol, net_src_ip, net_src_port, net_src_total_packets, net_src_total_bytes, net_src_flags, net_dst_ip, net_dst_port, net_dst_total_packets, net_dst_total_bytes, net_dst_flags, data_filename, data_offset, data_length) VALUES (' .
+        join(",", (
+            $data->{session}{id},
+            '"'.$data->{session}{timestamp}.'"',
+            '"'.$data->{session}{times}{start}.'"',
+            '"'.$data->{session}{times}{end}.'"',
+            $data->{session}{times}{duration},
+            $data->{node}{id},
+            $data->{net}{version},
+            $data->{net}{protocol},
+            '"'.$data->{net}{source}{ip}.'"',
+            $data->{net}{source}{port},
+            $data->{net}{source}{total_packets},
+            $data->{net}{source}{total_bytes},
+            $data->{net}{source}{flags},
+            '"'.$data->{net}{destination}{ip}.'"',
+            $data->{net}{destination}{port},
+            $data->{net}{destination}{total_packets},
+            $data->{net}{destination}{total_bytes},
+            $data->{net}{destination}{flags},
+            '"'.$data->{data}{filename}.'"',
+            $data->{data}{offset},
+            $data->{data}{length}
+        )). ')';
 
     $logger->debug("SQL: $sql");
 

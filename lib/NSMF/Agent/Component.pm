@@ -34,7 +34,7 @@ use Compress::Zlib;
 use Data::Dumper;
 use MIME::Base64;
 use POE;
-use POE::Filter::Stream;
+use POE::Filter::Line;
 use POE::Component::Client::TCP;
 
 #
@@ -112,7 +112,7 @@ sub sync {
         Alias         => 'node',
         RemoteAddress => $host,
         RemotePort    => $port,
-        Filter        => "POE::Filter::Stream",
+        Filter        => "POE::Filter::Line",
         Connected => sub {
             $logger->info("[+] Connected to server ($host:$port) ...");
 

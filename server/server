@@ -60,7 +60,7 @@ new POE::Component::Server::TCP(
         my ($kernel, $heap, $input) = @_[KERNEL, HEAP, ARG0];
         $kernel->yield('dispatcher', $input);
     },
-    ClientFilter => "POE::Filter::Stream",
+    ClientFilter => "POE::Filter::Line",
     ObjectStates => [ $proto => $proto->states ],
 );
 
