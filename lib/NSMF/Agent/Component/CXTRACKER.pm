@@ -94,18 +94,19 @@ sub _process {
     $sessions     = _get_sessions($file);
     $end_time     = time();
     $process_time = $end_time - $start_time;
-
     $logger->debug("File $file processed in $process_time seconds");
-
     $start_time   = $end_time;
-    for my $session ( @{ $sessions } )
-    {
-        $kernel->post('node', 'post', $session);
-    }
-    $end_time     = time();
-    $process_time = $end_time - $start_time;
 
-    $logger->debug("Session record sent in $process_time seconds");
+    if ( @{ $sessions } ) {
+        for my $session ( @{ $sessions } )
+        {
+            $kernel->post('node', 'post', $session);
+        }
+        $end_time     = time();
+        $process_time = $end_time - $start_time;
+
+        $logger->debug("Session record(s) sent in $process_time seconds");
+    }
 
     unlink($file) or $logger->error("Failed to delete: $file");
 }

@@ -88,13 +88,11 @@ sub insert {
 
     # set sane defaults for optional
     $data->{data}{filename} //= '';
-    $data->{data}{offset} //= 0;
-    $data->{data}{length} //= 0;
-    $data->{vendor_meta} //= '';
+    $data->{data}{offset}   //= 0;
+    $data->{data}{length}   //= 0;
+    $data->{vendor_meta}    //= '';
 
-    my $sql = '
-INSERT INTO session
- (session_id, timestamp, times_start, times_end, times_duration, node_id, net_version, net_protocol, net_src_ip, net_src_port, net_src_total_packets, net_src_total_bytes, net_src_flags, net_dst_ip, net_dst_port, net_dst_total_packets, net_dst_total_bytes, net_dst_flags, data_filename, data_offset, data_length) VALUES (' .
+    my $sql = 'INSERT INTO session (session_id, timestamp, times_start, times_end, times_duration, node_id, net_version, net_protocol, net_src_ip, net_src_port, net_src_total_packets, net_src_total_bytes, net_src_flags, net_dst_ip, net_dst_port, net_dst_total_packets, net_dst_total_bytes, net_dst_flags, data_filename, data_offset, data_length) VALUES (' .
         join(",", (
             $data->{session}{id},
             '"'.$data->{session}{timestamp}.'"',
@@ -104,12 +102,12 @@ INSERT INTO session
             $data->{node}{id},
             $data->{net}{version},
             $data->{net}{protocol},
-            '"'.$data->{net}{source}{ip}.'"',
+            'INET_PTON("'.$data->{net}{source}{ip}.'")',
             $data->{net}{source}{port},
             $data->{net}{source}{total_packets},
             $data->{net}{source}{total_bytes},
             $data->{net}{source}{flags},
-            '"'.$data->{net}{destination}{ip}.'"',
+            'INET_PTON("'.$data->{net}{destination}{ip}.'")',
             $data->{net}{destination}{port},
             $data->{net}{destination}{total_packets},
             $data->{net}{destination}{total_bytes},
@@ -170,7 +168,7 @@ CREATE TABLE session (
    timestamp             DATETIME     NOT NULL ,
    times_start           DATETIME     NOT NULL ,
    times_end             DATETIME     NOT NULL ,
-   times_duration        DATETIME     NOT NULL ,
+   times_duration        BIGINT       NOT NULL ,
    node_id               BIGINT       NOT NULL ,
    net_version           INT          NOT NULL ,
    net_protocol          TINYINT      NOT NULL ,
@@ -205,11 +203,6 @@ sub create_functions_session {
 
     $logger->debug('    Creating SESSION functions.');
 
-    # determine version
-    my $version = $self->{__handle}->selectall_arrayref('SHOW VARIABLES WHERE variable_name="version"');
-    $version //= "0.0.0-unknown";
-    my ($ver_major, $ver_minor, $ver_revision) = split(/[\.\-]/, $version);
-
     # create function for translating IPV6 address to numeric
     if ( $self->{__handle}->do('SHOW FUNCTION STATUS WHERE name="INET_PTON"') == 0 ) {
         my $sql = "
@@ -235,11 +228,9 @@ BEGIN
     -- check if we are of the very short form
     IF INSTR(n, '::') = 1 THEN
       SET n := TRIM(LEADING ':' FROM REPLACE(n, '::', ':0000:0000:0000:0000:0000:0000:0000:'));
-    ELSE
-      -- check if we have some compressed zeroes
-      IF s < 7 THEN
+    -- check if we have some compressed zeroes
+    ELSEIF s < 7 THEN
         SET n := REPLACE(n, '::', CONCAT(REPEAT(':0000', 8-s), ':'));
-      END IF;
     END IF;
 
     SET l := LENGTH(n);

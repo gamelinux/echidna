@@ -55,6 +55,7 @@ sub instance {
         $instance = bless({
             __settings => undef,
             __connection => undef,
+            __version => undef,
             __handle => undef,
         }, __PACKAGE__);
     }
@@ -117,6 +118,18 @@ sub create {
     # check the database integrity (build if required)
 
 
+    # determine version
+    my $version = $self->{__handle}->selectall_arrayref('SHOW VARIABLES WHERE variable_name="version"');
+    $version //= "0.0.0-unknown";
+
+    ($self->{__version}{major}, $self->{__version}{minor}, $self->{__version}{revision}) = split(/[\.\-]/, $version);
+}
+
+
+sub server_version_get {
+    my $self = shift;
+
+    return $self->{__version};
 }
 
 #
