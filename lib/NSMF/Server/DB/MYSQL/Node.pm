@@ -80,13 +80,69 @@ sub validate {
 sub insert {
     my ($self, $data) = @_;
 
+    my $sql = 'INSERT INTO node ';
+
+    my @fields = ();
+    my @values = ();
+
+    while ( my ($key, $value) = each(%{ $data }) ) {
+        $value = "'$value'" if ( $value =~ m/[^\d]/ );
+        push(@fields, $key);
+        push(@values, $value);
+    }
+
+    $sql .= '(updated, ' . join(',', @fields) . ') VALUES (NOW(), ' . join(',', @values) . ')';
+
+    $self->{__handle}->do($sql);
 #    $logger->warn('Base insert method needs to be overridden.');
 }
 
 sub search {
     my ($self, $filter) = @_;
 
-    $logger->debug('Looking for an node?');
+    my $sql = 'SELECT * FROM node ' . $self->create_filter($filter);
+
+    my $sth = $self->{__handle}->prepare($sql);
+    $sth->execute();
+
+    my $ret = [];
+
+    my $node_id;
+    my $node_agent_id;
+    my $node_name;
+    my $node_description;
+    my $node_type;
+    my $node_network;
+    my $node_state;
+    my $node_timestamp;
+
+    $sth->bind_columns(
+        \$node_id,
+        \$node_agent_id,
+        \$node_name,
+        \$node_description,
+        \$node_type,
+        \$node_network,
+        \$node_state,
+        \$node_timestamp
+    );
+
+    while (my $row = $sth->fetchrow_hashref) {
+        push(@{ $ret }, {
+            "id" => $node_id,
+            "agent_id" => $node_agent_id,
+            "name" => $node_name,
+            "description" => $node_description,
+            "type" => $node_type,
+            "type" => $node_network,
+            "status" => {
+                "state" => $node_state,
+                "timestamp" => $node_timestamp,
+            }
+        });
+    }
+
+    return $ret;
 }
 
 sub update {
@@ -113,15 +169,34 @@ sub create_tables_node {
 
     my $sql = '
 CREATE TABLE node (
-   id          INT          NOT NULL AUTO_INCREMENT,
-   name        VARCHAR(64)  NOT NULL ,
-   description TEXT         NULL ,
-   type        VARCHAR(64)  NOT NULL ,
-   PRIMARY KEY (id),
-   UNIQUE KEY name_UNIQUE (name)
+    id          BIGINT       NOT NULL AUTO_INCREMENT,
+    agent_id    BIGINT       NOT NULL ,
+    name        VARCHAR(64)  NOT NULL ,
+    description TEXT         NULL ,
+    type        VARCHAR(64)  NOT NULL ,
+    network     VARCHAR(64)  NOT NULL ,
+    state       TINYINT(1)   NOT NULL DEFAULT 0 ,
+    updated     DATETIME     NOT NULL ,
+    PRIMARY KEY (id),
+    UNIQUE KEY name_UNIQUE (name)
 );';
 
     $self->{__handle}->do($sql);
+
+    # DEV DATA ONLY
+    # TODO: REMOVE WHEN AGENT INPUT IMPLEMENTED
+
+    $logger->info('Inserting DEV/DEMO data');
+
+    $self->insert({
+        name     => 'CXTRACKER',
+        type     => 'cxtracker',
+        agent_id => 1,
+        network  => 'dmz'
+    });
+
+    # END DEV DATA
+
 
     return ( $self->version_set('node', NODE_VERSION) );
 }

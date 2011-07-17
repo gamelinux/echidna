@@ -91,7 +91,7 @@ sub insert {
         push(@values, $value);
     }
 
-    $sql .= '(' . join(',', @fields) . ') VALUES (' . join(',', @values) . ')';
+    $sql .= '(updated, ' . join(',', @fields) . ') VALUES (NOW(), ' . join(',', @values) . ')';
 
     $self->{__handle}->do($sql);
 }
@@ -106,9 +106,37 @@ sub search {
 
     my $ret = [];
 
+    my $agent_id;
+    my $agent_name;
+    my $agent_password;
+    my $agent_description;
+    my $agent_ip;
+    my $agent_state;
+    my $agent_timestamp;
+
+    $sth->bind_columns(
+        \$agent_id,
+        \$agent_name,
+        \$agent_password,
+        \$agent_description,
+        \$agent_ip,
+        \$agent_state,
+        \$agent_timestamp
+    );
+
     while (my $row = $sth->fetchrow_hashref) {
-        push(@{ $ret }, $row);
-    };
+        push(@{ $ret }, {
+            "id" => $agent_id,
+            "name" => $agent_name,
+            "password" => $agent_password,
+            "description" => $agent_description,
+            "ip" => $agent_ip,
+            "status" => {
+                "state" => $agent_state,
+                "timestamp" => $agent_timestamp,
+            }
+        });
+    }
 
     return $ret;
 }
@@ -128,13 +156,13 @@ sub create_tables_agent {
 
     my $sql = '
 CREATE TABLE agent (
-    id          INT         NOT NULL AUTO_INCREMENT,
+    id          BIGINT      NOT NULL AUTO_INCREMENT,
     name        VARCHAR(64) NOT NULL ,
     password    VARCHAR(64) NOT NULL ,
     description TEXT        NULL ,
-    ip          VARCHAR(16) NOT NULL ,
-    network     VARCHAR(64) NULL ,
-    active      TINYINT(1)  NOT NULL DEFAULT 0 ,
+    ip          DECIMAL(39) NOT NULL ,
+    state       TINYINT(1)  NOT NULL DEFAULT 0 ,
+    updated     DATETIME    NOT NULL,
     PRIMARY KEY (id)
 );';
 
@@ -143,12 +171,15 @@ CREATE TABLE agent (
     # DEV DATA ONLY
     # TODO: REMOVE WHEN AGENT INPUT IMPLEMENTED
 
-    $logger->info('    Inserting DEV/DEMO data');
+    $logger->info('Inserting DEV/DEMO data');
 
     $self->insert({
         name => 'KERBEROS',
         password => 'fb6ef95e28842ccff7ef9a0c6b3a9f63',
+        ip => 'INET_PTON("127.0.0.1")'
     });
+
+    # END DEV DATA
 
     return ( $self->version_set('agent', AGENT_VERSION) );
 }
