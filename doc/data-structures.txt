@@ -28,12 +28,11 @@ The data types are described below.
 ------------------------------------------------------------------------------
 
 "agent" => {
-  "id" => 527,
+  "id" => 5,
   "name" => "paladin"
   "password" => "hash",
   "description" => "complete network security monitoring.",
   "ip" => "2001:db8:85a3::7334",
-  "network" => "dmz",
   "status" => {
     "state" => 1
     "timestamp" => 1231223123.124233,
@@ -56,9 +55,6 @@ The field descriptions are:
   * ip
     - The IP address of the agent
 
-  * network
-    - A literal name for the network that the agent is monitoring
-
   * status
     - A status object describing the last known status of the agent
       The object contains:
@@ -76,19 +72,24 @@ The field descriptions are:
 ------------------------------------------------------------------------------
 
 "node" => {
-  "id" => 527,
+  "id" => 7,
+  "agent_id" => 5,
   "name" => "paladin"
   "description" => "complete network security monitoring.",
   "type" => "cxtracker",
+  "network" => "dmz",
   "status" => {
-    "active" => 1
+    "state" => 1
     "timestamp" => 1231223123.124233,
   }
 }
 
 The field descriptions are:
   * id
-    - The unique agent ID which represents a system of node(s)
+    - The unique ID of the node
+
+  * agent_id
+    - The unique agent ID which this node is associated with
 
   * name
     - A literal name for the node
@@ -98,6 +99,9 @@ The field descriptions are:
 
   * type
     - The literal type name for the node
+
+  * network
+    - A literal name for the network that the node is monitoring
 
   * status
     - A status object describing the last known status of the node
