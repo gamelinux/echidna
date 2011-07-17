@@ -47,6 +47,10 @@ use NSMF::Common::Util;
 #
 my $logger = NSMF::Common::Logger->new();
 
+sub type {
+    return "CXTRACKER";
+}
+
 sub hello {
     my ($self) = shift;
     $logger->debug('   Hello from CXTRACKER Node!!');
@@ -56,7 +60,7 @@ sub run {
     my ($kernel, $heap) = @_[KERNEL, HEAP];
     my $self = shift;
 
-    $self->register($kernel, $heap);
+#    $self->register($kernel, $heap);
     $logger->debug("Running cxtracker processing..");
 
     $self->hello();
@@ -77,6 +81,13 @@ sub _process {
     my ($kernel, $heap, $file) = @_[KERNEL, HEAP, ARG0];
     my $self = shift;
 
+    my $node_id = $heap->{node_id} // -1;
+
+    if ( $node_id < 0 ) {
+        $heap->{node_id} = $kernel->post('node', 'ident_node_get');
+
+        return;
+    }
 
     return unless defined $file;
 
@@ -91,7 +102,7 @@ sub _process {
     my ($sessions, $start_time, $end_time, $process_time, $result);
 
     $start_time   = time();
-    $sessions     = _get_sessions($file);
+    $sessions     = _get_sessions($file, $heap->{node_id});
     $end_time     = time();
     $process_time = $end_time - $start_time;
     $logger->debug("File $file processed in $process_time seconds");
@@ -119,7 +130,7 @@ sub _process {
 =cut
 
 sub _get_sessions {
-    my $sfile = shift;
+    my ($sfile, $node_id) = @_;
     my $sessions_data = [];
 
     $logger->debug('Session file found: ' . $sfile);
@@ -153,7 +164,7 @@ sub _get_sessions {
                     },
                 },
                 node => {
-                    id => 0,
+                    id => $node_id,
                 },
                 net => {
                     version => 4,

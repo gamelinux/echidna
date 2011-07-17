@@ -93,6 +93,14 @@ use constant {
     code => -20,
     message => 'IDENT unsupported.'
   },
+  JSONRPC_NSMF_IDENT_REGISTERED => {
+    code => -21,
+    message => 'IDENT already registered.'
+  },
+  JSONRPC_NSMF_IDENT_INCONSISTENT => {
+    code => -22,
+    message => 'IDENT details not consistent with registration.'
+  },
 };
 
 #
@@ -116,6 +124,8 @@ our @EXPORT = qw(
     JSONRPC_NSMF_UNAUTHORIZED
     JSONRPC_NSMF_AUTH_UNSUPPORTED
     JSONRPC_NSMF_IDENT_UNSUPPORTED
+    JSONRPC_NSMF_IDENT_REGISTERED
+    JSONRPC_NSMF_IDENT_INCONSISTENT
 );
 
 my $method_map = {};

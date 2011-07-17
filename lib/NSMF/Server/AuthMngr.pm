@@ -43,21 +43,21 @@ use NSMF::Server::Model::Agent;
 #
 my $logger = NSMF::Common::Logger->new();
 
-sub authenticate {
-    my ($self, $agent_name, $key) = @_;
+sub authenticate_agent {
+    my ($self, $name, $key) = @_;
 
     my $database = NSMF::Server->database();
 
     my $agent = $database->search({
         agent => {
-            name => $agent_name,
+            name => $name,
             #version => [gt, 1],
         },
     });
 
     if ( @{ $agent } == 1 ) {
         if ($agent->[0]->{password} eq $key) {
-            return 1;
+            return $agent->[0];
         }
         else {
             croak { status => 'error', message => 'Incorrect Password' };
@@ -65,6 +65,27 @@ sub authenticate {
     }
     else {
         croak {status => 'error', message => 'Agent Not Found'};
+    }
+}
+
+sub authenticate_node {
+    my ($self, $name, $type) = @_;
+
+    my $database = NSMF::Server->database();
+
+    my $node = $database->search({
+        node => {
+            name => $name,
+            type => $type,
+            #version => [gt, 1],
+        },
+    });
+
+    if ( @{ $node } == 1 ) {
+        return $node->[0];
+    }
+    else {
+        croak {status => 'error', message => 'Node Not Found'};
     }
 }
 

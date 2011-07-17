@@ -103,11 +103,13 @@ sub dispatcher {
             given($method) {
                 when(/^authenticate/i) {
                     if ( defined($json->{result}) ) {
+                        # store our unique agent ID
+                        $heap->{agent_id} = $json->{result}{id};
                         $action = 'identify';
-                        $logger->debug('  [response] = OK ACCEPTED');
+                        $logger->debug('Authenticated. Agent ID = ' . $heap->{agent_id});
                     }
                     elsif ( defined($json->{error}) ) {
-                        $logger->debug('  [response] = NOT ACCEPTED');
+                        $logger->debug('Authentication NOT ACCEPTED!');
                         return;
                     }
                     else {
@@ -126,14 +128,15 @@ sub dispatcher {
             given($method) {
                 when(/^identify/i) {
                     if ( defined($json->{result}) ) {
+                        $heap->{node_id} = $json->{result}{id};
                         $heap->{stage} = 'EST';
-                        $logger->debug('  [response] = OK ACCEPTED');
+                        $logger->debug('Synchronised. Node ID = ' . $heap->{node_id});
                         $kernel->yield('run');
                         $kernel->delay('send_ping' => 3);
                         return;
                     }
                     else {
-                        $logger->debug('  [response] = UNSUPPORTED');
+                        $logger->debug('Synchronisation UNSUPPORTED');
                         return;
                     }
                 }
@@ -188,9 +191,11 @@ sub identify {
     my $self = shift;
 
     my $nodename = $heap->{nodename};
+    my $nodetype = $heap->{nodetype};
 
     my $payload = json_method_create("identify", {
         "module" => $nodename,
+        "type" => $nodetype,
         "netgroup" => "test"
     });
 
@@ -198,7 +203,7 @@ sub identify {
 
     $logger->fatal('Nodename, Secret not defined on Identification Stage') if ( ! defined_args($nodename) );
 
-    $heap->{stage} = 'SYN';     
+    $heap->{stage} = 'SYN';
     $heap->{server}->put(json_encode($payload));
 }
 

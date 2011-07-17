@@ -49,7 +49,6 @@ use NSMF::Common::Util;
 #
 # GLOBALS
 #
-our ($poe_kernel, $poe_heap);
 my $logger = NSMF::Common::Logger->new();
 
 # Constructor
@@ -114,14 +113,16 @@ sub sync {
         RemotePort    => $port,
         Filter        => "POE::Filter::Line",
         Connected => sub {
+            my ($kernel, $heap) = @_[KERNEL, HEAP];
             $logger->info("[+] Connected to server ($host:$port) ...");
 
-            $_[HEAP]->{nodename} = $config->name();
-            $_[HEAP]->{netgroup} = $config->netgroup();
-            $_[HEAP]->{secret}   = $config->secret();
-            $_[HEAP]->{agent}    = $config->agent();
+            $heap->{nodename} = $config->name();
+            $heap->{nodetype} = $self->type();
+            $heap->{netgroup} = $config->netgroup();
+            $heap->{secret}   = $config->secret();
+            $heap->{agent}    = $config->agent();
 
-            $_[KERNEL]->yield('authenticate');
+            $kernel->yield('authenticate');
         },
         ConnectError => sub {
             $logger->warn("Could not connect to server ($host:$port) ...");
@@ -139,7 +140,7 @@ sub sync {
         },
         ObjectStates => [
             $proto => $proto->states(),
-            $self => [ 'run' ]
+            $self => [ 'run', 'ident_node_get' ]
         ],
     );
 }
@@ -151,29 +152,16 @@ sub run {
     $logger->fatal('Base run call needs to be overridden.');
 }
 
-sub register {
-    my ($self, $kernel, $heap) = @_;
-    $poe_kernel = $kernel;
-    $poe_heap   = $heap;
+sub ident_node_get {
+    my ($kernel, $heap) = @_[KERNEL, HEAP];
+    my $self = shift;
+
+    return $heap->{node_id} // -1;
 }
 
-# Send Data function
-# Requires $poe_heap to be defined with the POE HEAP
-# Must be used only after run() method has been executed.
-sub put {
-    my ($self, $data) = @_;
-
-    return unless ref $poe_heap;
-
-    $poe_heap->{server}->put($data);
-}
-
-sub ping {
+sub type {
     my ($self) = @_;
-    return unless ref $poe_heap;
-
-    my $payload = 'PING ' .time(). ' NSMF/1.0' ."\r\n";
-    $poe_heap->{server}->put($payload);
+    $logger->fatal("Component type needs to be overridden.");
 }
 
 # Returns the actual session

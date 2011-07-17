@@ -151,8 +151,10 @@ sub authenticate {
     my $agent  = $json->{params}{agent};
     my $secret = $json->{params}{secret};
 
+    my $agent_details = {};
+
     eval {
-        NSMF::Server::AuthMngr->authenticate($agent, $secret);
+        $agent_details = NSMF::Server::AuthMngr->authenticate_agent($agent, $secret);
     };
 
     if ($@) {
@@ -164,7 +166,7 @@ sub authenticate {
     $heap->{agent}    = $agent;
     $logger->debug("    [+] Agent authenticated: $agent"); 
 
-    $heap->{client}->put(json_result_create($json, ''));
+    $heap->{client}->put(json_result_create($json,  $agent_details));
 }
 
 sub identify {
@@ -176,33 +178,45 @@ sub identify {
     };
 
     if ( ref $@ ) {
-      $logger->error('Incomplete JSON ID request. ' . $@->{message});
-      $heap->{client}->put($@->{object});
-      return;
-    }
-
-    my $module = trim(lc($json->{params}{module}));
-    my $netgroup = trim(lc($json->{params}{netgroup}));
-
-    if ($heap->{session_id}) {
-        $logger->warn( "$module is already authenticated");
+        $logger->error('Incomplete JSON ID request. ' . $@->{message});
+        $heap->{client}->put($@->{object});
         return;
     }
 
-    if ($module ~~ @$modules) {
+    # if we have a session ID we are already registered
+    if ($heap->{session_id}) {
+        $heap->{client}->put(json_error_create($json, JSONRPC_NSMF_IDENT_REGISTERED));
+        return;
+    }
 
-        $logger->debug("    ->  " .uc($module). " supported!"); 
+    my $module_name = trim(lc($json->{params}{module}));
+    my $module_type = trim(lc($json->{params}{type}));
+    my $netgroup = trim(lc($json->{params}{netgroup}));
 
-        $heap->{module_name} = $module;
+    my $module_details = {};
+
+    eval {
+        $module_details = NSMF::Server::AuthMngr->authenticate_node($module_name, $module_type);
+        $logger->debug($module_details);
+    };
+
+    if ( $@ ) {
+        $heap->{client}->put(json_error_create($json, JSONRPC_NSMF_IDENT_INCONSISTENT));
+        return;
+    }
+    if ($module_type ~~ @$modules) {
+        $logger->debug("-> " .uc($module_type). " supported!");
+
+        $heap->{module_name} = $module_name;
         $heap->{session_id} = 1;
         $heap->{status}     = 'EST';
 
         eval {
-            $heap->{module} = NSMF::Server::ModMngr->load(uc $module);
+            $heap->{module} = NSMF::Server::ModMngr->load(uc($module_type));
         };
 
         if ($@) {
-            $logger->error("    [FAILED] Could not load module: $module");
+            $logger->error('Could not load module type: ' . $module_type);
             $logger->debug($@);
         }
 
@@ -211,9 +225,11 @@ sub identify {
         if (defined $heap->{module}) {
             # $logger->debug("Session Id: " .$heap->{session_id});
             # $logger->debug("Calilng Hello World Again in the already defined module");
-            $logger->debug("      ----> Module Call <----");
-            $heap->{client}->put(json_result_create($json, 'ID accepted'));
+            $logger->debug("----> Module Call <----");
+            $heap->{client}->put(json_result_create($json, $module_details));
+
             return;
+
             my $child = POE::Wheel::Run->new(
                 Program => sub { $heap->{module}->run  },
                 StdoutFilter => POE::Filter::Reference->new(),
@@ -237,7 +253,7 @@ sub got_pong {
     my ($kernel, $heap, $json) = @_[KERNEL, HEAP, ARG0];
     my $self = shift;
 
-    $logger->debug("  <- Got PONG"); 
+    $logger->debug("  <- Got PONG");
 }
 
 sub got_ping {
