@@ -162,7 +162,7 @@ In PERL format
     "revision" => 8,
     "message" => "DELETED BAD ALERT Unknown Traffic."
     "priority" => 2,
-    "classification" => "bad-unknown",
+    "category" => "bad-unknown",
   },
   "vendor-meta" => {
     "u2_event_id" => 1
@@ -462,7 +462,7 @@ The data types are described below.
   "revision" => 8,
   "message" => "DELETED BAD ALERT Unknown Traffic."
   "priority" => 2,
-  "classification" => "bad-unknown",
+  "category" => "bad-unknown",
   "vendor-meta" => {
     "snort" => {
       "gid" => 3,

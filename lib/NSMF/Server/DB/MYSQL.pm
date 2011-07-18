@@ -154,7 +154,6 @@ sub insert {
         return 0;
     }
 
-    $logger->debug('DATA REF: ' . ref($data));
     $batch = [ $batch ] if ( ref($batch) ne 'ARRAY' );
 
     # start transaction
