@@ -4,8 +4,12 @@
 # Specify the network settings for the server
 #
 network:
-    host: localhost
-    port: 10101
+    sensor:
+        host: localhost
+        port: 10101
+    client:
+        host: localhost
+        port: 10102
 
 #
 # LOG
@@ -55,6 +59,7 @@ database:
 # Available:
 #   - cxtracker
 #   - snort
+#   - barnyard2
 #   - daemonlogger
 #
 modules:

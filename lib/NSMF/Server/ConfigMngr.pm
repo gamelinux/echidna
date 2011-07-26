@@ -76,8 +76,11 @@ sub load {
 
     # configure defaults
     $self->{config}{name}                   //= 'NSMF Server';
-    $self->{config}{network}{host}          //= 'localhost';
-    $self->{config}{network}{port}          //= 10101;
+
+    $self->{config}{network}{sensor}{host}  //= 'localhost';
+    $self->{config}{network}{sensor}{port}  //= 10101;
+    $self->{config}{network}{client}{host}  //= 'localhost';
+    $self->{config}{network}{client}{port}  //= 10201;
 
     $self->{config}{log}{level}             //= 'info';
     $self->{config}{log}{timestamp}         //= 0;
@@ -100,12 +103,20 @@ sub name {
     return $instance->{config}{name} // 'NSMF Server';
 }
 
-sub host {
-    return $instance->{config}{network}{host} // croak '[!] No server defined.';
+sub sensor_host {
+    return $instance->{config}{network}{sensor}{host} // croak '[!] No sensor network host defined.';
 }
 
-sub port {
-    return $instance->{config}{network}{port} // croak '[!] No port defined.';
+sub sensor_port {
+    return $instance->{config}{network}{sensor}{port} // croak '[!] No sensor network port defined.';
+}
+
+sub client_host {
+    return $instance->{config}{network}{client}{host} // croak '[!] No client network host defined.';
+}
+
+sub client_port {
+    return $instance->{config}{network}{client}{port} // croak '[!] No client network port defined.';
 }
 
 sub modules {

@@ -49,11 +49,11 @@ my $config  = $nsmf->config();
 my $proto   = $nsmf->proto();
 my $logger  = NSMF::Common::Logger->new();
 
-# Server
+# service sensor connections
 new POE::Component::Server::TCP(
-    Alias              => $config->name(),
-    Address            => $config->host(),
-    Port               => $config->port(),
+    Alias              => "sensor_listener",
+    Address            => $config->sensor_host(),
+    Port               => $config->sensor_port(),
     ClientConnected    => \&connected,
     ClientDisconnected => \&disconnected,
     ClientInput => sub {
