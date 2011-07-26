@@ -60,22 +60,46 @@ sub run {
     my ($kernel, $heap) = @_[KERNEL, HEAP];
     my $self = shift;
 
-#    $self->register($kernel, $heap);
     $logger->debug("Running barnyard2 processing..");
 
     $self->hello();
 
     my $settings = $self->{__config}->settings();
 
-    #$logger->error('CXTDIR undefined!') unless $settings->{cxtdir};
+    # get barnyard2 listener options with sane defaults
+    my $host = $settings->{barnyard2}{host} // "localhost";
+    my $port = $settings->{barnyard2}{port} // 7060;
+
+    my $listener = new POE::Component::Client::Server->new(
+        Alias         => 'barnyard2',
+        Address       => $host,
+        Port          => $port,
+        ClientConnected => sub {
+          my ($session, $heap) = @_[SESSION, HEAP];
+
+          $logger->debug('Barnyard2 instance connected: ' . $heap->{remote_ip});
+
+          # Initialization
+          $heap->{status}     = 'REQ';
+          $heap->{nodename}   = undef;
+          $heap->{session_id} = undef;
+          $heap->{netgroup}   = undef;
+          $heap->{modules_sessions} = [];
+
+          $kernel->yield('barnyard2_sync');
+        },
+        ClientInput => sub {
+            my ($kernel, $response) = @_[KERNEL, ARG0];
+
+            $kernel->yield(barnyard2_dispatcher => $response);
+        },
+        ClientFilter  => "POE::Filter::Line",
+        ObjectStates => [
+            $proto => $proto->states(),
+            $self => [ 'run', 'ident_node_get', 'barnyard2_dispatcher' ]
+        ],
+    );
 }
-
-=head2 _get_sessions
-
- This sub extracts the session data from a session data file.
- Takes $file as input parameter.
-
-=cut
 
 sub _get_sessions {
     my ($sfile, $node_id) = @_;
@@ -305,99 +329,6 @@ sub parent_stop
 #
 
 #
-#
-sub config_read
-{
-  log_normal("Reading configuration.");
-
-  $APPCONFIG = AppConfig->new({
-    CASE   => 1,
-    GLOBAL => { ARGCOUNT => ARGCOUNT_ONE, EXPAND => EXPAND_ALL }
-  });
-
-  # define command line only parameters with appropriate defaults
-  $APPCONFIG->define("CONFIG_FILE|c|config=s", { DEFAULT => "SnortAgent.conf" });
-  $APPCONFIG->define("VERSION|V|version!", { DEFAULT => "0" });
-  $APPCONFIG->define("HELP|?|help!", { DEFAULT => "0" });
-
-  # define command/configuration file parameters with appropriate defaults
-  $APPCONFIG->define("DAEMON|d|daemon!", { DEFAULT => "0" });
-  $APPCONFIG->define("DEBUG|debug=s@", { DEFAULT => "0" });
-  $APPCONFIG->define("NO_UTC|l|localtime!", { DEFAULT => 0 });
-
-  # define configuration file only (essential)
-  $APPCONFIG->define("HOSTNAME");
-  $APPCONFIG->define("NET_GROUP");
-  $APPCONFIG->define("CTL_HOST");
-  $APPCONFIG->define("CTL_PORT");
-  $APPCONFIG->define("SVR_HOST");
-  $APPCONFIG->define("SVR_PORT");
-  $APPCONFIG->define("BY2_PORT");
-
-
-  # define configuration file only (non-essential)
-  $APPCONFIG->define("PING_DELAY", { DEFAULT => 0 });
-  $APPCONFIG->define("SNORT_STATS_FILE");
-  $APPCONFIG->define("SNORT_STATS_REFRESH", { DEFAULT => 10 });
-  $APPCONFIG->define("SNORT_PORTSCAN_FILE");
-  $APPCONFIG->define("SNORT_PORTSCAN_REFRESH", { DEFAULT => 10 });
-
-  # parse the command line
-  $APPCONFIG->args();
-
-  # parse the configuration file
-  if ( -r $APPCONFIG->get("CONFIG_FILE") )
-  {
-    $APPCONFIG->file($APPCONFIG->get("CONFIG_FILE"));
-  }
-  else
-  {
-    log_error("Unable to open configuration file.");
-
-    usage_display();
-    return;
-  }
-
-  # essential parameters check
-  for my $KEY (qw(SVR_HOST SVR_PORT NET_GROUP HOSTNAME BY2_PORT CTL_HOST CTL_PORT))
-  {
-    if ( !defined($APPCONFIG->get($KEY)) )
-    {
-      log_fatal("$KEY is an essential parameter requiring definition in the configuration file.");
-    }
-  }
-
-  # process the debug options
-  my $debug_list = $APPCONFIG->get("DEBUG");
-  my $debug = 0;
-
-  if ( @$debug_list )
-  {
-    foreach my $d (@$debug_list)
-    {
-      if ( $d =~ /^\d+$/ )
-      {
-        $debug |= $d;
-      }
-      elsif ( $d =~ /^[A-Za-z]+$/ )
-      {
-        $d = uc($d);
-
-        if ( grep { $_ eq $d } qw(COMMON BROWSER AGENT DATABASE IP ENCODE WEBSOCKET ALL) )
-        {
-          $debug |= $DBG{$d}
-        }
-      }
-    }
-
-    log_normal("Debug Level: " . $debug);
-  }
-  $APPVARS{"DEBUG"} = $debug;
-
-  return;
-}
-
-#
 # STATS (SNORT) FUNCTIONS/HANDLERS
 #
 
@@ -500,29 +431,29 @@ sub stats_process
 
 sub stats_send
 {
-  my ($kernel, $heap, $stats) = @_;
+    my ($kernel, $heap, $stats) = @_;
 
-  # check if we have a valid sensor ID for sending
-  if ( $SENSOR_ID == -1 )
-  {
-    # rinit after time delay (30s)
-    $kernel->delay("send_stats", 30);
-    return;
-  }
+    # check if we have a valid sensor ID for sending
+    if ( $SENSOR_ID == -1 )
+    {
+        # rinit after time delay (30s)
+        $kernel->delay("send_stats", 30);
+        return;
+    }
 
-  # check we have valid data for sending
-  if ( length($stats) == 0 )
-  {
-    return;
-  };
+    # check we have valid data for sending
+    if ( length($stats) == 0 )
+    {
+        return;
+    };
 
-  # push the sensor ID to the front of the snort stats list before sending
-  $stats = $SENSOR_ID . "|" . $stats;
+    # push the sensor ID to the front of the snort stats list before sending
+    $stats = $SENSOR_ID . "|" . $stats;
 
-  # send the stats to the server
-  server_send({
-    "snort_stats" => $stats
-  });
+    # send the stats to the server
+    server_send({
+        "snort_stats" => $stats
+    });
 }
 
 #
@@ -559,91 +490,53 @@ sub barnyard2_error
   }
 }
 
-sub barnyard2_init
-{
-  my $heap = $_[HEAP];
-
-  my $BY2_PORT = $APPCONFIG->get("BY2_PORT");
-
-  # start a TCP server to listen for barnyard2 connections
-  $heap->{socket_by2} = POE::Wheel::SocketFactory->new (
-    BindAddress     => "127.0.0.1",
-    BindPort        => $BY2_PORT,
-    SuccessEvent    => "barnyard2_connected",
-    FailureEvent    => "barnyard2_error",
-    SocketProtocol  => "tcp",
-  );
-
-  debug($DBG{"COMMON"}, "Listening for local barnyard2 connections on port $BY2_PORT.");
-}
-
-sub barnyard2_connected
-{
-  my $heap = $_[HEAP];
-  my $barnyard2_socket = $_[ARG0];
-
-  # set flag
-  $BY2_CONNECTED = 1;
-  log_normal("Connected to barnyard2.");
-
-  # create the wheel to watch this socket
-  $heap->{wheel_by2} = POE::Wheel::ReadWrite->new (
-    Handle      => $barnyard2_socket,
-    InputEvent    => "barnyard2_input",
-    ErrorEvent    => "barnyard2_error",
-  );
-}
-
 sub barnyard2_input
 {
-  my $heap = $_[HEAP];
-  my $data = $_[ARG0];
+    my ($kernel, $heap, $data) = @_[KERNEL, HEAP, ARG0];
 
-  # clean up any leading \0 which are artefacts of banyard2's C string \0 terminators
-  if ( ord(substr($data, 0, 1)) == 0 )
-  {
-    $data = substr($data, 1);
-  }
-
-  my @data_tabs = split(/\|/, $data);
-
-  debug($DBG{"COMMON"}, "Received from barnyard2: " . $data . " (" . @data_tabs . ")");
-
-  switch($data_tabs[0])
-  {
-    # agent sensor/event id request
-    case "BY2_SEID_REQ"
+    # clean up any leading \0 which are artefacts of banyard2's C string \0 terminators
+    if ( ord(substr($data, 0, 1)) == 0 )
     {
-      # no need to push to server if we've received a valid max_eid
-      if ( $SENSOR_ID != -1 && $MAX_EID != -1 )
-      {
-        barnyard2_send("BY2_SEID_RSP|$SENSOR_ID|$MAX_EID");
-      }
-      else
-      {
-        server_send({
-          "action" => "agent_seid_get",
-          "parameters" => {
-            "sid" => $SENSOR_ID
-          }
-        });
-      }
+        $data = substr($data, 1);
     }
-    # alert event
-    case "BY2_EVT"
-    {
-      # forward to server
-      my @tmp_data = @data_tabs[1..$#data_tabs];
-      server_send({
-        "action" => "event_alert",
-        "parameters" => \@tmp_data
-      });
+
+    my @data_tabs = split(/\|/, $data);
+
+    $logger->debug("Received from barnyard2: " . $data . " (" . @data_tabs . ")");
+
+    given($data_tabs[0]) {
+        # agent sensor/event id request
+        when("BY2_SEID_REQ") {
+            # no need to push to server if we've received a valid max_eid
+            if ( $SENSOR_ID != -1 && $MAX_EID != -1 )
+            {
+                barnyard2_send("BY2_SEID_RSP|$SENSOR_ID|$MAX_EID");
+            }
+            else
+            {
+                $kernel->call('node', 'put', {
+                    "action" => "agent_seid_get",
+                    "parameters" => {
+                        "sid" => $SENSOR_ID
+                    }
+                });
+            }
+        }
+        # alert event
+        when("BY2_EVT")
+        {
+            # forward to server
+            my @tmp_data = @data_tabs[1..$#data_tabs];
+            server_send({
+              "action" => "event_alert",
+              "parameters" => \@tmp_data
+            });
+        }
+        else
+        {
+            $logger->error("Unknown barnyard2 command: \"" . $data_tabs[0] . "\" (" . length($data_tabs[0]) . ")");
+        }
     }
-    else
-    {
-      log_error("Unknown barnyard2 command: \"" . $data_tabs[0] . "\" (" . length($data_tabs[0]) . ")");
-    }
-  }
 }
 
 sub barnyard2_send
@@ -702,155 +595,6 @@ sub control_error
   {
     debug($DBG{"COMMON"}, "ERROR: $op ($id) generated $errstr ($errno)");
   }
-}
-
-sub control_ping
-{
-  my $kernel = $_[KERNEL];
-  my $heap = $_[HEAP];
-
-  my $PING_DELAY = $APPCONFIG->get("CONTROL_PING_DELAY");
-
-  if ( $CTL_CONNECTED )
-  {
-    control_send({"ping"});
-  }
-
-  $kernel->delay("control_ping", $PING_DELAY);
-
-  return 0;
-}
-
-sub control_init
-{
-  my $heap = $_[HEAP];
-
-  my $CTL_HOST = $APPCONFIG->get("CTL_HOST");
-  my $CTL_PORT = $APPCONFIG->get("CTL_PORT");
-
-  # create a socket and connect to the controller
-  $heap->{socket_ctl} = POE::Wheel::SocketFactory->new (
-    RemoteAddress   => $CTL_HOST,
-    RemotePort    => $CTL_PORT,
-    SuccessEvent  => "control_connected",
-    FailureEvent  => "control_error",
-    SocketProtocol  => "tcp",
-  );
-
-  debug($DBG{"COMMON"}, "Connecting to Agent controller on $CTL_HOST:$CTL_PORT.");
-
-  return 0;
-}
-
-#
-#
-sub control_connected
-{
-  my $heap = $_[HEAP];
-  my $control_socket = $_[ARG0];
-
-  # set flag
-  $CTL_CONNECTED = 1;
-  log_normal("Connected to Agent controller.");
-
-  # create the wheel to watch this socket
-  $heap->{wheel_ctl} = POE::Wheel::ReadWrite->new (
-    Handle      => $control_socket,
-    InputEvent    => "control_input",
-    ErrorEvent    => "control_error",
-  );
-
-  # send a version match check
-  server_send({"action" => "agent_version_get"});
-
-  return 0;
-}
-
-sub control_input
-{
-  my $kernel = $_[KERNEL];
-  my $session = $_[SESSION];
-  my $heap = $_[HEAP];
-  my $data = $_[ARG0];
-
-  debug($DBG{"COMMON"}, "Received from controller: $data");
-
-  my $json = decode_json($data);
-
-  switch ( $json->{"action"} )
-  {
-    case "ping"
-    {
-      # respond with a pong
-      control_send({"action" => "pong"});
-    }
-    case "pong"
-    {
-      # received a pong, no action required
-    }
-    # agent version response
-    case "agent_version_required"
-    {
-      return if ( ! exists($json->{"params"}{"version"}) );
-
-      if ( $json->{"params"}{"version"} eq $VERSION )
-      {
-        my $hostname = $APPCONFIG->get("HOSTNAME");
-        my $net_group = $APPCONFIG->get("NET_GROUP");
-
-        server_send({
-          "action" => "agent_register",
-          "parameters" => {
-            "type" => "snort",
-            "hostname" => $hostname,
-            "net_group" => $net_group
-          }
-        });
-
-        $kernel->yield("server_ping") if ( $APPCONFIG->get("PING_DELAY") != 0 )
-      }
-      else
-      {
-        # version mismatch
-        log_error("Platypus Server requires version " . $json->{"parameters"}{"version"} . " but found " . $VERSION . ".");
-
-        # exit
-        $kernel->call($session, "_stop");
-      }
-    }
-  }
-
-  return 0;
-}
-
-sub control_send
-{
-  my ($r_data) = @_;
-  my $heap = $APPVARS{"HEAP"};
-
-  if ( ref($r_data) ne "HASH" )
-  {
-    debug($DBG{"BROWSER"}, "Ignoring due to not seeing a HASH REF! (" . ref($r_data) . ")");
-    return;
-  }
-
-  # append a timestamp
-  $r_data->{"timestamp"} = timestamp_now_get();
-
-  # JSON enocde our response
-  my $message = encode_json($r_data);
-
-  if ( !$CTL_CONNECTED )
-  {
-    debug($DBG{"COMMON"}, "Not connected to Agent controller. Unable to send: " . $message);
-  }
-  else
-  {
-    debug($DBG{"COMMON"}, "Sending to Agent controller: " . $message);
-    $heap->{wheel_ctl}->put($message);
-  }
-
-  return 0;
 }
 
 #
@@ -1025,36 +769,6 @@ sub server_input
   return 0;
 }
 
-sub server_send
-{
-  my ($r_data) = @_;
-  my $heap = $APPVARS{"HEAP"};
-
-  if ( ref($r_data) ne "HASH" )
-  {
-    debug($DBG{"BROWSER"}, "Ignoring due to not seeing a HASH REF! (" . ref($r_data) . ")");
-    return;
-  }
-
-  # append a timestamp
-  $r_data->{"timestamp"} = timestamp_now_get();
-
-  # JSON enocde our response
-  my $message = encode_json($r_data);
-
-  if ( !$SVR_CONNECTED )
-  {
-    debug($DBG{"COMMON"}, "Not connected to Platypus server. Unable to send: " . $message);
-  }
-  else
-  {
-    debug($DBG{"COMMON"}, "Sending to Platypus server: " . $message);
-    $heap->{wheel_svr}->put($message);
-  }
-
-  return 0;
-}
-
 #
 # UTILITY FUNCTIONS/HANDLERS
 #
@@ -1074,130 +788,6 @@ sub agent_info
   {
     $MAX_EID = $json->{"eid_max"};
   }
-}
-
-#
-#
-sub daemonize
-{
-  my $pid = fork();
-
-  if ( ! defined($pid) )
-  {
-    log_error("Unable to daemonize the server!");
-    return;
-  }
-
-  if ( $pid )
-  {
-    log_normal("Daemonizing ... Setting child " . $pid . " free.");
-    sleep 1;
-    exit;
-  }
-
-  POSIX::setsid;
-
-  my $log_file = "/var/log/platypus-server.log";
-
-  # redirect
-  log_normal("Logging to: " . $log_file);
-
-  open STDIN, "/dev/null";
-  open STDOUT, ">>" . $log_file;
-  open STDERR, ">>" . $log_file;
-}
-
-#
-#
-sub usage_display
-{
-  my $kernel = $APPVARS{"KERNEL"};
-  my $session = $APPVARS{"SESSION"};
-
-  printf "Usage: " . $0 . " [-D] -c <filename>\n";
-  printf "  -c <filename>  PATH to configuration file\n";
-  printf "  -d             Run in Daemon mode\n";
-  printf "  -V             Display version information\n";
-  printf "  -?             Show this help\n";
-  printf "\n";
-  printf "Long Options:\n";
-  printf "  --debug        Enable debugging mode\n";
-  printf "  --version      Same as -V\n";
-  printf "  --help         Same as -?\n";
-
-  # exit
-  $kernel->call($session, "_stop");
-}
-
-sub timestamp_now_get
-{
-  my ($format) = @_;
-
-  # check if localtime is being enforced
-  my $gmt = ( ! ( defined($APPCONFIG) && $APPCONFIG->get("NO_UTC") == 1 ) );
-
-  return timestamp_format(Today_and_Now($gmt), $format);
-}
-
-sub timestamp_format
-{
-  my ($dy, $dm, $dd, $th, $tm, $ts, $format) = @_;
-
-  $format = "%04d-%02d-%02d %02d:%02d:%02d" unless defined($format);
-
-  return sprintf($format, $dy, $dm, $dd, $th, $tm, $ts);
-}
-
-sub exit_clean
-{
-  my $kernel = $APPVARS{"KERNEL"};
-  my $session = $APPVARS{"SESSION"};
-
-  # force call to "_stop" to facilitate a clean exit
-  $kernel->call($session, "_stop");
-}
-
-
-#
-# LOGGING/DEBUGGING FUNCTIONS
-#
-
-sub debug
-{
-  my ($level, $message) = @_;
-
-  # return if debugging is not enabled
-  return if ( ! ($APPVARS{"DEBUG"} & $level) );
-
-  # print message along side the current timestamp
-  print timestamp_now_get() . " DEBUG: (" . $level . ") " . $message . "\n";
-}
-
-sub log_normal
-{
-  my ($message) = @_;
-
-  # print message along side the current timestamp
-  print timestamp_now_get() . " " . $message . "\n";
-}
-
-sub log_error
-{
-  my ($message) = @_;
-
-  # print message along side the current timestamp
-  print timestamp_now_get() . " ERROR: " . $message . "\n";
-}
-
-sub log_fatal
-{
-  my ($message) = @_;
-
-  # print message along side the current timestamp
-  print timestamp_now_get() . " FATAL: " . $message . "\n";
-
-  # prompt exit
-  exit_clean();
 }
 
 1;

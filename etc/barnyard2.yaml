@@ -1,0 +1,27 @@
+# Node Configuration
+node:
+    agent: KERBEROS
+    name: BARNYARD2
+    secret: fb6ef95e28842ccff7ef9a0c6b3a9f63
+    netgroup: LAN
+
+server:
+    host: 127.0.0.1
+    port: 10101
+
+settings:
+    barnyard2:
+      host: localhost
+      port: 7060
+
+#
+# LOG
+#
+# Specify the logging characteristics.
+#
+log:
+    level: debug
+    timestamp: 1
+#    timestamp_format: "HH:MM"
+#    error_is_fatal: 1
+#    warn_is_fatal: 1
