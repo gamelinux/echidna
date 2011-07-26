@@ -153,7 +153,7 @@ sub create_tables_event {
 
     my $sql = '
 CREATE TABLE event (
-   event_id            BIGINT       NOT NULL ,
+   event_id              BIGINT       NOT NULL ,
    timestamp             DATETIME     NOT NULL ,
    classification        SMALLINT     NOT NULL ,
    node_id               BIGINT       NOT NULL ,
