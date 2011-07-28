@@ -48,12 +48,6 @@ use NSMF::Common::Util;
 #
 my $logger = NSMF::Common::Logger->new();
 
-my $VERSION = "PLATYPUS-0.1.0";
-my $SVR_CONNECTED = 0;
-my $PORT_SCAN_FILEWAIT = 0;
-my $BY2_CONNECTED = 0;
-my $MAX_EID = -1;
-
 sub type {
     return "BARNYARD2";
 }
@@ -77,8 +71,8 @@ sub run {
     my $host = $settings->{barnyard2}{host} // "localhost";
     my $port = $settings->{barnyard2}{port} // 7060;
 
-    my $listener = new POE::Component::Server::TCP(
-        Alias         => 'barnyard2',
+    $heap->{listener} = new POE::Component::Server::TCP(
+        Alias         => 'by2',
         Address       => $host,
         Port          => $port,
         ClientConnected => sub {
@@ -351,7 +345,7 @@ sub barnyard2_dispatcher
     given($data_tabs[0]) {
         # agent sensor/event id request
         when("BY2_SEID_REQ") {
-            # no need to push to server if we've received a valid max_eid
+            # no need to push to server if our cache is valid
             if ( $heap->{node_id} != -1 &&
                  $heap->{eid_max} != -1 )
             {
@@ -359,166 +353,54 @@ sub barnyard2_dispatcher
             }
             else
             {
-                if ( $heap->{node_id} < 0 ) {
+                # collect the node id as appropriate
+                if ( $heap->{node_id} == -1 ) {
                   $heap->{node_id} = $kernel->call('node', 'ident_node_get');
                 }
-                else {
+
+                # on-forward the node id if we have it
+                if ( $heap->{node_id} != -1 ) {
                     $kernel->post('node', 'post', {
                         action => 'node_max_eid_get',
                         parameters => {
                             node_id => $heap->{node_id}
                         }
                     }, sub {
-                        my ($self, $kernel, $heap, $json) = @_;
+                        my ($s, $k, $h, $json) = @_;
 
-                        $logger->debug($heap);
-
+                        # set up the cache and push to barnyard2 now
                         if( defined($json->{result}) )
                         {
-                            $logger->debug('Updating.');
                             $heap->{eid_max} = $json->{result} + 0;
+                            $heap->{client}->put("BY2_SEID_RSP|" . $heap->{node_id} . "|" . $heap->{eid_max});
                         }
                     });
                 };
             }
         }
         # alert event
-        when("BY2_EVT") {
+        when(/^BY2_EVT|BY2_EVENT|EVENT/) {
             # forward to server
             my @tmp_data = @data_tabs[1..$#data_tabs];
-            server_send({
-              "action" => "event_alert",
-              "parameters" => \@tmp_data
+            $kernel->post('node', 'post', {
+                "action" => "event_alert",
+                "parameters" => \@tmp_data
+            }, sub {
+                my ($s, $k, $h, $json) = @_;
+
+                $logger->debug("WOOT!");
+
+                if( defined($json->{result}) )
+                {
+                    #$heap->{client}->put('BY2_EVT_CFM|' . $json->{result});
+                    $logger->debug($json->{result});
+                }
             });
         }
         default {
             $logger->error("Unknown barnyard2 command: \"" . $data_tabs[0] . "\" (" . length($data_tabs[0]) . ")");
         }
     }
-}
-
-sub barnyard2_send
-{
-  my ($command, @data) = @_;
-
-  my $message = $command;
-
-  # attach the data as appropriate
-  if (@data)
-  {
-    foreach my $d (@data)
-    {
-      $message .= "|" . $d;
-    }
-  }
-
-  if ( !$BY2_CONNECTED )
-  {
-    $logger->debug("Not connected to barnyard2. Unable to send: " . $message);
-  }
-  else
-  {
-    $logger->debug("Sending to barnyard2: " . $message);
-    #$heap->{wheel_by2}->put($message);
-  }
-}
-
-#
-# SERVER (PLATYPUS) FUNCTIONS/HANDLERS
-#
-
-sub server_error
-{
-  my ($kernel, $heap, $op, $errno, $errstr, $id) = @_[KERNEL, KERNEL, ARG0, ARG1, ARG2, ARG3];
-
-  $logger->debug("ERROR: $op ($id) generated $errstr ($errno)");
-
-  # attempt to recover from connection loss (111, 0)
-  if ($errno == 0 || $errno == 111)
-  {
-    $logger->debug("The server seems to have disappeared.");
-
-    # re-init after time delay (15s)
-    $kernel->delay("server_init", 15);
-    $SVR_CONNECTED = 0;
-  }
-  else
-  {
-    $logger->debug("ERROR: $op ($id) generated $errstr ($errno)");
-  }
-}
-
-sub server_ping
-{
-  my ($kernel, $heap) = @_[KERNEL, HEAP];
-
-  my $PING_DELAY = 5;
-
-  if ( $SVR_CONNECTED )
-  {
-    server_send({"ping"});
-  }
-
-  $kernel->delay("server_ping", $PING_DELAY);
-
-  return 0;
-}
-
-#
-#
-sub server_connected
-{
-  my $heap = $_[HEAP];
-  my $server_socket = $_[ARG0];
-
-  # set flag
-  $SVR_CONNECTED = 1;
-  log_normal("Connected to Platypus server.");
-
-  # create the wheel to watch this socket
-  $heap->{wheel_svr} = POE::Wheel::ReadWrite->new (
-    Handle      => $server_socket,
-    InputEvent    => "server_input",
-    ErrorEvent    => "server_error",
-  );
-
-  # send a version match check
-  server_send({"action" => "agent_version_get"});
-
-  return 0;
-}
-
-sub server_input
-{
-  my ($kernel, $session, $heap, $data) = @_[KERNEL, SESSION, HEAP, ARG0];
-
-  $logger->debug("Received from server: $data");
-
-  my $json = decode_json($data);
-
-  given( $json->{"action"} )
-  {
-    # agent information set
-    when("agent_information_set") {
-      agent_info($json->{"parameters"});
-    }
-    # agent event received confirmation
-    when("agent_event_confirm") {
-      barnyard2_send("BY2_EVT_CFM", $json->{"parameters"});
-
-      # confirmation indicates the event successfully stored
-      $MAX_EID++;
-    }
-    # agent sensor/event id response
-    when("agent_seid_response") {
-      barnyard2_send("BY2_SEID_RSP", $json->{"parameters"});
-    }
-    default {
-      $logger->error("Unknown command received: " . $json->{"action"});
-    }
-  }
-
-  return 0;
 }
 
 1;
