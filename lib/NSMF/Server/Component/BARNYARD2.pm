@@ -51,30 +51,6 @@ sub hello {
     $_->hello for $self->plugins;
 }
 
-sub validate {
-    my ($self, $event) = @_;
-
-    my $db = NSMF::Server->database();
-
-    return 1;
-    # validate session object
-
-    # verify number of elements
-
-    # verify duplicate in db
-    my $dup = $db->search({
-        event => {
-            event_id => $event->{event}{id},
-        }
-    });
-
-    if ( @{ $dup } ) {
-        die { status => 'error', message => 'Duplicated Session' };
-    }
-
-    return 1;
-}
-
 sub node_max_eid_get
 {
     my ($self, $node_id) = @_;
@@ -93,30 +69,89 @@ sub process {
     my ($self, $data) = @_;
 
     if ( ! defined($data->{action}) ) {
-      return undef;
+        return undef;
     }
 
     given($data->{action})
     {
-      when("node_max_eid_get") {
-        my $max_eid = $self->node_max_eid_get($data->{parameters}{node_id});
+        when("node_max_eid_get") {
+            my $max_eid = $self->node_max_eid_get($data->{parameters}{node_id});
 
-        return $max_eid;
-      }
+            return $max_eid;
+        }
+        when("event_alert") {
+            return $self->save($data->{parameters});
+        }
     }
 
     return undef;
 }
 
-sub save {
-    my ($self, $session) = @_;
-
-    # validation
-    $self->validate( $session );
+sub validate {
+    my ($self, $event) = @_;
 
     my $db = NSMF::Server->database();
 
-    return $db->insert( { session => $session } );
+    return 0 if ( @( $event ) != 40 );
+    # validate session object
+
+    # verify number of elements
+
+    # verify duplicate in db
+    my $dup = $db->search({
+        event => {
+            event_id => $event->{event}{id},
+        }
+    });
+
+    return 0 if ( @{ $dup } );
+
+    return 1;
+}
+
+sub save {
+    my ($self, $event) = @_;
+
+
+    # validation
+    $self->validate( $event );
+
+    my $db = NSMF::Server->database();
+
+    return $db->insert({
+        event => {
+            id => $event->[1]+0,
+            timestamp => $event->[3]+0,
+            classification => 0,
+        },
+        node => {
+            id => $event->[0]+0,
+        },
+        net => {
+            version => $event->[10]+0,
+            protocol => $event->[15]+0,
+            source => {
+                ip => $event->[11],
+                port => $event->[12]+0
+            },
+            destination => {
+                ip => $event->[13],
+                port => $event->[14]+0
+            }
+        },
+        signature => {
+            type => 1
+            id => $event->[5]+0,
+            revision => $event->[6]+0,
+            message => $event->[7],
+            priority => $event->[8]+0,
+            category => $event->[9]
+        },
+        vendor_meta => {
+            u2_event_id => $event->[2]+0,
+            u2_filename => ''
+        }
+    });
 }
 
 1;
