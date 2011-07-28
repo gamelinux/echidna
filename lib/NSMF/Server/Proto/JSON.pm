@@ -90,17 +90,31 @@ sub states {
 
 sub dispatcher {
     my ($kernel, $heap, $request) = @_[KERNEL, HEAP, ARG0];
+    my $self = shift;
 
     my $json = {};
+    my $action = undef;
 
     eval {
-        $json = json_decode(trim($request));
+        $json = json_decode($request);
+        $action = json_action_get($json);
     };
 
     if ( $@ ) {
         $logger->error('Invalid JSON request');
         $logger->debug($request);
         return;
+    }
+
+    # check if we should respond first
+    if( defined($action->{callback}) )
+    {
+        # fire the callback providing
+        #   1. ourself
+        #   2. POE kernel
+        #   3. POE connection heap
+        #   4. JSON response
+        return $action->{callback}($self, $kernel, $heap, $json);
     }
 
     if ( exists($json->{method}) )
@@ -195,15 +209,17 @@ sub identify {
 
     my $module_details = {};
 
+    # grab the node/module details
     eval {
         $module_details = NSMF::Server::AuthMngr->authenticate_node($module_name, $module_type);
-        $logger->debug($module_details);
     };
 
     if ( $@ ) {
+        $logger->error('Unknown node name "'. $module_name . '" of type "' . $module_type . '"');
         $heap->{client}->put(json_error_create($json, JSONRPC_NSMF_IDENT_INCONSISTENT));
         return;
     }
+
     if ($module_type ~~ @$modules) {
         $logger->debug("-> " .uc($module_type). " supported!");
 
@@ -223,9 +239,8 @@ sub identify {
         $heap->{session_id} = $_[SESSION]->ID;
 
         if (defined $heap->{module}) {
-            # $logger->debug("Session Id: " .$heap->{session_id});
-            # $logger->debug("Calilng Hello World Again in the already defined module");
             $logger->debug("----> Module Call <----");
+
             $heap->{client}->put(json_result_create($json, $module_details));
 
             return;
@@ -328,7 +343,7 @@ sub got_post {
         my ($ret, $response) = json_validate($json, ['$type', '$jobid', '%data']);
     };
 
-    if ( ref $@ ) {
+    if ( ref($@) ) {
       $logger->error('Incomplete POST request. ' . $@->{message});
       $heap->{client}->put($@->{object});
       return;
@@ -340,8 +355,10 @@ sub got_post {
 
     my $module = $heap->{module};
 
+    my $ret = undef;
+
     eval {
-        $module->save( $json->{params} );
+        $ret = $module->process( $json->{params} );
     };
 
     if ( $@ ) {
@@ -349,9 +366,11 @@ sub got_post {
     }
     else
     {
-        $logger->debug("    Session saved");
+        my $response = json_result_create($json, $ret);
 
-        # need to reply here
+        if ( $response ) {
+            $heap->{client}->put($response);
+        }
     }
 }
 

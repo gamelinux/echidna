@@ -31,12 +31,14 @@ use base qw(Exporter);
 #
 # PERL INCLUDES
 #
+use Carp qw(croak);
 use JSON;
 
 #
 # NSMF INCLUDES
 #
 use NSMF::Common::Util;
+use NSMF::Common::Logger;
 
 #
 # CONSTANTS
@@ -110,11 +112,13 @@ our @EXPORT = qw(
     json_decode
     json_encode
     json_validate
+    json_message_create
+    json_method_create
+    json_notification_create
     json_response_create
     json_result_create
     json_error_create
-    json_method_create
-    json_result_method
+    json_action_get
     JSONRPC_ERR_PARSE
     JSONRPC_ERR_INVALID_REQUEST
     JSONRPC_ERR_METHOD_NOT_FOUND
@@ -128,7 +132,12 @@ our @EXPORT = qw(
     JSONRPC_NSMF_IDENT_INCONSISTENT
 );
 
+my $logger = NSMF::Common::Logger->new();
 my $method_map = {};
+
+#
+# JSON ENCODE/DECODE WRAPPERS
+#
 
 sub json_decode {
     my $ref = shift;
@@ -142,6 +151,10 @@ sub json_encode {
 
     encode_json($ref);
 }
+
+#
+# JSON RPC VALIDATION
+#
 
 # function will modifiy JSON object in place
 # function will raise exception via 'die' perhaps should be 'warn' on invalidation
@@ -276,6 +289,9 @@ sub jsonrpc_validate
     }
 }
 
+#
+# JSON RPC RESPONSE CREATION
+#
 sub json_response_create
 {
   my ($type, $json, $data) = @_;
@@ -308,9 +324,33 @@ sub json_error_create
   return json_response_create("error", $json, $data);
 }
 
+#
+# JSON RPC MESSAGE CREATION
+#
+sub json_message_create
+{
+    my ($method, $params, $callback) = @_;
+
+    my $payload;
+
+    # a valid callback will invoke creation of JSON RPC method
+    if( ref($callback) eq 'CODE' ) {
+        $logger->debug("Creating JSON RPC method.");
+        $payload = json_method_create($method, $params, $callback);
+    }
+    # otherwise it will be a JSON RPC notification
+    else {
+        $logger->debug("Creating JSON RPC notification.");
+        $payload = json_notification_create($method, $params);
+    }
+
+    return $payload;
+}
+
+
 sub json_method_create
 {
-    my ($method, $params) = @_;
+    my ($method, $params, $callback) = @_;
 
     my $id = int(rand(65536));
 
@@ -319,7 +359,10 @@ sub json_method_create
         $id = int(rand(65536));
     }
 
-    $method_map->{$id} = $method;
+    $method_map->{$id} = {
+      method => $method,
+      callback => $callback
+    };
 
     return {
         "jsonrpc" => "2.0",
@@ -329,29 +372,59 @@ sub json_method_create
     };
 }
 
-sub json_result_method
+sub json_notification_create
+{
+    my ($method, $params) = @_;
+
+    return {
+        "jsonrpc" => "2.0",
+        "method" => $method,
+        "params" => $params // '',
+    };
+}
+
+sub json_action_get
 {
     my ($json) = @_;
 
     if ( ! defined_args($json->{id}) &&
          ! defined_args($json->{method}) )
     {
-        return "";
+        croak({
+            status => 'error',
+            message => 'Unable to determine JSON RPC intent.'
+        });
     }
 
-    my $method = "";
+    my $method = undef;
+    my $callback = undef;
 
-    if ( defined($method_map->{$json->{id}}) )
+#    $logger->debug($json);
+
+    if ( defined($json->{id}) &&
+         defined($method_map->{$json->{id}}) )
     {
-        $method = $method_map->{$json->{id}};
+        $method = $method_map->{$json->{id}}{method};
+        $callback = $method_map->{$json->{id}}{callback};
+
         delete($method_map->{$json->{id}});
     }
     elsif ( defined($json->{method}) )
     {
         $method = $json->{method};
     }
+    else
+    {
+        croak({
+            status => 'error',
+            message => 'Unable to determine JSON RPC intent. Possible replay of ID.'
+        });
+    }
 
-    return $method;
+    return {
+        method => $method,
+        callback => $callback
+    };
 }
 
 1;
