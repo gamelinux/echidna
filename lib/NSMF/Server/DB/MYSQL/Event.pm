@@ -129,6 +129,32 @@ sub search {
     return $ret;
 }
 
+sub custom {
+    my ($self, $method, $filter) = @_;
+
+    if( $method eq "event_id_max" ) {
+        return $self->event_id_max($filter);
+    }
+
+    return [];
+}
+
+
+sub event_id_max {
+    my ($self, $filter) = @_;
+
+    my $sql = 'SELECT IFNULL(MAX(event_id), 0) as event_id_max FROM event ' . $self->create_filter($filter);
+
+    my $sth = $self->{__handle}->prepare($sql);
+    $sth->execute();
+
+    my $ret = $sth->fetchall_arrayref();
+
+    # result will be single row, single value (ie. [0][0])
+    return $ret->[0][0];
+}
+
+
 sub update {
     my ($self, $data, $filter) = @_;
 

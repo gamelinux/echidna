@@ -20,7 +20,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #
-package NSMF::Server::Component::CXTRACKER;
+package NSMF::Server::Component::BARNYARD2;
 
 use warnings;
 use strict;
@@ -46,13 +46,13 @@ use NSMF::Common::Logger;
 my $logger = NSMF::Common::Logger->new();
 
 sub hello {
-    $logger->debug("Hello World from CXTRACKER Module!!");
+    $logger->debug("Hello World from BARNYARD2 server component!!");
     my $self = shift;
     $_->hello for $self->plugins;
 }
 
 sub validate {
-    my ($self, $session) = @_;
+    my ($self, $event) = @_;
 
     my $db = NSMF::Server->database();
 
@@ -63,8 +63,8 @@ sub validate {
 
     # verify duplicate in db
     my $dup = $db->search({
-        session => {
-            session_id => $session->{session}{id},
+        event => {
+            event_id => $event->{event}{id},
         }
     });
 
@@ -75,14 +75,44 @@ sub validate {
     return 1;
 }
 
+sub node_max_eid_get
+{
+    my ($self, $node_id) = @_;
+
+    my $db = NSMF::Server->database();
+
+    my $max_eid = $db->custom("event", "event_id_max", {
+        "node_id" => $node_id
+    });
+
+    return $max_eid;
+}
+
+
 sub process {
+    my ($self, $data) = @_;
+
+    if ( ! defined($data->{action}) ) {
+      return undef;
+    }
+
+    given($data->{action})
+    {
+      when("node_max_eid_get") {
+        my $max_eid = $self->node_max_eid_get($data->{parameters}{node_id});
+
+        return $max_eid;
+      }
+    }
+
+    return undef;
+}
+
+sub save {
     my ($self, $session) = @_;
 
     # validation
     $self->validate( $session );
-
-#
-
 
     my $db = NSMF::Server->database();
 

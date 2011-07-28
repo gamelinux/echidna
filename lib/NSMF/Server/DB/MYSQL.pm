@@ -198,6 +198,19 @@ sub search {
     $logger->warn('Ignoring filter due to unsupported type: ' . $type, @supported_types);
 }
 
+sub custom {
+    my ($self, $type, $method, $filter) = @_;
+
+    # search if our type is supported
+    if ( $type ~~ @supported_types )
+    {
+        # remove the type from the filter
+        return $type_map->{$type}->custom($method, $filter);
+    }
+
+    $logger->warn('Ignoring filter due to unsupported type: ' . $type, @supported_types);
+}
+
 sub update {
     my ($self, $data, $filter) = @_;
 

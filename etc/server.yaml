@@ -64,5 +64,4 @@ database:
 #
 modules:
     - cxtracker
-    - snort
-    - daemonlogger
+    - barnyard2

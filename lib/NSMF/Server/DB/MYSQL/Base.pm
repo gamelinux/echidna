@@ -144,6 +144,10 @@ sub delete {
     $logger->warn('    Base delete method needs to be overridden.');
 }
 
+sub custom {
+    $logger->warn('    Base custom method needs to be overridden.');
+};
+
 #
 # FILTER CREATION
 #
@@ -169,9 +173,10 @@ sub create_filter
 
 
         }
+        # 
         elsif ( $filter->{$field} =~ m/[^\d]/ )
         {
-            $criteria = $field . "='" . $filter->{$field} . "'";
+            $criteria = $field . "=" . $self->{__handle}->quote($filter->{$field});
         }
         else
         {

@@ -33,6 +33,7 @@ use base qw(NSMF::Agent::Component);
 #
 use Data::Dumper;
 use POE;
+use POE::Component::Server::TCP;
 
 #
 # NSMF INCLUDES
@@ -46,6 +47,12 @@ use NSMF::Common::Util;
 # GLOBALS
 #
 my $logger = NSMF::Common::Logger->new();
+
+my $VERSION = "PLATYPUS-0.1.0";
+my $SVR_CONNECTED = 0;
+my $PORT_SCAN_FILEWAIT = 0;
+my $BY2_CONNECTED = 0;
+my $MAX_EID = -1;
 
 sub type {
     return "BARNYARD2";
@@ -70,7 +77,7 @@ sub run {
     my $host = $settings->{barnyard2}{host} // "localhost";
     my $port = $settings->{barnyard2}{port} // 7060;
 
-    my $listener = new POE::Component::Client::Server->new(
+    my $listener = new POE::Component::Server::TCP(
         Alias         => 'barnyard2',
         Address       => $host,
         Port          => $port,
@@ -79,23 +86,20 @@ sub run {
 
           $logger->debug('Barnyard2 instance connected: ' . $heap->{remote_ip});
 
-          # Initialization
-          $heap->{status}     = 'REQ';
-          $heap->{nodename}   = undef;
-          $heap->{session_id} = undef;
-          $heap->{netgroup}   = undef;
-          $heap->{modules_sessions} = [];
+          $heap->{node_id} = -1;
+          $heap->{eid_max} = -1;
 
           $kernel->yield('barnyard2_sync');
+        },
+        ClientDisconnected => sub {
         },
         ClientInput => sub {
             my ($kernel, $response) = @_[KERNEL, ARG0];
 
-            $kernel->yield(barnyard2_dispatcher => $response);
+            $kernel->yield('barnyard2_dispatcher', $response);
         },
         ClientFilter  => "POE::Filter::Line",
         ObjectStates => [
-            $proto => $proto->states(),
             $self => [ 'run', 'ident_node_get', 'barnyard2_dispatcher' ]
         ],
     );
@@ -174,171 +178,14 @@ sub _get_sessions {
 }
 
 #
-# GLOBAL VARIABLES
-#
-my $APPCONFIG;
-my %APPVARS;
-
-our %DBG;
-$DBG{"COMMON"}    = 0x00000001;
-$DBG{"BROWSER"}   = 0x00000002;
-$DBG{"AGENT"}     = 0x00000004;
-$DBG{"DATABASE"}  = 0x00000008;
-$DBG{"WEBSOCKET"} = 0x00000010;
-$DBG{"UTILITIES"} = 0x00000020;
-  $DBG{"IP"}      = 0x00000040;
-  $DBG{"ENCODE"}  = 0x00000080;
-
-$DBG{"ALL"}       = 0xffffffff;
-
-
-
-#
-# LOCAL VARIABLES
-#
-my $VERSION = "PLATYPUS-0.1.0";
-my $SVR_CONNECTED = 0;
-my $PORT_SCAN_FILEWAIT = 0;
-my $BY2_CONNECTED = 0;
-my $SENSOR_ID = -1;
-my $MAX_EID = -1;
-
-# read the configuration before we start the kernel
-config_read();
-
-# daemonize as appropriate
-if ( $APPCONFIG->get("DAEMON") == 1 )
-{
-  daemonize();
-}
-
-# setup the session
-POE::Session->create(
-  inline_states => {
-    _start                  => \&parent_start,
-    _stop                   => \&parent_stop,
-
-    barnyard2_error         => \&barnyard2_error,
-    barnyard2_init          => \&barnyard2_init,
-    barnyard2_connected     => \&barnyard2_connected,
-    barnyard2_input         => \&barnyard2_input,
-
-    control_error           => \&control_error,
-    control_init            => \&control_init,
-    control_connected       => \&control_connected,
-    control_input           => \&control_input,
-
-    server_error            => \&server_error,
-    server_init             => \&server_init,
-    server_connected        => \&server_connected,
-    server_input            => \&server_input,
-    server_ping             => \&server_ping,
-
-    stats_error             => \&stats_error,
-    stats_init              => \&stats_init,
-    stats_input             => \&stats_input,
-  }
-);
-
-# catch interrupts
-$SIG{'INT'} = sub {
-  print "\n";
-  parent_stop();
-};
-
-# run the main loop
-$poe_kernel->run();
-
-log_normal("Collection agent (snort) closed.");
-
-exit;
-
-#
-# PARENT FUNCTIONS/HANDLERS
-#
-
-#
-# parent_start
-#
-# Description:
-#   Set up the sockets for barnyard2 and the platypus server. Open the snort
-# stats file for reading.
-#
-sub parent_start
-{
-  my $kernel = $_[KERNEL];
-  my $session = $_[SESSION];
-  my $heap = $_[HEAP];
-
-  # save kernel and session for a clean exit
-  $APPVARS{"KERNEL"} = $kernel;
-  $APPVARS{"SESSION"} = $session;
-  $APPVARS{"HEAP"} = $heap;
-
-  # open port for listening to barnard2
-  $kernel->yield("barnyard2_init");
-
-  # open connection to control agent
-  $kernel->yield("control_init");
-
-  # open connection to Platypus server
-  $kernel->yield("server_init");
-
-  # check if we are performing stats file checking
-  if ( defined($APPCONFIG->get("SNORT_STATS_FILE")) )
-  {
-    # delay stats watching until the connections have settled (5s)
-    $kernel->delay("stats_init", 5);
-  }
-}
-
-#
-#
-sub parent_stop
-{
-  my $kernel = $APPVARS{"KERNEL"};
-  my $heap = $APPVARS{"HEAP"};
-
-  log_normal("Shutting down...");
-
-  # clear global references and application variables
-  %APPVARS = ();
-  undef %APPVARS;
-
-  # clear our alias
-  $kernel->alias_remove($heap->{alias});
-
-  # clear all alarms that may be set
-  $kernel->alarm_remove_all();
-
-  # delete all wheels and sockets
-  delete $heap->{wheel_stats};
-  delete $heap->{socket_svr};
-  delete $heap->{wheel_svr};
-  delete $heap->{socket_by2};
-  delete $heap->{wheel_by2};
-
-  # clear all events, sessions and any remaining events
-  $kernel->stop();
-}
-
-
-
-#
-# CONFIG FUNCTIONS/HANDLERS
-#
-
-#
 # STATS (SNORT) FUNCTIONS/HANDLERS
 #
 
 sub stats_error
 {
-  my $kernel = $_[KERNEL];
-  my $heap = $_[HEAP];
-  my ($op, $errno, $errstr, $id) = ($_[ARG0], $_[ARG1], $_[ARG2], $_[ARG3]);
+  my ($kernel, $heap, $op, $errno, $errstr, $id) = @_[KERNEL, HEAP, ARG0, ARG1, ARG2, ARG3];
 
-  debug($DBG{"COMMON"}, "ERROR: $op ($id) generated $errstr ($errno)");
+  $logger->debug("ERROR: $op ($id) generated $errstr ($errno)");
 
   server_send({
     "message" => {
@@ -353,10 +200,9 @@ sub stats_error
 
 sub stats_init
 {
-  my $kernel = $_[KERNEL];
-  my $heap = $_[HEAP];
+  my ($kernel, $heap) = @_[KERNEL, HEAP];
 
-  my $stats_file = $APPCONFIG->get("SNORT_STATS_FILE");
+  my $stats_file = "";
 
   if ( ! -e $stats_file )
   {
@@ -385,7 +231,6 @@ sub stats_init
     return;
   }
 
-  # open the stats file (tailing the last line)
   $heap->{wheel_stats} = POE::Wheel::FollowTail->new(
     Filename        => $stats_file,
     InputEvent      => "stats_input",
@@ -411,13 +256,13 @@ sub stats_process
 
   if ( $data_tabs[0] =~ /\D/ )
   {
-    server_send({
-      "message" => {
-        "type" => "system",
-        "data" => "ERROR: Invalid snort stats line (" . $data. ")."
-      }
-    });
-    return;
+      server_send({
+          "message" => {
+              "type" => "system",
+              "data" => "ERROR: Invalid snort stats line (" . $data. ")."
+        }
+      });
+      return;
   }
 
   my $stats = join("|", @data_tabs[1..6, 9..11]);
@@ -434,7 +279,7 @@ sub stats_send
     my ($kernel, $heap, $stats) = @_;
 
     # check if we have a valid sensor ID for sending
-    if ( $SENSOR_ID == -1 )
+    if ( $heap->{node_id} < 0 )
     {
         # rinit after time delay (30s)
         $kernel->delay("send_stats", 30);
@@ -448,7 +293,7 @@ sub stats_send
     };
 
     # push the sensor ID to the front of the snort stats list before sending
-    $stats = $SENSOR_ID . "|" . $stats;
+    $stats = $heap->{node_id} . "|" . $stats;
 
     # send the stats to the server
     server_send({
@@ -473,14 +318,14 @@ sub barnyard2_error
   # attempt to recover from connection loss (0, 111)
   if ($errno == 0 || $errno == 111)
   {
-    debug($DBG{"COMMON"}, "barnyard2 seems to have disappeared.");
+    $logger->debug("barnyard2 seems to have disappeared.");
 
     # re-init after time delay (30s)
     $kernel->delay("barnyard2_init", 30);
   }
   else
   {
-    debug($DBG{"COMMON"}, "ERROR: $op ($id) generated $errstr ($errno)");
+    $logger->debug("ERROR: $op ($id) generated $errstr ($errno)");
     server_send({
       "message" => {
         "type" => "system",
@@ -490,13 +335,12 @@ sub barnyard2_error
   }
 }
 
-sub barnyard2_input
+sub barnyard2_dispatcher
 {
     my ($kernel, $heap, $data) = @_[KERNEL, HEAP, ARG0];
 
     # clean up any leading \0 which are artefacts of banyard2's C string \0 terminators
-    if ( ord(substr($data, 0, 1)) == 0 )
-    {
+    if ( ord(substr($data, 0, 1)) == 0 ) {
         $data = substr($data, 1);
     }
 
@@ -508,23 +352,38 @@ sub barnyard2_input
         # agent sensor/event id request
         when("BY2_SEID_REQ") {
             # no need to push to server if we've received a valid max_eid
-            if ( $SENSOR_ID != -1 && $MAX_EID != -1 )
+            if ( $heap->{node_id} != -1 &&
+                 $heap->{eid_max} != -1 )
             {
-                barnyard2_send("BY2_SEID_RSP|$SENSOR_ID|$MAX_EID");
+                $heap->{client}->put("BY2_SEID_RSP|" . $heap->{node_id} . "|" . $heap->{eid_max});
             }
             else
             {
-                $kernel->call('node', 'put', {
-                    "action" => "agent_seid_get",
-                    "parameters" => {
-                        "sid" => $SENSOR_ID
-                    }
-                });
+                if ( $heap->{node_id} < 0 ) {
+                  $heap->{node_id} = $kernel->call('node', 'ident_node_get');
+                }
+                else {
+                    $kernel->post('node', 'post', {
+                        action => 'node_max_eid_get',
+                        parameters => {
+                            node_id => $heap->{node_id}
+                        }
+                    }, sub {
+                        my ($self, $kernel, $heap, $json) = @_;
+
+                        $logger->debug($heap);
+
+                        if( defined($json->{result}) )
+                        {
+                            $logger->debug('Updating.');
+                            $heap->{eid_max} = $json->{result} + 0;
+                        }
+                    });
+                };
             }
         }
         # alert event
-        when("BY2_EVT")
-        {
+        when("BY2_EVT") {
             # forward to server
             my @tmp_data = @data_tabs[1..$#data_tabs];
             server_send({
@@ -532,8 +391,7 @@ sub barnyard2_input
               "parameters" => \@tmp_data
             });
         }
-        else
-        {
+        default {
             $logger->error("Unknown barnyard2 command: \"" . $data_tabs[0] . "\" (" . length($data_tabs[0]) . ")");
         }
     }
@@ -542,7 +400,6 @@ sub barnyard2_input
 sub barnyard2_send
 {
   my ($command, @data) = @_;
-  my $heap = $APPVARS{"HEAP"};
 
   my $message = $command;
 
@@ -557,43 +414,12 @@ sub barnyard2_send
 
   if ( !$BY2_CONNECTED )
   {
-    debug($DBG{"COMMON"}, "Not connected to barnyard2. Unable to send: " . $message);
+    $logger->debug("Not connected to barnyard2. Unable to send: " . $message);
   }
   else
   {
-    debug($DBG{"COMMON"}, "Sending to barnyard2: " . $message);
-    $heap->{wheel_by2}->put($message);
-  }
-}
-
-#
-# CONTROL (PLATYPUS) FUNCTIONS/HANDLERS
-#
-
-sub control_error
-{
-  my $kernel = $_[KERNEL];
-  my $heap = $_[HEAP];
-  my ($op, $errno, $errstr, $id) = ($_[ARG0], $_[ARG1], $_[ARG2], $_[ARG3]);
-
-  debug($DBG{"COMMON"}, "ERROR: $op ($id) generated $errstr ($errno)");
-
-  # attempt to recover from connection loss (111, 0)
-  if ($errno == 0 || $errno == 111)
-  {
-    debug($DBG{"COMMON"}, "The control seems to have disappeared.");
-
-    # delete our wheel for socket
-    delete $heap->{socket_ctl};
-    delete $heap->{wheel_ctl};
-
-    # re-init after time delay (15s)
-    $kernel->delay("control_init", 15);
-    $CTL_CONNECTED = 0;
-  }
-  else
-  {
-    debug($DBG{"COMMON"}, "ERROR: $op ($id) generated $errstr ($errno)");
+    $logger->debug("Sending to barnyard2: " . $message);
+    #$heap->{wheel_by2}->put($message);
   }
 }
 
@@ -603,20 +429,14 @@ sub control_error
 
 sub server_error
 {
-  my $kernel = $_[KERNEL];
-  my $heap = $_[HEAP];
-  my ($op, $errno, $errstr, $id) = ($_[ARG0], $_[ARG1], $_[ARG2], $_[ARG3]);
+  my ($kernel, $heap, $op, $errno, $errstr, $id) = @_[KERNEL, KERNEL, ARG0, ARG1, ARG2, ARG3];
 
-  debug($DBG{"COMMON"}, "ERROR: $op ($id) generated $errstr ($errno)");
+  $logger->debug("ERROR: $op ($id) generated $errstr ($errno)");
 
   # attempt to recover from connection loss (111, 0)
   if ($errno == 0 || $errno == 111)
   {
-    debug($DBG{"COMMON"}, "The server seems to have disappeared.");
-
-    # delete our wheel for socket
-    delete $heap->{socket_svr};
-    delete $heap->{wheel_svr};
+    $logger->debug("The server seems to have disappeared.");
 
     # re-init after time delay (15s)
     $kernel->delay("server_init", 15);
@@ -624,16 +444,15 @@ sub server_error
   }
   else
   {
-    debug($DBG{"COMMON"}, "ERROR: $op ($id) generated $errstr ($errno)");
+    $logger->debug("ERROR: $op ($id) generated $errstr ($errno)");
   }
 }
 
 sub server_ping
 {
-  my $kernel = $_[KERNEL];
-  my $heap = $_[HEAP];
+  my ($kernel, $heap) = @_[KERNEL, HEAP];
 
-  my $PING_DELAY = $APPCONFIG->get("PING_DELAY");
+  my $PING_DELAY = 5;
 
   if ( $SVR_CONNECTED )
   {
@@ -641,27 +460,6 @@ sub server_ping
   }
 
   $kernel->delay("server_ping", $PING_DELAY);
-
-  return 0;
-}
-
-sub server_init
-{
-  my $heap = $_[HEAP];
-
-  my $SVR_HOST = $APPCONFIG->get("SVR_HOST");
-  my $SVR_PORT = $APPCONFIG->get("SVR_PORT");
-
-  # start a TCP server to listen for barnyard2 connections
-  $heap->{socket_svr} = POE::Wheel::SocketFactory->new (
-    RemoteAddress   => $SVR_HOST,
-    RemotePort    => $SVR_PORT,
-    SuccessEvent  => "server_connected",
-    FailureEvent  => "server_error",
-    SocketProtocol  => "tcp",
-  );
-
-  debug($DBG{"COMMON"}, "Connecting to Platypus server on $SVR_HOST:$SVR_PORT.");
 
   return 0;
 }
@@ -692,102 +490,35 @@ sub server_connected
 
 sub server_input
 {
-  my $kernel = $_[KERNEL];
-  my $session = $_[SESSION];
-  my $heap = $_[HEAP];
-  my $data = $_[ARG0];
+  my ($kernel, $session, $heap, $data) = @_[KERNEL, SESSION, HEAP, ARG0];
 
-  debug($DBG{"COMMON"}, "Received from server: $data");
+  $logger->debug("Received from server: $data");
 
   my $json = decode_json($data);
 
-  switch ( $json->{"action"} )
+  given( $json->{"action"} )
   {
-    case "ping"
-    {
-      # respond with a pong
-      server_send({"action" => "pong"});
-    }
-    case "pong"
-    {
-      # received a pong, no action required
-    }
-    # agent version response
-    case "agent_version_required"
-    {
-      return if ( ! exists($json->{"parameters"}{"version"}) );
-
-      if ( $json->{"parameters"}{"version"} eq $VERSION )
-      {
-        my $hostname = $APPCONFIG->get("HOSTNAME");
-        my $net_group = $APPCONFIG->get("NET_GROUP");
-
-        server_send({
-          "action" => "agent_register",
-          "parameters" => {
-            "type" => "snort",
-            "hostname" => $hostname,
-            "net_group" => $net_group
-          }
-        });
-
-        $kernel->yield("server_ping") if ( $APPCONFIG->get("PING_DELAY") != 0 )
-      }
-      else
-      {
-        # version mismatch
-        log_error("Platypus Server requires version " . $json->{"parameters"}{"version"} . " but found " . $VERSION . ".");
-
-        # exit
-        $kernel->call($session, "_stop");
-      }
-    }
     # agent information set
-    case "agent_information_set"
-    {
+    when("agent_information_set") {
       agent_info($json->{"parameters"});
     }
     # agent event received confirmation
-    case "agent_event_confirm"
-    {
+    when("agent_event_confirm") {
       barnyard2_send("BY2_EVT_CFM", $json->{"parameters"});
 
       # confirmation indicates the event successfully stored
       $MAX_EID++;
     }
     # agent sensor/event id response
-    case "agent_seid_response"
-    {
+    when("agent_seid_response") {
       barnyard2_send("BY2_SEID_RSP", $json->{"parameters"});
     }
-    else
-    {
-      log_error("Unknown command received: " . $json->{"action"});
+    default {
+      $logger->error("Unknown command received: " . $json->{"action"});
     }
   }
 
   return 0;
-}
-
-#
-# UTILITY FUNCTIONS/HANDLERS
-#
-
-#
-#
-sub agent_info
-{
-  my ($json) = @_;
-
-  if ( exists($json->{"id"}) )
-  {
-    $SENSOR_ID = $json->{"id"};
-  }
-
-  if ( exists($json->{"eid_max"}) )
-  {
-    $MAX_EID = $json->{"eid_max"};
-  }
 }
 
 1;
