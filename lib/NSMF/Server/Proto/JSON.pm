@@ -361,17 +361,18 @@ sub got_post {
         $ret = $module->process( $json->{params} );
     };
 
+    my $response = '';
+
     if ( $@ ) {
         $logger->error($@);
+        $response = json_error_create($json, $ret);
     }
     else
     {
-        my $response = json_result_create($json, $ret);
-
-        if ( $response ) {
-            $heap->{client}->put($response);
-        }
+        $response = json_result_create($json, $ret);
     }
+
+    $heap->{client}->put($response);
 }
 
 sub send_ping {
