@@ -158,6 +158,8 @@ sub insert {
 
     # start transaction
 
+    my $ret = 0;
+
     for my $entry ( @{ $batch } )
     {
         $logger->debug($entry);
@@ -169,10 +171,12 @@ sub insert {
 
         $logger->debug('Adding entry');
 
-        $type_map->{$type}->insert($entry);
+        $ret |= $type_map->{$type}->insert($entry);
     }
 
     # end transaction
+
+    return $ret;
 }
 
 sub search {
