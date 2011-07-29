@@ -2,21 +2,24 @@ The following TODO should be read in conjunction with the README. The items
 noted below are those required before the end of the stage can be considered
 complete.
 
+
 STAGE 1
 
+
 DB API
-  1. Add MYSQL storage for alert/event data.
-  2. Add MYSQL storage for full-content/pcap meta-data
-  3. Refactor MYSQL insert function
+  1. Add MYSQL storage for full-content/pcap meta-data
 
 NODE COMPONENTS
-  1. Implement barnyard2 component
-  2. Implement PCAP component
+  1. Implement PCAP component
 
 SERVER (GENERAL)
   1. Add (web)socket to server for client connections
 
 CODE (GENERAL)
   1. Remove all commented out code (if it needs to hang around comment why)
+
+
+
+STAGE 2
 
 
