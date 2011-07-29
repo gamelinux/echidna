@@ -92,19 +92,26 @@ sub validate {
 
     my $db = NSMF::Server->database();
 
-    return 0 if ( @( $event ) != 40 );
-    # validate session object
-
     # verify number of elements
+    if ( @{ $event } < 39 )
+    {
+        $logger->debug('Insufficient fields in EVENT line.');
+        return 0;
+    }
 
     # verify duplicate in db
     my $dup = $db->search({
         event => {
-            event_id => $event->{event}{id},
+            event_id => $event->[1]+0,
         }
     });
 
-    return 0 if ( @{ $dup } );
+    # already exists confirm it's there already
+    if ( @{ $dup } )
+    {
+        $logger->debug('Event already stored.');
+        return 2;
+    }
 
     return 1;
 }
@@ -112,46 +119,59 @@ sub validate {
 sub save {
     my ($self, $event) = @_;
 
+    # validation the event data received
+    my $validation = $self->validate( $event );
 
-    # validation
-    $self->validate( $event );
+    my $event_id = $event->[1]+0;
+
+    return 0 if ($validation == 0);
+    return $event_id if ($validation == 2);
 
     my $db = NSMF::Server->database();
 
-    return $db->insert({
+    my $ret = $db->insert({
         event => {
-            id => $event->[1]+0,
-            timestamp => $event->[3]+0,
-            classification => 0,
-        },
-        node => {
-            id => $event->[0]+0,
-        },
-        net => {
-            version => $event->[10]+0,
-            protocol => $event->[15]+0,
-            source => {
-                ip => $event->[11],
-                port => $event->[12]+0
+            event => {
+                id => $event_id,
+                timestamp => $event->[3],
+                classification => 0,
             },
-            destination => {
-                ip => $event->[13],
-                port => $event->[14]+0
+            node => {
+                id => $event->[0]+0,
+            },
+            net => {
+                version => $event->[10]+0,
+                protocol => $event->[15]+0,
+                source => {
+                    ip => $event->[11],
+                    port => $event->[12]+0
+                },
+                destination => {
+                    ip => $event->[13],
+                    port => $event->[14]+0
+                }
+            },
+            signature => {
+                type => 1,
+                id => $event->[5]+0,
+                revision => $event->[6]+0,
+                message => $event->[7],
+                priority => $event->[8]+0,
+                category => $event->[9]
+            },
+            vendor_meta => {
+                u2_event_id => $event->[2]+0,
+                u2_filename => ''
             }
-        },
-        signature => {
-            type => 1
-            id => $event->[5]+0,
-            revision => $event->[6]+0,
-            message => $event->[7],
-            priority => $event->[8]+0,
-            category => $event->[9]
-        },
-        vendor_meta => {
-            u2_event_id => $event->[2]+0,
-            u2_filename => ''
         }
     });
+
+    if( $ret )
+    {
+        return $event_id;
+    }
+
+    return -1;
 }
 
 1;

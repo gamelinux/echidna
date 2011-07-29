@@ -32,6 +32,7 @@ use base qw(NSMF::Server::DB::MYSQL::Base);
 # PERL CONSTANTS
 #
 use Data::Dumper;
+use JSON;
 
 #
 # CONSTANTS
@@ -81,7 +82,12 @@ sub validate {
 sub insert {
     my ($self, $data) = @_;
 
-    return 0 if ( ref($data) ne 'HASH' );
+    if ( ref($data) ne 'HASH' )
+    {
+        $logger->debug('Expected a HASH reference describing and event. Got: ' . ref($data));
+        return 0;
+    }
+
 
     # validate input
 
@@ -90,12 +96,12 @@ sub insert {
     $data->{data}{filename} //= '';
     $data->{data}{offset}   //= 0;
     $data->{data}{length}   //= 0;
-    $data->{vendor_meta}    //= '';
+    $data->{vendor_meta}    //= {};
 
-    my $sql = 'INSERT INTO event (event_id, timestamp, classification, node_id, net_version, net_protocol, net_src_ip, net_src_port, net_dst_ip, net_dst_port, ) VALUES (' .
+    my $sql = 'INSERT INTO event (event_id, timestamp, classification, node_id, net_version, net_protocol, net_src_ip, net_src_port, net_dst_ip, net_dst_port, vendor_meta) VALUES (' .
         join(",", (
             $data->{event}{id},
-            '"'.$data->{event}{timestamp}.'"',
+            $self->{__handle}->quote($data->{event}{timestamp}),
             $data->{event}{classification},
             $data->{node}{id},
             $data->{net}{version},
@@ -104,12 +110,15 @@ sub insert {
             $data->{net}{source}{port},
             'INET_PTON("'.$data->{net}{destination}{ip}.'")',
             $data->{net}{destination}{port},
+            $self->{__handle}->quote(encode_json($data->{vendor_meta})),
         )). ')';
 
     $logger->debug("SQL: $sql");
 
     # expect a single row to be inserted
-    return ( $self->{__handle}->do($sql) == 1 );
+    my $rows = $self->{__handle}->do($sql);
+
+    return ($rows == 1);
 }
 
 sub search {
@@ -139,6 +148,14 @@ sub custom {
     return [];
 }
 
+#
+# VENDOR DATA
+#
+
+
+#
+# CUSTOM METHODS
+#
 
 sub event_id_max {
     my ($self, $filter) = @_;
