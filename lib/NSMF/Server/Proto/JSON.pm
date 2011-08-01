@@ -74,12 +74,9 @@ sub states {
         'dispatcher',
         'authenticate',
         'identify',
-        'got_ping',
-        'got_pong',
-        'got_post',
+        'ping',
+        'post',
         'send_ping',
-        'send_pong',
-        'send_error',
         'get',
         'child_output',
         'child_error',
@@ -117,32 +114,16 @@ sub dispatcher {
         return $action->{callback}($self, $kernel, $heap, $json);
     }
 
-    if ( exists($json->{method}) )
-    {
+    if ( exists($json->{method}) ) {
         my $action = $json->{method};
 
-        given($json->{method}) {
-            when(/authenticate/) { }
-            when(/identify/) { }
-            when(/ping/) {
-                $action = 'got_ping';
-            }
-            when(/pong/) {
-                $action = 'got_pong';
-            }
-            when(/post/i) {
-                $action = 'got_post';
-            }
-            when(/get/i) {
-                $action = 'get';
-            }
-            default: {
-                $logger->debug(Dumper($json));
-                $action = 'send_error';
-            }
+        if( $action ~~ ['authenticate', 'identify', 'get', 'ping', 'post'] ) {
+            $kernel->yield($action, $json);
         }
-
-        $kernel->yield($action, $json);
+        else {
+            $logger->debug(Dumper($json));
+            $heap->{client}->put(json_error_create($json, JSONRPC_NSMF_BAD_REQUEST));
+        }
     }
 }
 
@@ -150,42 +131,63 @@ sub authenticate {
     my ($kernel, $session, $heap, $json) = @_[KERNEL, SESSION, HEAP, ARG0];
     my $self = shift;
 
-    $logger->debug( "  -> Authentication Request");
-
-    eval {
-        json_validate($json, ['$agent','$secret']);
-    };
-
-    if ( ref $@ ) {
-      $logger->error('Incomplete JSON AUTH request. ' . $@->{message});
-      $heap->{client}->put($@->{object});
-      return;
-    }
-
-    my $agent  = $json->{params}{agent};
-    my $secret = $json->{params}{secret};
-
-    my $agent_details = {};
-
-    eval {
-        $agent_details = NSMF::Server::AuthMngr->authenticate_agent($agent, $secret);
-    };
-
-    if ($@) {
-        $logger->error('    = Not Found ', $@);
-        $heap->{client}->put(json_error_create($json, JSONRPC_NSMF_AUTH_UNSUPPORTED));
+    if ( $heap->{status} ne 'REQ' ) {
+        $heap->{client}->put(json_error_create($json, JSONRPC_NSMF_UNAUTHORIZED));
         return;
     }
 
-    $heap->{agent}    = $agent;
-    $logger->debug("    [+] Agent authenticated: $agent"); 
+    $logger->debug( "  -> Authentication Request");
 
-    $heap->{client}->put(json_result_create($json,  $agent_details));
+    # authenticate the node
+    if( $heap->{type} eq 'NODE' ) {
+        eval {
+            json_validate($json, ['$agent','$secret']);
+        };
+
+        if ( ref $@ ) {
+          $logger->error('Incomplete JSON AUTH request. ' . $@->{message});
+          $heap->{client}->put($@->{object});
+          return;
+        }
+
+        my $agent  = $json->{params}{agent};
+        my $secret = $json->{params}{secret};
+
+        my $agent_details = {};
+
+        eval {
+            $agent_details = NSMF::Server::AuthMngr->authenticate_agent($agent, $secret);
+        };
+
+        if ($@) {
+            $logger->error('    = Not Found ', $@);
+            $heap->{client}->put(json_error_create($json, JSONRPC_NSMF_AUTH_UNSUPPORTED));
+            return;
+        }
+
+        $heap->{agent} = $agent;
+        $heap->{status} = 'ID';
+
+        $logger->debug("    [+] Agent authenticated: $agent"); 
+
+        $heap->{client}->put(json_result_create($json, $agent_details));
+    }
+    # otherwise we are authenticating clients
+    else {
+
+        # clients don't require an ident and are established
+        $heap->{status} = 'EST';
+    }
 }
 
 sub identify {
     my ($kernel, $session, $heap, $json) = @_[KERNEL, SESSION, HEAP, ARG0];
     my $self = shift;
+
+    if ( $heap->{status} ne 'ID' ) {
+        $heap->{client}->put(json_error_create($json, JSONRPC_NSMF_UNAUTHORIZED));
+        return;
+    }
 
     eval {
         json_validate($json, ['$module','$netgroup']);
@@ -253,7 +255,7 @@ sub identify {
                 CloseEvent  => "child_close",
             );
 
-            $kernel->sig_child($child->PID, "child_signal");
+            $kernel->sig_child($child->PID, 'child_signal');
             $heap->{children_by_wid}{$child->ID} = $child;
             $heap->{children_by_pid}{$child->PID} = $child;
         }
@@ -261,19 +263,13 @@ sub identify {
     else {
         $heap->{client}->put(json_error_create($json, JSONRPC_NSMF_IDENT_UNSUPPORTED));
     }
-
 }
 
-sub got_pong {
+sub ping {
     my ($kernel, $heap, $json) = @_[KERNEL, HEAP, ARG0];
     my $self = shift;
 
-    $logger->debug("  <- Got PONG");
-}
-
-sub got_ping {
-    my ($kernel, $heap, $json) = @_[KERNEL, HEAP, ARG0];
-    my $self = shift;
+    $logger->debug("  <- Got PING");
 
     eval {
         json_validate($json, ['$timestamp']);
@@ -294,8 +290,13 @@ sub got_ping {
         return;
     }
 
-    $logger->debug("  <- Got PING");
-    $kernel->yield('send_pong', $json);
+    $logger->debug('  -> Sending PONG');
+
+    my $response = json_result_create($json, {
+        "timestamp" => time()
+    });
+
+    $heap->{client}->put($response);
 }
 
 sub child_output {
@@ -330,7 +331,7 @@ sub child_close {
     delete $heap->{children_by_pid}{$child->PID};
 }
 
-sub got_post {
+sub post {
     my ($kernel, $heap, $json) = @_[KERNEL, HEAP, ARG0];
     my $self = shift;
 
@@ -350,8 +351,6 @@ sub got_post {
     }
 
     $logger->debug(' -> This is a post for ' . $heap->{module_name});
-#    $logger->debug('    - Type: '. $json->{params}{type});
-#    $logger->debug('    - Job Id: ' . $json->{params}{job_id});
 
     my $module = $heap->{module};
 
@@ -365,10 +364,12 @@ sub got_post {
 
     if ( $@ ) {
         $logger->error($@);
-        $response = json_error_create($json, $ret);
+        $response = json_error_create($json, {
+            message => $@->{message},
+            code => $@->{code}
+        });
     }
-    else
-    {
+    else {
         $response = json_result_create($json, $ret);
     }
 
@@ -382,27 +383,6 @@ sub send_ping {
     $logger->debug('  -> Sending PING');
     my $payload = "PING " .time. " NSMF/1.0\r\n";
     $heap->{client}->put($payload);
-}
-
-sub send_pong {
-    my ($kernel, $heap, $json) = @_[KERNEL, HEAP, ARG0];
-    my $self = shift;
-
-    $logger->debug('  -> Sending PONG');
-
-    my $response = json_result_create($json, {
-        "timestamp" => time()
-    });
-
-    $heap->{client}->put($response);
-}
-
-sub send_error {
-    my ($kernel, $heap, $json) = @_[KERNEL, HEAP, ARG0];
-    my $self = shift;
-
-    warn "[!] BAD REQUEST" if $NSMF::Server::DEBUG;
-    $heap->{client}->put(json_error_create($json, JSONRPC_NSMF_BAD_REQUEST));
 }
 
 sub get {

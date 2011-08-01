@@ -49,35 +49,73 @@ my $config  = $nsmf->config();
 my $proto   = $nsmf->proto();
 my $logger  = NSMF::Common::Logger->new();
 
-# service sensor connections
-new POE::Component::Server::TCP(
-    Alias              => "sensor_listener",
-    Address            => $config->sensor_host(),
-    Port               => $config->sensor_port(),
-    ClientConnected    => \&connected,
-    ClientDisconnected => \&disconnected,
+# service node connections
+my $nodes = POE::Component::Server::TCP->new(
+    Alias              => "node_listener",
+    Address            => $config->node_host(),
+    Port               => $config->node_port(),
+    ClientConnected    => \&node_connected,
+    ClientDisconnected => \&node_disconnected,
     ClientInput => sub {
         my ($kernel, $heap, $input) = @_[KERNEL, HEAP, ARG0];
         $kernel->yield('dispatcher', $input);
     },
     ClientFilter => "POE::Filter::Line",
     ObjectStates => [ $proto => $proto->states ],
+    Started => sub {
+        $logger->info('Listening for nodes on ' . $config->node_host() . ':' . $config->node_port());
+    },
 );
 
-sub connected {
+my $clients = POE::Component::Server::TCP->new(
+    Alias              => "client_listener",
+    Address            => $config->client_host(),
+    Port               => $config->client_port(),
+    ClientConnected    => \&client_connected,
+    ClientDisconnected => \&client_disconnected,
+    ClientInput => sub {
+        my ($kernel, $heap, $input) = @_[KERNEL, HEAP, ARG0];
+        $kernel->yield('dispatcher', $input);
+    },
+    ClientFilter => "POE::Filter::Line",
+    ObjectStates => [ $proto => $proto->states ],
+    Started => sub {
+        $logger->info('Listening for clients on ' . $config->client_host() . ':' . $config->client_port());
+    },
+);
+
+sub node_connected {
     my ($session, $heap) = @_[SESSION, HEAP];
 
-    $logger->debug('Client connected: ' . $heap->{remote_ip});
+    $logger->debug('Node connected from ' . $heap->{remote_ip} . ':' . $heap->{remote_port});
 
-    # Initialization
+    # node heap initialization
+    $heap->{type}       = 'NODE';
     $heap->{status}     = 'REQ';
     $heap->{nodename}   = undef;
     $heap->{session_id} = undef;
     $heap->{netgroup}   = undef;
-    $heap->{modules_sessions} = [];
 }
 
-sub disconnected {
+sub node_disconnected {
+    my ($session, $heap) = @_[SESSION, HEAP];
+    $logger->debug('Node with ' . $session->ID . ' disconnected');
+}
+
+sub client_connected {
+    my ($session, $heap) = @_[SESSION, HEAP];
+
+    $logger->debug('Client connected from ' . $heap->{remote_ip} . ':' . $heap->{remote_port});
+
+    # client heap initialization
+    $heap->{type}       = 'CLIENT';
+    $heap->{status}     = 'REQ';
+    $heap->{clientname} = undef;
+    $heap->{session_id} = undef;
+    $heap->{netgroup}   = undef;
+}
+
+sub client_disconnected {
     my ($session, $heap) = @_[SESSION, HEAP];
     $logger->debug('Client with ' . $session->ID . ' disconnected');
 }

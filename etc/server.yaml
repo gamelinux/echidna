@@ -4,7 +4,7 @@
 # Specify the network settings for the server
 #
 network:
-    sensor:
+    node:
         host: localhost
         port: 10101
     client:

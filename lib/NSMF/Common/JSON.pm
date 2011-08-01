@@ -294,34 +294,35 @@ sub jsonrpc_validate
 #
 sub json_response_create
 {
-  my ($type, $json, $data) = @_;
+    my ($type, $json, $data) = @_;
 
-  # no response should occur if not of type result or error
-  return "" if ( ! ($type ~~ ["result", "error"]) );
+    # no response should occur if not of type result or error
+    return '' if ( ! ($type ~~ ['result', 'error']) );
 
-  # no response should occur if no id was specified (ie. notification)
-  return "" if ( ! defined($json) || ! exists($json->{id}) );
+    # no response should occur if no id was specified (ie. notification)
+    return '' if ( ! defined($json) || ! exists($json->{id}) );
 
-  my $result = {};
+    my $result = {
+        jsonrpc => '2.0',
+        id => $json->{id},
+        $type => $data // {}
+    };
 
-  $result->{id} = $json->{id};
-  $result->{$type} = $data // {};
-
-  return encode_json($result);
+    return encode_json($result);
 }
 
 sub json_result_create
 {
-  my ($json, $data) = @_;
+    my ($json, $data) = @_;
 
-  return json_response_create("result", $json, $data);
+    return json_response_create('result', $json, $data);
 }
 
 sub json_error_create
 {
-  my ($json, $data) = @_;
+    my ($json, $data) = @_;
 
-  return json_response_create("error", $json, $data);
+    return json_response_create('error', $json, $data);
 }
 
 #
@@ -335,12 +336,12 @@ sub json_message_create
 
     # a valid callback will invoke creation of JSON RPC method
     if( ref($callback) eq 'CODE' ) {
-        $logger->debug("Creating JSON RPC method.");
+        $logger->debug('Creating JSON RPC method.');
         $payload = json_method_create($method, $params, $callback);
     }
     # otherwise it will be a JSON RPC notification
     else {
-        $logger->debug("Creating JSON RPC notification.");
+        $logger->debug('Creating JSON RPC notification.');
         $payload = json_notification_create($method, $params);
     }
 
@@ -365,10 +366,10 @@ sub json_method_create
     };
 
     return {
-        "jsonrpc" => "2.0",
-        "method" => $method,
-        "params" => $params // '',
-        "id" => $id
+        jsonrpc => '2.0',
+        method => $method,
+        params => $params // '',
+        id => $id
     };
 }
 
@@ -377,9 +378,9 @@ sub json_notification_create
     my ($method, $params) = @_;
 
     return {
-        "jsonrpc" => "2.0",
-        "method" => $method,
-        "params" => $params // '',
+        jsonrpc => '2.0',
+        method => $method,
+        params => $params // '',
     };
 }
 
