@@ -120,11 +120,12 @@ The field descriptions are:
  2.0. NSM DATA
 ------------------------------------------------------------------------------
 
-The NSM data types are broken down in to the following types:
+The NSM data is broken down in to the following types:
   * Event (Alert),
   * Session,
-  * Statitisic, and
-  * Full Packet.
+  * Statitisic,
+  * Full Packet, and
+  * Data Objects
 
 The data types are described below.
 
@@ -296,7 +297,7 @@ In PERL format
     }
   },
   data => {
-    "filename" => "pcap.1213123123",
+    "id": 7,
     "offset" => 234235
     "length" => 2342
   },
@@ -431,15 +432,44 @@ TBD
 
 
 ------------------------------------------------------------------------------
- 2.4. FULL PACKET
+ 2.4. PCAP DATA
 ------------------------------------------------------------------------------
 
 TBD
 
 "data" => {
-
+  "data" => {
+    "id" => 7,
+    "timestamp" => 1231223123.124233,
+    "filename" => "pcap.1213123123",
+  },
+  "node" => {
+    "id" => 1,
+  }
 }
 
+
+------------------------------------------------------------------------------
+ 2.5. DATA OBJECT
+------------------------------------------------------------------------------
+
+TBD
+
+"object" => {
+  "object" => {
+    "id" => 33,
+    "timestamp" => 1231223123.124233,
+    "filename" => "wicked.exe",
+    "length" => 2342
+    "checksum" => {
+      "md5" => "6bbf0e9b5d9309748f6a8f8b8ed6b941",
+      "sha256" => "59339f51a1405beeb496538757e9cb6dc481398171cc26a071f9648dd9027c6d"
+    }
+  },
+  "node" => {
+    "id" => 1,
+  }
+}
 
 
 ------------------------------------------------------------------------------
