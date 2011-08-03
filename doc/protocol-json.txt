@@ -1,0 +1,182 @@
+# NODE <-> SERVER
+
+SERVER listens....
+
+NODE connects...
+
+NODE sends an "authenticate" RPC on behalf of the AGENT it is part of to the SERVER.
+
+{
+  "jsonrpc": "2.0",
+  "id": unique_integer_id,
+  "method": "authenticate",
+  "params": {
+    "agent": "agent name",
+    "secret": "secret/key/password",
+  }
+}
+
+
+SERVER responds if it supports the AGENT authentication request
+
+ON SUCCESS
+{
+  "jsonrpc": "2.0",
+  "id": unique_id_matching_the_initial_request,
+  "result": {
+    "id": unique id of the agent
+    "ip": "ip address of agent",
+    "description": "description of the agent",
+    "status": {
+      "timestamp": time of last known status of the agent,
+      "state": last known state of agent
+    }
+  }
+}
+
+ON ANY ERROR
+{
+  "jsonrpc": "2.0",
+  "id": unique_id_matching_the_initial_request,
+  "error": {
+    "message": message description of error code,
+    "code": error code,
+  }
+}
+
+
+If authentication IS successful.
+
+NODE sends an "identify" RPC to the SERVER.
+
+{
+  "jsonrpc": "2.0",
+  "id": unique_integer_id,
+  "method": "identify",
+  "params": {
+    "name": "name of node",
+    "type": "CXTRACKER"
+    "netgroup": "a logical grouping the node is part of",
+  }
+}
+
+
+SERVER responds if it supports the NODE's identification request
+
+ON SUCCESS
+{
+  "jsonrpc": "2.0",
+  "id": unique_id_matching_the_initial_request,
+  "result": {
+    "id": unique id of the node
+    "description": "description of the node",
+    "type": "CXTRACKER",
+    "status": {
+      "timestamp": time of last known status of the node,
+      "state": last known state of node
+    }
+  }
+}
+
+ON ANY ERROR
+{
+  "jsonrpc": "2.0",
+  "id": unique_id_matching_the_initial_request,
+  "error": {
+    "message": message description of error code,
+    "code": error code,
+  }
+}
+
+
+From here, SERVER or NODE can send PING,PONG,POST,GET,BYE
+
+PING request
+
+{
+  "jsonrpc": "2.0",
+  "id": unique_id_matching_the_initial_request,
+  "method": "ping",
+  "params": {
+    "timestamp": timestamp of machine where ping originated
+  }
+}
+
+PING response
+
+{
+  "jsonrpc": "2.0",
+  "id": unique_id_matching_the_initial_request,
+  "method": "ping",
+  "result": {
+    "timestamp": timestamp of machine where pong returned from
+  }
+}
+
+
+POST request
+
+
+*POST:**** ( The node normally sends $DATA to the server, SNORT events etc.
+NODE sends       : "POST DATA\n"
+SERVER acks      : "200 OK ACCEPTED\n"
+NODE sends data  : "$DATA\n.\r\n"  (NODE ends communication with a single line containing  ".\r\n")
+                    $DATA is handled by the spesific MODULE on the SERVER
+SERVER acks      : "200 OK ACCEPTED\n"
+or SERVER fail   : "204 DATA RECIEVE ERROR\n"
+
+
+*PING/PONG:**** (Just say hello - im alive)
+NODE/SERVER sends: "PING $DATE\n"
+SERVER/NODE sends: "PONG $DATE\n"
+
+
+*GET:**** (Example, Server requests full cxtracker sessiondata or daemonlogger pcap data)
+SERVER sends     : "GET $MODULE\n"
+NODE sends       : "200 OK ACCEPTED\n"
+SERVER sends     : "$DATA\n.\r\n"  (SERVER ends communication with a single line containing  ".\r\n")
+                    $DATA is handled by the spesific MODULE on the NODE
+NODE sends       : "200 OK ACCEPTED\n"
+or NODE fail     : "204 DATA RECIEVE ERROR\n"
+
+
+*BYE:**** (Im shuting down - bye message)
+NODE/SERVER sends: "BYE\n"
+SERVER/NODE sends: "200 OK ACCEPTED\n"
+SERVER/NODE closes the connection
+
+
+# CLIENT <-> SERVER
+
+SERVER Listens.... (not on same port as for NODES?)
+
+CLIENT Connects...
+IF Connect (OK); CLIENT SENDS: METHOD,MODULE,PROTOCOL:
+   "AUTH CLIENT NSMF/1.0\n"
+If SERVER sends "200 OK ACCEPTED\n"
+    CLIENT sends UID
+            ID string is: "UID USERNAME PASSWORD\n"
+SERVER sends "200 OK ACCEPTED\n" if UID is OK (bruteforce problem)
+
+From here, SERVER or CLIENT can send PING,PONG,POST,GET,BYE
+
+GET:**** ( The CLIENT asks for $DATA from the server, SEARCH queuery etc. for flow sessions)
+CLIENT sends     : "GET CXTRACKER\n"
+SERVER acks      : "200 OK ACCEPTED\n"
+CLIENT sends data: "$DATA\n.\r\n"  (NODE ends communication with a single line containing  ".\r\n")
+                    $DATA is handled by the spesific MODULE on the SERVER
+                    $DATA here is the query for sesssion
+SERVER acks      : "200 OK ACCEPTED\n"
+or SERVER fail   : "204 DATA RECIEVE ERROR\n"
+
+SERVER responds with POST when the data is ready:
+SERVER sends     : "POST $MODULE\n"
+CLIENT sends     : "200 OK ACCEPTED\n"
+SERVER sends     : "$DATA\n.\r\n"  (SERVER ends communication with a single line containing  ".\r\n")
+                    $DATA is handled by the spesific MODULE on the CLIENT (which sent the request)
+CLIENT sends     : "200 OK ACCEPTED\n"
+or CLIENT fail   : "204 DATA RECIEVE ERROR\n"
+
+
+
+
