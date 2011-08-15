@@ -1,8 +1,10 @@
+#
 # NODE <-> SERVER
+#
 
-SERVER listens....
+SERVER listens (on NODE specific port) ...
 
-NODE connects...
+NODE connects ...
 
 NODE sends an "authenticate" RPC on behalf of the AGENT it is part of to the SERVER.
 
@@ -146,17 +148,54 @@ SERVER/NODE sends: "200 OK ACCEPTED\n"
 SERVER/NODE closes the connection
 
 
+
+#
 # CLIENT <-> SERVER
+#
 
-SERVER Listens.... (not on same port as for NODES?)
+SERVER listens (on CLIENT specific port ) ...
 
-CLIENT Connects...
-IF Connect (OK); CLIENT SENDS: METHOD,MODULE,PROTOCOL:
-   "AUTH CLIENT NSMF/1.0\n"
-If SERVER sends "200 OK ACCEPTED\n"
-    CLIENT sends UID
-            ID string is: "UID USERNAME PASSWORD\n"
-SERVER sends "200 OK ACCEPTED\n" if UID is OK (bruteforce problem)
+CLIENT connects ...
+
+CLIENT sends an "authenticate" RPC on to the SERVER.
+
+{
+  "jsonrpc": "2.0",
+  "id": unique_integer_id,
+  "method": "authenticate",
+  "params": {
+    "client": "client name",
+    "secret": "secret/key/password",
+  }
+}
+
+
+SERVER responds if it supports the CLIENT authentication request
+
+ON SUCCESS
+{
+  "jsonrpc": "2.0",
+  "id": unique_id_matching_the_initial_request,
+  "result": {
+    "id": unique id of the agent
+    "level": access level,
+    "description": "description of the client",
+    "status": {
+      "timestamp": time of last known status of the client,
+    }
+  }
+}
+
+ON ANY ERROR
+{
+  "jsonrpc": "2.0",
+  "id": unique_id_matching_the_initial_request,
+  "error": {
+    "message": message description of error code,
+    "code": error code,
+  }
+}
+
 
 From here, SERVER or CLIENT can send PING,PONG,POST,GET,BYE
 
