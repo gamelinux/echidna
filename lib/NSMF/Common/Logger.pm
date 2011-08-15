@@ -159,13 +159,42 @@ sub fatal {
     exit;
 }
 
+
+sub prompt {
+    my ($self, $message) = @_;
+
+    my $line = $self->time_now() . '[$] ' . $message;
+
+    print $line;
+
+    my $input = <STDIN>;
+    chomp($input);
+
+    return $input;
+}
+
+
+sub prompt_with_tabcomplete {
+    my ($self, $message, $tab_func) = @_;
+
+    my $line = $self->time_now() . '[$] ' . $message;
+
+    print $line;
+
+    my $input = <STDIN>;
+    chomp($input);
+
+    return $input;
+}
+
+
 sub time_now
 {
     my ($self) = shift;
 
     my $zone = undef;
 
-    return "" if ( ! defined($self->{_timestamp}) ||
+    return '' if ( ! defined($self->{_timestamp}) ||
                    $self->{_timestamp} != 1 );
 
     return strftime($self->{_timestamp_format}, (defined($zone) && ( $zone eq "local" ) ) ? localtime : gmtime) . ' ';

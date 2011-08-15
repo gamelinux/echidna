@@ -3,13 +3,14 @@
 #
 # Specify the network settings for the server
 #
-network:
-    node:
-        host: localhost
-        port: 10101
-    client:
-        host: localhost
-        port: 10201
+client:
+    name: DOE
+    secret: john
+    netgroup: LAN
+
+server:
+    host: 127.0.0.1
+    port: 10201
 
 #
 # LOG
@@ -64,3 +65,4 @@ database:
 modules:
     - cxtracker
     - barnyard2
+
