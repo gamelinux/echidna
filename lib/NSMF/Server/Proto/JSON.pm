@@ -78,10 +78,10 @@ sub states {
         'post',
         'send_ping',
         'get',
-        'child_output',
-        'child_error',
-        'child_signal',
-        'child_close',
+#        'child_output',
+#        'child_error',
+#        'child_signal',
+#        'child_close',
     ];
 }
 
@@ -160,7 +160,7 @@ sub authenticate {
         };
 
         if ($@) {
-            $logger->error('    = Not Found ', $@);
+            $logger->error('Agent authentication unsupported: ', $@);
             $heap->{client}->put(json_error_create($json, JSONRPC_NSMF_AUTH_UNSUPPORTED));
             return;
         }
@@ -194,14 +194,17 @@ sub authenticate {
         };
 
         if ($@) {
-            $logger->error('    = Not Found ', $@);
+            $logger->error('Client authentication unsupported: ', $@);
             $heap->{client}->put(json_error_create($json, JSONRPC_NSMF_AUTH_UNSUPPORTED));
             return;
         }
 
-        $heap->{client} = $client;
+        $heap->{name} = $client;
 
-        $logger->debug("Client authenticated: $client"); 
+        $logger->debug("Client authenticated: $client");
+
+        # generate the session ID
+        $heap->{session_key} = 1;
 
         $heap->{client}->put(json_result_create($json, $client_details));
 
@@ -230,7 +233,7 @@ sub identify {
     }
 
     # if we have a session ID we are already registered
-    if ($heap->{session_id}) {
+    if ($heap->{session_key}) {
         $heap->{client}->put(json_error_create($json, JSONRPC_NSMF_IDENT_REGISTERED));
         return;
     }
@@ -255,8 +258,8 @@ sub identify {
     if ($module_type ~~ @$modules) {
         $logger->debug("-> " .uc($module_type). " supported!");
 
-        $heap->{module_name} = $module_name;
-        $heap->{session_id} = 1;
+        $heap->{name} = $module_name;
+        $heap->{session_key} = 1;
         $heap->{status}     = 'EST';
 
         eval {
@@ -268,7 +271,8 @@ sub identify {
             $logger->debug($@);
         }
 
-        $heap->{session_id} = $_[SESSION]->ID;
+        # generate the session key
+        $heap->{session_key} = $_[SESSION]->ID;
 
         if (defined $heap->{module}) {
             $logger->debug("----> Module Call <----");
@@ -277,17 +281,19 @@ sub identify {
 
             return;
 
-            my $child = POE::Wheel::Run->new(
-                Program => sub { $heap->{module}->run  },
-                StdoutFilter => POE::Filter::Reference->new(),
-                StdoutEvent => "child_output",
-                StderrEvent => "child_error",
-                CloseEvent  => "child_close",
-            );
-
-            $kernel->sig_child($child->PID, 'child_signal');
-            $heap->{children_by_wid}{$child->ID} = $child;
-            $heap->{children_by_pid}{$child->PID} = $child;
+            #
+            # TODO: remove, or are we looking at running modules in separate forks?
+#            my $child = POE::Wheel::Run->new(
+#                Program => sub { $heap->{module}->run  },
+#                StdoutFilter => POE::Filter::Reference->new(),
+#                StdoutEvent => "child_output",
+#                StderrEvent => "child_error",
+#                CloseEvent  => "child_close",
+#            );
+#
+#            $kernel->sig_child($child->PID, 'child_signal');
+#            $heap->{children_by_wid}{$child->ID} = $child;
+#            $heap->{children_by_pid}{$child->PID} = $child;
         }
     }
     else {
@@ -315,7 +321,7 @@ sub ping {
 
     $heap->{ping_recv} = $ping_time if $ping_time;
 
-    if ( $heap->{status} ne 'EST' || ! $heap->{session_id}) {
+    if ( $heap->{status} ne 'EST' || ! $heap->{session_key}) {
         $heap->{client}->put(json_error_create($json, JSONRPC_NSMF_UNAUTHORIZED));
         return;
     }
@@ -329,43 +335,43 @@ sub ping {
     $heap->{client}->put($response);
 }
 
-sub child_output {
-    my ($kernel, $heap, $output) = @_[KERNEL, HEAP, ARG0];
-    $logger->debug(Dumper($output));
-}
+#sub child_output {
+#    my ($kernel, $heap, $output) = @_[KERNEL, HEAP, ARG0];
+#    $logger->debug(Dumper($output));
+#}
 
-sub child_error {
-    $logger->error("Child Error: $_[ARG0]");
-}
+#sub child_error {
+#    $logger->error("Child Error: $_[ARG0]");
+#}
 
-sub child_signal {
-    my $heap = $_[HEAP];
-    #$logger->debug("   * PID: $_[ARG1] exited with status $_[ARG2]");
-    my $child = delete $heap->{children_by_pid}{$_[ARG1]};
+#sub child_signal {
+#    my $heap = $_[HEAP];
+#    #$logger->debug("   * PID: $_[ARG1] exited with status $_[ARG2]");
+#    my $child = delete $heap->{children_by_pid}{$_[ARG1]};
 
-    return if ( ! defined($child) );
+#    return if ( ! defined($child) );
 
-    delete $heap->{children_by_wid}{$child->ID};
-}
+#    delete $heap->{children_by_wid}{$child->ID};
+#}
 
-sub child_close {
-    my ($heap, $wid) = @_[HEAP, ARG0];
-    my $child = delete $heap->{children_by_wid}{$wid};
+#sub child_close {
+#    my ($heap, $wid) = @_[HEAP, ARG0];
+#    my $child = delete $heap->{children_by_wid}{$wid};
 
-    if ( ! defined($child) ) {
-    #    $logger->debug("Wheel Id: $wid closed");
-        return;
-    }
+#    if ( ! defined($child) ) {
+#    #    $logger->debug("Wheel Id: $wid closed");
+#        return;
+#    }
 
-    #$logger->debug("   * PID: " .$child->PID. " closed");
-    delete $heap->{children_by_pid}{$child->PID};
-}
+#    #$logger->debug("   * PID: " .$child->PID. " closed");
+#    delete $heap->{children_by_pid}{$child->PID};
+#}
 
 sub post {
     my ($kernel, $heap, $json) = @_[KERNEL, HEAP, ARG0];
     my $self = shift;
 
-    if ( $heap->{status} ne 'EST' || ! $heap->{session_id}) {
+    if ( $heap->{status} ne 'EST' || ! $heap->{session_key}) {
         $heap->{client}->put(json_result_create($json, 'Bad request'));
         return;
     }
@@ -380,7 +386,7 @@ sub post {
       return;
     }
 
-    $logger->debug(' -> This is a post for ' . $heap->{module_name});
+    $logger->debug(' -> This is a post for ' . $heap->{name});
 
     my $module = $heap->{module};
 
@@ -419,7 +425,7 @@ sub get {
     my ($kernel, $heap, $json) = @_[KERNEL, HEAP, ARG0];
     my $self = shift;
 
-    if ( $heap->{status} ne 'EST' || ! $heap->{session_id}) {
+    if ( $heap->{status} ne 'EST' || ! $heap->{session_key}) {
         $heap->{client}->put(json_error_create($json, JSONRPC_NSMF_BAD_REQUEST));
         return;
     }
