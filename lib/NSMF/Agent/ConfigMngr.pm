@@ -103,34 +103,58 @@ sub load {
 }
 
 sub agent {
+    my $self = shift;
+    return if ( ref($self) ne __PACKAGE__ );
+
     return $instance->{config}{node}{agent} // croak('[!] No agent name defined.');
 }
 
 sub name {
+    my $self = shift;
+    return if ( ref($self) ne __PACKAGE__ );
+
     return $instance->{config}{node}{name} // croak('[!] No node name defined.');
 }
 
 sub host {
+    my $self = shift;
+    return if ( ref($self) ne __PACKAGE__ );
+
     return $instance->{config}{server}{host} // croak('[!] No server defined.');
 }
 
 sub port {
+    my $self = shift;
+    return if ( ref($self) ne __PACKAGE__ );
+
     return $instance->{config}{server}{port} // croak('[!] No port defined.');
 }
 
 sub netgroup {
+    my $self = shift;
+    return if ( ref($self) ne __PACKAGE__ );
+
     return $instance->{config}{node}{netgroup} // croak('[!] No netgroup defined.');
 }
 
 sub secret {
+    my $self = shift;
+    return if ( ref($self) ne __PACKAGE__ );
+
     return $instance->{config}{node}{secret} // croak('[!] No secret defined.');
 }
 
 sub protocol {
+    my $self = shift;
+    return if ( ref($self) ne __PACKAGE__ );
+
     return $instance->{config}{protocol} // croak('[!] No protocol defined.');
 }
 
 sub settings {
+    my $self = shift;
+    return if ( ref($self) ne __PACKAGE__ );
+
     return $instance->{config}{settings} // croak('[!] No settings defined.');
 }
 
