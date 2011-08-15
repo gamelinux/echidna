@@ -142,14 +142,22 @@ my $method_map = {};
 sub json_decode {
     my $ref = shift;
 
-    decode_json($ref);
+    $logger->debug($ref);
+
+    my $decoded = decode_json($ref);
+
+    return $decoded;
 }
 
 
 sub json_encode {
     my $ref = shift;
 
-    encode_json($ref);
+    my $encoded = encode_json($ref);
+
+    $logger->debug($encoded);
+
+    return $encoded;
 }
 
 #
