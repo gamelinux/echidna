@@ -55,16 +55,12 @@ sub authenticate_agent {
         },
     });
 
-    if ( @{ $agent } == 1 ) {
-        if ($agent->[0]->{password} eq $key) {
-            return $agent->[0];
-        }
-        else {
-            croak { status => 'error', message => 'Incorrect Password' };
-        }
+    if ( @{ $agent } == 1 &&
+         $agent->[0]->{password} eq $key ) {
+        return $agent->[0];
     }
     else {
-        croak {status => 'error', message => 'Agent Not Found'};
+        croak {status => 'error', message => 'Unknown agent or secret.'};
     }
 }
 
@@ -85,9 +81,31 @@ sub authenticate_node {
         return $node->[0];
     }
     else {
-        croak {status => 'error', message => 'Node Not Found'};
+        croak {status => 'error', message => 'Unknown node.'};
     }
 }
+
+sub authenticate_client {
+    my ($self, $name, $key) = @_;
+
+    my $database = NSMF::Server->database();
+
+    my $client = $database->search({
+        client => {
+            name => $name,
+            #version => [gt, 1],
+        },
+    });
+
+    if ( @{ $client } == 1 &&
+         $client->[0]->{password} eq $key ) {
+      return $client->[0];
+    }
+    else {
+      croak { status => 'error', message => 'Unkown client or secret.' };
+    }
+}
+
 
 
 1;

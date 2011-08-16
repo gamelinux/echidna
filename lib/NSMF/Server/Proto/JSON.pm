@@ -168,12 +168,42 @@ sub authenticate {
         $heap->{agent} = $agent;
         $heap->{status} = 'ID';
 
-        $logger->debug("    [+] Agent authenticated: $agent"); 
+        $logger->debug("Agent authenticated: $agent");
 
         $heap->{client}->put(json_result_create($json, $agent_details));
     }
     # otherwise we are authenticating clients
     else {
+        eval {
+            json_validate($json, ['$client','$secret']);
+        };
+
+        if ( ref $@ ) {
+          $logger->error('Incomplete JSON AUTH request. ' . $@->{message});
+          $heap->{client}->put($@->{object});
+          return;
+        }
+
+        my $client = $json->{params}{client};
+        my $secret = $json->{params}{secret};
+
+        my $client_details = {};
+
+        eval {
+            $client_details = NSMF::Server::AuthMngr->authenticate_client($client, $secret);
+        };
+
+        if ($@) {
+            $logger->error('    = Not Found ', $@);
+            $heap->{client}->put(json_error_create($json, JSONRPC_NSMF_AUTH_UNSUPPORTED));
+            return;
+        }
+
+        $heap->{client} = $client;
+
+        $logger->debug("Client authenticated: $client"); 
+
+        $heap->{client}->put(json_result_create($json, $client_details));
 
         # clients don't require an ident and are established
         $heap->{status} = 'EST';
