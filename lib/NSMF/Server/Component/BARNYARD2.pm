@@ -102,7 +102,7 @@ sub validate {
     # verify duplicate in db
     my $dup = $db->search({
         event => {
-            event_id => $event->[1]+0,
+            id => $event->[1]+0,
         }
     });
 
@@ -131,38 +131,24 @@ sub save {
 
     my $ret = $db->insert({
         event => {
-            event => {
-                id => $event_id,
-                timestamp => $event->[3],
-                classification => 0,
-            },
-            node => {
-                id => $event->[0]+0,
-            },
-            net => {
-                version => $event->[10]+0,
-                protocol => $event->[15]+0,
-                source => {
-                    ip => $event->[11],
-                    port => $event->[12]+0
-                },
-                destination => {
-                    ip => $event->[13],
-                    port => $event->[14]+0
-                }
-            },
-            signature => {
-                type => 1,
-                id => $event->[5]+0,
-                revision => $event->[6]+0,
-                message => $event->[7],
-                priority => $event->[8]+0,
-                category => $event->[9]
-            },
-            vendor_meta => {
-                u2_event_id => $event->[2]+0,
-                u2_filename => ''
-            }
+            id => $event_id,
+            timestamp => $event->[3],
+            classification => 0,
+            node_id => $event->[0]+0,
+            net_version => $event->[10]+0,
+            net_protocol => $event->[15]+0,
+            net_src_ip => $event->[11],
+            net_src_port => $event->[12]+0,
+            net_dst_ip => $event->[13],
+            net_dst_port => $event->[14]+0,
+            sig_type => 1,
+            sig_id => $event->[5]+0,
+            sig_revision => $event->[6]+0,
+            sig_message => $event->[7],
+            sig_priority => $event->[8]+0,
+            sig_category => $event->[9],
+            meta_u2_event_id => $event->[2]+0,
+            meta_u2_filename => ''
         }
     });
 

@@ -90,31 +90,31 @@ sub insert {
     $data->{data}{filename} //= '';
     $data->{data}{offset}   //= 0;
     $data->{data}{length}   //= 0;
-    $data->{vendor_meta}    //= '';
+    $data->{meta}           //= '';
 
-    my $sql = 'INSERT INTO session (session_id, timestamp, times_start, times_end, times_duration, node_id, net_version, net_protocol, net_src_ip, net_src_port, net_src_total_packets, net_src_total_bytes, net_src_flags, net_dst_ip, net_dst_port, net_dst_total_packets, net_dst_total_bytes, net_dst_flags, data_filename, data_offset, data_length) VALUES (' .
+    my $sql = 'INSERT INTO session (id, timestamp, time_start, time_end, time_duration, node_id, net_version, net_protocol, net_src_ip, net_src_port, net_src_total_packets, net_src_total_bytes, net_src_flags, net_dst_ip, net_dst_port, net_dst_total_packets, net_dst_total_bytes, net_dst_flags, data_filename, data_offset, data_length) VALUES (' .
         join(",", (
-            $data->{session}{id},
-            '"'.$data->{session}{timestamp}.'"',
-            '"'.$data->{session}{times}{start}.'"',
-            '"'.$data->{session}{times}{end}.'"',
-            $data->{session}{times}{duration},
-            $data->{node}{id},
-            $data->{net}{version},
-            $data->{net}{protocol},
-            'INET_PTON("'.$data->{net}{source}{ip}.'")',
-            $data->{net}{source}{port},
-            $data->{net}{source}{total_packets},
-            $data->{net}{source}{total_bytes},
-            $data->{net}{source}{flags},
-            'INET_PTON("'.$data->{net}{destination}{ip}.'")',
-            $data->{net}{destination}{port},
-            $data->{net}{destination}{total_packets},
-            $data->{net}{destination}{total_bytes},
-            $data->{net}{destination}{flags},
-            '"'.$data->{data}{filename}.'"',
-            $data->{data}{offset},
-            $data->{data}{length}
+            $data->{id},
+            '"'.$data->{timestamp}.'"',
+            '"'.$data->{time_start}.'"',
+            '"'.$data->{time_end}.'"',
+            $data->{time_duration},
+            $data->{node_id},
+            $data->{net_version},
+            $data->{net_protocol},
+            'INET_PTON("'.$data->{net_src_ip}.'")',
+            $data->{net_src_port},
+            $data->{net_src_total_packets},
+            $data->{net_src_total_bytes},
+            $data->{net_src_flags},
+            'INET_PTON("'.$data->{net_dst_ip}.'")',
+            $data->{net_dst_port},
+            $data->{net_dst_total_packets},
+            $data->{net_dst_total_bytes},
+            $data->{net_dst_flags},
+            '"'.$data->{data_filename}.'"',
+            $data->{data_offset},
+            $data->{data_length}
         )). ')';
 
     $logger->debug("SQL: $sql");
@@ -164,7 +164,7 @@ sub create_tables_session {
 
     my $sql = '
 CREATE TABLE session (
-   session_id            BIGINT       NOT NULL ,
+   id                    BIGINT       NOT NULL ,
    timestamp             DATETIME     NOT NULL ,
    times_start           DATETIME     NOT NULL ,
    times_end             DATETIME     NOT NULL ,
@@ -185,8 +185,8 @@ CREATE TABLE session (
    data_filename         TEXT         NOT NULL ,
    data_offset           BIGINT       NOT NULL ,
    data_length           BIGINT       NOT NULL ,
-   vendor_meta           TEXT,
-   PRIMARY KEY (session_id)
+   meta                  TEXT,
+   PRIMARY KEY (id)
 )';
 
     return 0 if ( ! $self->{__handle}->do($sql) );

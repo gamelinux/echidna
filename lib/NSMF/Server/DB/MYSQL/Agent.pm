@@ -131,10 +131,8 @@ sub search {
             "password" => $agent_password,
             "description" => $agent_description,
             "ip" => $agent_ip,
-            "status" => {
-                "state" => $agent_state,
-                "timestamp" => $agent_timestamp,
-            }
+            "status_state" => $agent_state,
+            "status_timestamp" => $agent_timestamp,
         });
     }
 

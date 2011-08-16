@@ -129,9 +129,7 @@ sub search {
             "password" => $client_password,
             "description" => $client_description,
             "level" => $client_level,
-            "status" => {
-                "timestamp" => $client_timestamp,
-            }
+            "status_timestamp" => $client_timestamp,
         });
     }
 

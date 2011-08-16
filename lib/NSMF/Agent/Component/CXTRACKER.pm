@@ -154,44 +154,28 @@ sub _get_sessions {
 
             # build the session structs
             push( @{ $sessions_data }, {
-                session => {
-                    id => $elements[0],
-                    timestamp => 0,
-                    times => {
-                        start => $elements[1],
-                        end   => $elements[2],
-                        duration => $elements[3],
-                    },
-                },
-                node => {
-                    id => $node_id,
-                },
-                net => {
-                    version => 4,
-                    protocol => $elements[4],
-                    source => {
-                        ip   => $elements[5],
-                        port => $elements[6],
-                        total_packets => $elements[9],
-                        total_bytes => $elements[10],
-                        flags => $elements[13],
-                    },
-                    destination => {
-                        ip   => $elements[7],
-                        port => $elements[8],
-                        total_packets => $elements[11],
-                        total_bytes => $elements[12],
-                        flags => $elements[14],
-                    },
-                },
-                data => {
-                    filename => 'filename.ext',
-                    offset => 0,
-                    length => 0,
-                },
-                vendor_meta => {
-                    cxt_id => $elements[0],
-                },
+                id => $elements[0],
+                timestamp => 0,
+                time_start => $elements[1],
+                time_end   => $elements[2],
+                time_duration => $elements[3],
+                node_id => $node_id,
+                net_version => 4,
+                net_protocol => $elements[4],
+                net_src_ip   => $elements[5],
+                net_src_port => $elements[6],
+                net_src_total_packets => $elements[9],
+                net_src_total_bytes => $elements[10],
+                net_src_flags => $elements[13],
+                net_dst_ip   => $elements[7],
+                net_dst_port => $elements[8],
+                net_src_total_packets => $elements[11],
+                net_src_total_bytes => $elements[12],
+                net_src_flags => $elements[14],
+                data_filename => 'filename.ext',
+                data_offset => 0,
+                data_length => 0,
+                meta_cxt_id => $elements[0],
             });
         }
 

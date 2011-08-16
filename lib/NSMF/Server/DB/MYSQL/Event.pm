@@ -98,19 +98,18 @@ sub insert {
     $data->{data}{length}   //= 0;
     $data->{vendor_meta}    //= {};
 
-    my $sql = 'INSERT INTO event (event_id, timestamp, classification, node_id, net_version, net_protocol, net_src_ip, net_src_port, net_dst_ip, net_dst_port, vendor_meta) VALUES (' .
+    my $sql = 'INSERT INTO event (id, timestamp, classification, node_id, net_version, net_protocol, net_src_ip, net_src_port, net_dst_ip, net_dst_port) VALUES (' .
         join(",", (
-            $data->{event}{id},
-            $self->{__handle}->quote($data->{event}{timestamp}),
-            $data->{event}{classification},
-            $data->{node}{id},
-            $data->{net}{version},
-            $data->{net}{protocol},
-            'INET_PTON("'.$data->{net}{source}{ip}.'")',
-            $data->{net}{source}{port},
-            'INET_PTON("'.$data->{net}{destination}{ip}.'")',
-            $data->{net}{destination}{port},
-            $self->{__handle}->quote(encode_json($data->{vendor_meta})),
+            $data->{id},
+            $self->{__handle}->quote($data->{timestamp}),
+            $data->{classification},
+            $data->{node_id},
+            $data->{net_version},
+            $data->{net_protocol},
+            'INET_PTON("'.$data->{net_src_ip}.'")',
+            $data->{net_src_port},
+            'INET_PTON("'.$data->{net_dst_ip}.'")',
+            $data->{net_dst_port},
         )). ')';
 
     $logger->debug("SQL: $sql");
@@ -160,7 +159,7 @@ sub custom {
 sub event_id_max {
     my ($self, $filter) = @_;
 
-    my $sql = 'SELECT IFNULL(MAX(event_id), 0) as event_id_max FROM event ' . $self->create_filter($filter);
+    my $sql = 'SELECT IFNULL(MAX(id), 0) as event_id_max FROM event ' . $self->create_filter($filter);
 
     my $sth = $self->{__handle}->prepare($sql);
     $sth->execute();
@@ -196,23 +195,23 @@ sub create_tables_event {
 
     my $sql = '
 CREATE TABLE event (
-   event_id              BIGINT       NOT NULL ,
-   timestamp             DATETIME     NOT NULL ,
-   classification        SMALLINT     NOT NULL ,
-   node_id               BIGINT       NOT NULL ,
-   net_version           INT          NOT NULL ,
-   net_protocol          TINYINT      NOT NULL ,
-   net_src_ip            DECIMAL(39)  NOT NULL ,
-   net_src_port          SMALLINT     NOT NULL ,
-   net_dst_ip            DECIMAL(39)  NOT NULL ,
-   net_dst_port          SMALLINT     NOT NULL ,
-   signature_id          BIGINT       NOT NULL ,
-   signature_revision    BIGINT       NOT NULL ,
-   signature_priority    BIGINT       NOT NULL ,
-   signature_message     TEXT         NOT NULL ,
-   signature_category    TEXT,
-   vendor_meta           TEXT,
-   PRIMARY KEY (event_id)
+   id              BIGINT       NOT NULL ,
+   timestamp       DATETIME     NOT NULL ,
+   classification  SMALLINT     NOT NULL ,
+   node_id         BIGINT       NOT NULL ,
+   net_version     INT          NOT NULL ,
+   net_protocol    TINYINT      NOT NULL ,
+   net_src_ip      DECIMAL(39)  NOT NULL ,
+   net_src_port    SMALLINT     NOT NULL ,
+   net_dst_ip      DECIMAL(39)  NOT NULL ,
+   net_dst_port    SMALLINT     NOT NULL ,
+   sig_id          BIGINT       NOT NULL ,
+   sig_revision    BIGINT       NOT NULL ,
+   sig_priority    BIGINT       NOT NULL ,
+   sig_message     TEXT         NOT NULL ,
+   sig_category    TEXT,
+   meta            TEXT,
+   PRIMARY KEY (id)
 )';
 
     return 0 if ( ! $self->{__handle}->do($sql) );

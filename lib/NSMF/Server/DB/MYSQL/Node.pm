@@ -135,10 +135,8 @@ sub search {
             "description" => $node_description,
             "type" => $node_type,
             "type" => $node_network,
-            "status" => {
-                "state" => $node_state,
-                "timestamp" => $node_timestamp,
-            }
+            "status_state" => $node_state,
+            "status_timestamp" => $node_timestamp,
         });
     }
 
@@ -188,6 +186,15 @@ CREATE TABLE node (
 
     $logger->info('Inserting DEV/DEMO data');
 
+    # BARNYARD2 node
+    $self->insert({
+        name     => 'BARNYARD2',
+        type     => 'barnyard2',
+        agent_id => 1,
+        network  => 'dmz'
+    });
+
+    # CXTRACKER node
     $self->insert({
         name     => 'CXTRACKER',
         type     => 'cxtracker',

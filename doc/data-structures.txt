@@ -33,10 +33,8 @@ The data types are described below.
   "password" => "hash",
   "description" => "complete network security monitoring.",
   "ip" => "2001:db8:85a3::7334",
-  "status" => {
-    "state" => 1
-    "timestamp" => 1231223123.124233,
-  }
+  "status_state" => 1
+  "status_timestamp" => 1231223123.124233,
 }
 
 The field descriptions are:
@@ -55,16 +53,12 @@ The field descriptions are:
   * ip
     - The IP address of the agent
 
-  * status
-    - A status object describing the last known status of the agent
-      The object contains:
+  * status_state
+    - The last known state of the agent
 
-    * state
-      - The last known state of the agent
-
-    * timestamp
-      - The timestamp (in unix epoch and microseconds appended) of the last
-        known state
+  * status_timestamp
+    - The timestamp (in unix epoch and microseconds appended) of the last
+      known state
 
 
 ------------------------------------------------------------------------------
@@ -78,10 +72,8 @@ The field descriptions are:
   "description" => "complete network security monitoring.",
   "type" => "cxtracker",
   "network" => "dmz",
-  "status" => {
-    "state" => 1
-    "timestamp" => 1231223123.124233,
-  }
+  "status_state" => 1
+  "status_timestamp" => 1231223123.124233,
 }
 
 The field descriptions are:
@@ -103,16 +95,12 @@ The field descriptions are:
   * network
     - A literal name for the network that the node is monitoring
 
-  * status
-    - A status object describing the last known status of the node
-      The object contains:
+  * status_state
+    - The last known state of the node
 
-    * state
-      - The last known state of the node
-
-    * timestamp
-      - The timestamp (in unix epoch and microseconds appended) of the last
-        known state
+  * status_timestamp
+    - The timestamp (in unix epoch and microseconds appended) of the last
+      known state
 
 
 
@@ -137,91 +125,62 @@ The data types are described below.
 In PERL format
 
 "event" => {
-  "event" => {
-    "id" => 1407,
-    "timestamp" => 1231223123.124233,
-    "classification" => 0,
-  },
-  "node" => {
-    "id" => 1,
-  },
+  "id" => 1407,
+  "timestamp" => 1231223123.124233,
+  "classification" => 0,
+  "node_id" => 1,
   "net" => {
-    "version" => 4,
-    "protocol" => 6,
-    "source" => {
-      "ip" => "61.34.18.49",
-      "port" => 3545
-    },
-    "destination" => {
-      "ip" => "192.168.1.56",
-      "port" => 13
-    }
-  },
-  "signature" => {
-    "type" => 1
-    "id" => 527,
-    "revision" => 8,
-    "message" => "DELETED BAD ALERT Unknown Traffic."
-    "priority" => 2,
-    "category" => "bad-unknown",
-  },
-  "vendor-meta" => {
-    "u2_event_id" => 1
-    "u2_filename" => "snort.u2.1234131123"
-  }
+  "net_version" => 4,
+  "net_protocol" => 6,
+  "net_src_ip => "61.34.18.49",
+  "net_src_port" => 3545
+  "net_dst_ip" => "192.168.1.56",
+  "net_dst_port" => 13
+  "sig_type" => 1
+  "sig_id" => 527,
+  "sig_revision" => 8,
+  "sig_message" => "DELETED BAD ALERT Unknown Traffic."
+  "sig_priority" => 2,
+  "sig_category" => "bad-unknown",
+  "meta_u2_event_id" => 1
+  "meta_u2_filename" => "snort.u2.1234131123"
 }
 
 
 The field descriptions are:
-  * event
-    - An object describing the general event attributes
+  * id
+    - The unique event ID of the node which generated the event (alert)
 
-      * id
-        - The unique event ID of the node which generated the event (alert)
+  * timestamp
+    - The node's best timestamp (in unix epoch and microseconds appended)
+      of when the event (alert) occured
 
-      * timestamp
-        - The node's best timestamp (in unix epoch and microseconds appended)
-          of when the event (alert) occured
+  * classification
+    - The classification of the event (alert). 0 = not yet classified
 
-      * classification
-        - The classification of the event (alert). 0 = not yet classified
+  * node_id
+    - The unique node ID which generated the event (alert)
 
-  * node
-    - An object representing the general node attributes
+  * net_version
+    - The IP version being used: 4 = IPv4, 6 = IPv6
 
-    * id
-      - The unique node ID which generated the event (alert)
+  * net_protocol
+    - The protocol version being using: 1 = ICMP, 6 = TCP, 17 = UDP
 
-  * net
-    - An object describing the network information. The object contains:
+  * net_src_ip
+    - The source/originating IP address of the session
 
-      * version
-        - The IP version being used: 4 = IPv4, 6 = IPv6
+  * net_src_port
+    - The source/originating port of the session. For ICMP traffic the
+      port refers to the ICMP type
 
-      * protocol
-        - The protocol version being using: 1 = ICMP, 6 = TCP, 17 = UDP
+  * net_dst_ip
+    - The destination/receiving IP address of the session
 
-      * source
-        - A mandatory object describing the source/originator IP information
-          The object contains:
+  * net_dst_port
+    - The destination/receiving port of the session. For ICMP traffic
+      the port refers to the ICMP code
 
-          * ip
-            - The source/originating IP address of the event(alert)
-
-          * port
-            - The source/originating port of the event (alert). For ICMP
-              traffic the port refers to the ICMP type
-
-      * destination
-        - An optional object describing the destination/recipient IP
-          information of the event (if appropriate). The object contains:
-
-          * ip
-            - The destination/receiving IP address of the event (alert)
-
-          * port
-            - The destination/receiving port of the event (alert). For ICMP
-              traffic the port refers to the ICMP code
 
   * signature
     - An object describing the signature (rule, behaviour, etc) that triggered
@@ -246,16 +205,16 @@ The field descriptions are:
         - A general universal category that this signature belows to (eg.
           Snort classification such as "bad-unknown")
 
-  * vendor-meta
+  * meta_*
     - An extendible object that defines any additional, vendor specific
       information pertaining to the event (alert)
 
       For example:
 
-      * u2_event_id
+      * meta_u2_event_id
         - The associated unified2 event ID
 
-      * u2_filename
+      * meta_u2_filename
         - The unified2 file that contained the event (alert)
 
 
@@ -266,157 +225,116 @@ The field descriptions are:
 In PERL format
 
 "session" => {
-  "session" => {
-    "id" => 1407,
-    "timestamp" => 1231223123.124233,
-    "times" => {
-      "start" => 1231223123.124233,
-      "end" => 1231333133.565345
-      "duration" => 10.441112
-    }
-  },
-  "node" => {
-    "id" => 1,
-  },
-  "net" => {
-    "version" => 4,
-    "protocol" => 6,
-    "source" => {
-      "ip" => "61.34.18.49",
-      "port" => 3545,
-      "total_packets" => 232,
-      "total_bytes" => 3242
-      "flags" => 23,
-    },
-    "destination" => {
-      "ip" => "192.168.1.56",
-      "port" => 13,
-      "total_packets" => 232,
-      "total_bytes" => 3242
-      "flags" => 21,
-    }
-  },
-  data => {
-    "id": 7,
-    "offset" => 234235
-    "length" => 2342
-  },
-  "vendor-meta" => {
-    "cxt_id" => 1
-  }
+  "id" => 1407,
+  "timestamp" => 1231223123.124233,
+  "time_start" => 1231223123.124233,
+  "time_end" => 1231333133.565345
+  "time_duration" => 10.441112
+  "node_id" => 1,
+  "net_version" => 4,
+  "net_protocol" => 6,
+  "net_src_ip => "61.34.18.49",
+  "net_src_port" => 3545
+  "net_src_total_packets" => 232,
+  "net_total_bytes" => 3242
+  "net_flags" => 23,
+  "net_dst_ip" => "192.168.1.56",
+  "net_dst_port" => 13
+  "net_dst_total_packets" => 232,
+  "net_dst_total_bytes" => 3242
+  "net_dst_flags" => 21,
+  "data_id": 7,
+  "data_offset" => 234235
+  "data_length" => 2342
+  "meta_cxt_id" => 1
 }
 
 
 The field descriptions are:
-  * node
-    - An object representing the general node attributes
+  * node_id
+    - The unique node ID which generated the session
 
-    * id
-      - The unique node ID which generated the session
+  * id
+    - The unique session ID of the node which detected the session
 
-  * session
-    - An object describing the general session attributes
+  * timestamp
+    - The node's best timestamp (in unix epoch and microseconds appended)
+      of when the session occured
 
-      * id
-        - The unique session ID of the node which detected the session
+  * time_start
+    - The node's best timestamp (in unix epoch and microseconds
+      appended) of when the session started
 
-      * timestamp
-        - The node's best timestamp (in unix epoch and microseconds appended)
-          of when the session occured
+  * time_end
+    - The node's best timestamp (in unix epoch and microseconds
+      appended) of when the session ended
 
-      * times
-        - An object that represents the temporal attributes (in unix poch and
-          microseconds appended) of when the session occured
+  * time_duration
+    - The node's best estimate of duration for the session
 
-        * start
-          - The node's best timestamp (in unix epoch and microseconds
-            appended) of when the session started
+  * net_version
+    - The IP version being used: 4 = IPv4, 6 = IPv6
 
-        * end
-          - The node's best timestamp (in unix epoch and microseconds
-            appended) of when the session ended
+  * net_protocol
+    - The protocol version being using: 1 = ICMP, 6 = TCP, 17 = UDP
 
-        * duration
-          - The node's best estimate of duration for the session
+  * net_src_ip
+    - The source/originating IP address of the session
 
-  * net
-    - An object describing the network information. The object contains:
+  * net_src_port
+    - The source/originating port of the session. For ICMP traffic the
+      port refers to the ICMP type
 
-      * version
-        - The IP version being used: 4 = IPv4, 6 = IPv6
+  * net_src_total_packets
+    - The total number of packets originating from the source IP
+      during the session
 
-      * protocol
-        - The protocol version being using: 1 = ICMP, 6 = TCP, 17 = UDP
+  * net_src_total_bytes
+    - The total number of bytes originating from the source IP during
+      the session
 
-      * source
-        - A mandatory object describing the source/originator IP information
-          of the session. The object contains:
+  * net_src_flags
+    - The cumulative protocol flags of packets originating from the
+      source IP seen during the session
 
-          * ip
-            - The source/originating IP address of the session
+  * net_dst_ip
+    - The destination/receiving IP address of the session
 
-          * port
-            - The source/originating port of the session. For ICMP traffic the
-              port refers to the ICMP type
+  * net_dst_port
+    - The destination/receiving port of the session. For ICMP traffic
+      the port refers to the ICMP code
 
-          * total_packets
-            - The total number of packets originating from the source IP
-              during the session
+  * net_dst_total_packets
+    - The total number of packets originating from the destination IP
+      during the session
 
-          * total_bytes
-            - The total number of bytes originating from the source IP during
-              the session
+  * net_dst_total_bytes
+    - The total number of bytes originating from the destination IP
+      during the session
 
-          * flags
-            - The cumulative protocol flags of packets originating from the
-              source IP seen during the session
+  * net_dst_flags
+    - The cumulative protocol flags of packets originating from the
+      destination IP seen during the session
 
-  * data
-      * destination
-        - A mandatory object describing the destination/recipient IP
-            information of the session. The object contains:
+  * data_filename
+    - The filename of the pcap (or full packet capture) that contains the
+      session
 
-          * ip
-            - The destination/receiving IP address of the session
+  * data_offset
+    - The byte offset to the first byte of the first packet in the
+      sesssion
 
-          * port
-            - The destination/receiving port of the session. For ICMP traffic
-              the port refers to the ICMP code
+  * data_length
+    - The length in bytes from the first byte of the first packet to the
+      the last byte of the last packet inclusive
 
-          * total_packets
-            - The total number of packets originating from the destination IP
-              during the session
-
-          * total_bytes
-            - The total number of bytes originating from the destination IP
-              during the session
-
-          * flags
-            - The cumulative protocol flags of packets originating from the
-              destination IP seen during the session
-
-  * data
-    - An object that stores the location attributes for the raw session data
-
-      * filename
-        - The filename of the pcap (or full packet capture) that contains the
-          session
-
-      * offset
-        - The byte offset to the first byte of the first packet in the
-          sesssion
-
-      * length
-        - The length in bytes from the first byte of the first packet to the
-          the last byte of the last packet inclusive
-
-  * vendor-meta
+  * meta_*
     - An extendible object that defines any additional, vendor specific
       information pertaining to the session
 
       For example:
 
-      * cxt_id
+      * meta_cxt_id
         - The associated cxtracker session ID
 
 
@@ -438,14 +356,10 @@ TBD
 TBD
 
 "data" => {
-  "data" => {
-    "id" => 7,
-    "timestamp" => 1231223123.124233,
-    "filename" => "pcap.1213123123",
-  },
-  "node" => {
-    "id" => 1,
-  }
+  "id" => 7,
+  "timestamp" => 1231223123.124233,
+  "filename" => "pcap.1213123123",
+  "node_id" => 1,
 }
 
 
@@ -456,19 +370,13 @@ TBD
 TBD
 
 "object" => {
-  "object" => {
-    "id" => 33,
-    "timestamp" => 1231223123.124233,
-    "filename" => "wicked.exe",
-    "length" => 2342
-    "checksum" => {
-      "md5" => "6bbf0e9b5d9309748f6a8f8b8ed6b941",
-      "sha256" => "59339f51a1405beeb496538757e9cb6dc481398171cc26a071f9648dd9027c6d"
-    }
-  },
-  "node" => {
-    "id" => 1,
-  }
+  "id" => 33,
+  "timestamp" => 1231223123.124233,
+  "filename" => "wicked.exe",
+  "length" => 2342,
+  "checksum_md5" => "6bbf0e9b5d9309748f6a8f8b8ed6b941",
+  "checksum_sha256" => "59339f51a1405beeb496538757e9cb6dc481398171cc26a071f9648dd9027c6d",
+  "node_id" => 1
 }
 
 
@@ -493,42 +401,33 @@ The data types are described below.
   "message" => "DELETED BAD ALERT Unknown Traffic."
   "priority" => 2,
   "category" => "bad-unknown",
-  "vendor-meta" => {
-    "snort" => {
-      "gid" => 3,
-      "sid" => 12355,
-      "revision" => 1,
-      "rule" => "alert tcp $EXTERNAL_NET any -> any any (msg:"Test signature");";
-    }
-  }
+  "meta_snort_gid" => 3,
+  "meta_snort_sid" => 12355,
+  "meta_snort_revision" => 1,
+  "meta_snort_rule" => "alert tcp $EXTERNAL_NET any -> any any (msg:"Test signature");"
 }
 
 The field descriptions are:
+  * type
+    - The type ID of the signature (eg. Snort rule = 1, PRADS rule = 2)
 
-  * signature
-    - An object describing the signature (rule, behaviour, etc) that triggered
-      the event (alert)
+  * id
+    - The unique ID for this type of signature (eg. Snort SID)
 
-      * type
-        - The type ID of the signature (eg. Snort rule = 1, PRADS rule = 2)
+  * revision
+    - The revision number of this signature (eg. Snort SID-REV)
 
-      * id
-        - The unique ID for this type of signature (eg. Snort SID)
+  * message
+    - An OPTIONAL succinct message that describes the signature's purpose
 
-      * revision
-        - The revision number of this signature (eg. Snort SID-REV)
+  * priority
+    - The specific priority associated with this type of signature
 
-      * message
-        - An OPTIONAL succinct message that describes the signature's purpose
+  * category
+    - A general universal category that this signature belows to (eg.
+      Snort classification such as "bad-unknown")
 
-      * priority
-        - The specific priority associated with this type of signature
-
-      * category
-        - A general universal category that this signature belows to (eg.
-          Snort classification such as "bad-unknown")
-
-  * vendor-meta
+  * meta_*
     - An extendible object that defines any additional, vendor specific
       information pertaining to the session
 
