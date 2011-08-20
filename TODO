@@ -22,4 +22,6 @@ CODE (GENERAL)
 
 STAGE 2
 
-
+CLIENT
+   1. Create a command line client to test the basic funcionality
+   2. Start with the UI development
