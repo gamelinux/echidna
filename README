@@ -43,7 +43,7 @@ MASTER SERVER
    - ACL aware!
 
 CLIENT
- - GUI based (Not web-gui :P) (QT?)
+ - GUI based.
  - Mainly for handling events and searching
    - Handling of IDS/IPS events
    - Handling of flowdata
