@@ -409,7 +409,10 @@ sub post {
         $response = json_result_create($json, $ret);
     }
 
-    $heap->{client}->put($response);
+    # don't reply with empty strings
+    if ( $response ne '' ) {
+        $heap->{client}->put($response);
+    }
 }
 
 sub send_ping {

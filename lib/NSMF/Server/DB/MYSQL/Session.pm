@@ -128,7 +128,9 @@ sub insert {
     $logger->debug("SQL: $sql");
 
     # expect a single row to be inserted
-    return ( $self->{__handle}->do($sql) == 1 );
+    my $rows = $self->{__handle}->do($sql) // 0;
+
+    return ( $rows == 1 );
 }
 
 sub search {
