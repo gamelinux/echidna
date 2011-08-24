@@ -1,45 +1,57 @@
-The Network Security Monitoring Framework (tm)
- - TNSMF
+--------------------------------------------------------------------------
+ 0. INTRODUCTION
+--------------------------------------------------------------------------
 
-TNSMF is a framework for connecting different disiplins of
-Network Security Monitoring together in a open module based 
+The Network Security Monitoring Framework (TM)
+ - NSMF
+
+NSMF is a framework for connecting the variety of different Network
+Security Monitoring disciplines together in an open, module based
 framework.
 
-We aim to be community friendly, easy extendable, modulebased,
-open for all kind of different plugins, fast and stable :)
+We aim to be community friendly, easily extendible, module based, open
+for all kinds of different plug-ins, fast and stable :)
+
+
+--------------------------------------------------------------------------
+ 1. PROPOSED FEATURES
+--------------------------------------------------------------------------
 
 NODES
  - Flowdata (netflow, cxtracker)
- - IPS/IDS (Snort, Suricata, Bro)
+ - NIPS/NIDS (Snort, Suricata, Bro)
  - Full packet capture (daemonlogger)
  - Passive OS and Service detection (PRADS)
- - HIDS - Host Based Intrution Detection (OSSEC,samhain)
+ - HIDS - Host Based Intrusion Detection (OSSEC, samhain)
  - Network File tracker (nftracker)
  - Passive DNS (pdnstracker)
 
 WORKERS
  - File carving from pcaps (tcpxtract, xtract.py, xplico? etc)
- - Anti Virus scanning (with md5sum checking) of files (ClamAV, AVG.... (google,yahoo etc))
- - File anomality checking (pdfid.py)
+ - Anti Virus scanning (with md5sum checking) of files. For example:
+   - ClamAV,
+   - AVG,
+   - Google
+ - File anomaly checking (pdfid.py)
  - Data Loss Detection (spamassassin + sa-learn)
- - javascript parser (Didier Stevens modified SpiderMonkey?)
+ - JavaScript parser (Didier Stevens modified SpiderMonkey?)
 
 SERVER
  - MySQL/Percona/PGSQL and NoSQL/Fastbit
  - Server software
-   - that collects data from NODES and stores in DBs
-   - that also updates clients in "real-time"
-   - automatic kicks off tasks based on events
-   - that can manage NODES and WORKERS
+   - Collects data from NODES and stores in DBs
+   - Updates clients in "real-time"
+   - Automatic kicks off tasks based on events
+   - Can manage NODES and WORKERS
    - ACL aware!
 
 MASTER SERVER
  - MySQL/Percona/PGSQL and NoSQL/Fastbit
  - Master Server software
-   - that collects data from SERVERs and stores in DBs
-   - that also updates clients in "real-time"
-   - automatic kicks off tasks based on events
-   - that can manage SERVERs, NODES and WORKERS
+   - Collects data from SERVERs and stores in DBs
+   - Updates clients in "real-time"
+   - Automatic kicks off tasks based on events
+   - Can manage SERVERs, NODES and WORKERS
    - ACL aware!
 
 CLIENT
@@ -49,7 +61,7 @@ CLIENT
    - Handling of flowdata
    - Handling of nftracker data
    - Handling of pcap extraction
-   - Making of Policies (PRADS data vs what is leagal on your network)
+   - Making of Policies (PRADS data vs what is legal on your network)
  - Configure MASTER SERVERS, SERVERS, WORKERS and NODES
    - Manage users, groups, ACL, etc.
    - Manages NODES (start,stop,restart,configure)
@@ -57,9 +69,14 @@ CLIENT
    - Manage MASTER SERVERS (purge-db/archiving, add/del SERVERS, add/del NODES)
 
 
+--------------------------------------------------------------------------
+ 2. ROADMAP
+--------------------------------------------------------------------------
+
 The projects need to aim high, but start with implementing the fundamentals.
 
-Stage 1:
+STAGE 1
+
 So the most important part would be to implement some of the NODES functions.
 I would say that Flowdata, IPS/IDS data and PCAP handling is the most important.
 
@@ -67,64 +84,118 @@ But with out having a system to collect data, how would one know if the NODES ar
 working? So SERVER and NODE goes hand in hand.
 
 
-Stage 2:
+STAGE 2
+
 Stage two is to implement a CLIENT to browse the events and to handle them.
 
 
-Stage 3:
-Extend the NODES, SERVERS and the CLIENT for a 1.0 release. This needs to be
-a release that really works and that you can do real work with.
-It also needs to be ready for developers to jump on the train, so the 
-main architecture of the framework needs to be consistent in the near future.
-This will enable easy developtmet of modules/plugins, on NODES, SERVERS and CLIENT.
-It is important that it is easy to add plugins in the NODES and CLIENT!
+STAGE 3
+
+Extend the NODES, SERVERS and the CLIENT for a 1.0 release. This needs to be a
+release that really works and that you can do real work with. It also needs to
+be ready for developers to jump on the train, so the main architecture to the
+framework needs to be consistent in the near future. This will enable easy
+development of modules/plug-ins on NODES, SERVERS and CLIENT. It is important
+that it is easy to add plug-ins in the NODES and CLIENT!
+
 VERSION 1.0
 
-Stage 4:
-Documentation!!! This should normally be done along side the other stages.
-But this is the stage where it must be finnished!
+
+STAGE 4
+
+Documentation!!! This would (and should) normally be done along side the other
+stages. However, this stage is dedicated to getting completed to the current
+architecture and feature list.
 
 
-Stage 5:
-Implement extra features that makes the CLIENT cripsy, exiting and inovative.
-The CLIENT now also needs to be able to configure the NODES and MASTER.
-The WORKERS should also be functional.
+STAGE 5
+
+Implement extra features that makes the CLIENT crispy, exiting and innovative.
+Th CLIENT now also needs to be able to configure the NODES and MASTER. The
+WORKERS should also be functional.
 VERSION 2.0
 
 
-Stage 6:
+STAGE 6
+
 This is the stage that the MASTER SERVER will be implemented. It is important
-that during the other Stages, that the project is aware that it might be 
+that during the other Stages, that the project is aware that it might be
 governed from the MASTER SERVER. The MASTER SERVER is much like the SERVER,
-but it does not need to store all the meta data that the SERVERS does.
-It will reach out and talk to the SERVERS when it needs data.
+but it does not need to store all the meta data that the SERVERS does. It will
+reach out and talk to the SERVERS when it needs data.
 VERSION 3.0
 
 
-Stage 7:
-Its important pollish the code, comment it and have it easy for others to read.
-This is important in the whole project, but now its time to rewrite the
-functions/subrutines that are quick hacks!?
+STAGE 7
+
+Its important polish the code, comment it and have it easy for others
+to read.  This is important in the whole project, but now its time to
+rewrite the functions/subroutines that are quick hacks!?
+
 We should make sure that all that a developer needs/wants to make modules
 are in place. This is the Stage for making the framework perfect.
 VERSION 4.0
 
 
-Stage 8:
+STAGE 8
+
 Innovation! This is the stage where things have evolved, computer power has
 grown according to expected, and we need to work hard on our data, doing
-corrolation, datamining and other resource intensive stuff...
+correlation, data-mining and other resource intensive stuff...
 Maybe this will be implemented on own WORKERS?
 VERSION 4.1 ?
 
-Stage 9:
+
+STAGE 9
+
 All hands on the GUI.
 Lots of more stuff needs to be implemented...
 VERSION 5.0
 
 
+Along all the stages, the will be improvements, bug-fixing, feature requests,
+additions, deletions and loads more.
 
-Along all the stages, the will be improvements, bugfixing, feature request, additions++
 
+--------------------------------------------------------------------------
+ 3. GETTING STARTED
+--------------------------------------------------------------------------
+
+This quick getting started will set up the simple test environment that is
+being used by the developers. As we progress through the stages, the hard
+values will become fewer and the configuration flexibility will evolve.
+
+1. Grab the source code.
+
+
+2. Ensure all dependencies are met, refer to the INSTALL.
+
+
+3. Server Configuration.
+
+You will need to set up a clean (no tables) database with a designated user
+who has been granted all privileges to the table.
+
+Ensure the database settings in your server.yaml file match your database
+configuration and has the credentials you've just created.
+
+The current implementation only supports MySQL databases (this will be
+extended to more backends in future stages).
+
+
+4. Run the server.
+
+# cd server
+# sudo ./server
+
+
+5. Run the nodes.
+
+# cd nodes
+# ./barnyard2
+# ./cxtracker
+
+
+6. Run the feeders.
 
 
