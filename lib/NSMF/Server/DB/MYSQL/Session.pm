@@ -87,10 +87,18 @@ sub insert {
 
 
     # set sane defaults for optional
-    $data->{data}{filename} //= '';
-    $data->{data}{offset}   //= 0;
-    $data->{data}{length}   //= 0;
-    $data->{meta}           //= '';
+    $data->{data}{filename}        //= '';
+    $data->{data}{offset}          //=  0;
+    $data->{data}{length}          //=  0;
+    $data->{meta}                  //= '';
+    # set sane defaults for missing required fields (should not happen)
+    $data->{net_src_total_packets} //=  0;
+    $data->{net_dst_total_packets} //=  0;
+    $data->{net_src_total_bytes}   //=  0;
+    $data->{net_dst_total_bytes}   //=  0;
+    $data->{net_src_flags}         //=  0;
+    $data->{net_dst_flags}         //=  0;
+
 
     my $sql = 'INSERT INTO session (id, timestamp, time_start, time_end, time_duration, node_id, net_version, net_protocol, net_src_ip, net_src_port, net_src_total_packets, net_src_total_bytes, net_src_flags, net_dst_ip, net_dst_port, net_dst_total_packets, net_dst_total_bytes, net_dst_flags, data_filename, data_offset, data_length) VALUES (' .
         join(",", (
@@ -166,9 +174,9 @@ sub create_tables_session {
 CREATE TABLE session (
    id                    BIGINT       NOT NULL ,
    timestamp             DATETIME     NOT NULL ,
-   times_start           DATETIME     NOT NULL ,
-   times_end             DATETIME     NOT NULL ,
-   times_duration        BIGINT       NOT NULL ,
+   time_start            DATETIME     NOT NULL ,
+   time_end              DATETIME     NOT NULL ,
+   time_duration         BIGINT       NOT NULL ,
    node_id               BIGINT       NOT NULL ,
    net_version           INT          NOT NULL ,
    net_protocol          TINYINT      NOT NULL ,
