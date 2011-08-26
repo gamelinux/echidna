@@ -96,6 +96,9 @@ sub run {
         ObjectStates => [
             $self => [ 'run', 'barnyard2_dispatcher', 'barnyard2_eid_max_get' ]
         ],
+        Started => sub {
+            $logger->info('Listening for barnyard2 instances on ' . $host . ':' . $port);
+        },
     );
 }
 
@@ -106,6 +109,11 @@ sub run {
 sub barnyard2_dispatcher
 {
     my ($kernel, $heap, $data) = @_[KERNEL, HEAP, ARG0];
+
+    # ignore any empty string artefacts
+    if ( length($data) == 0 ) {
+        return;
+    }
 
     # clean up any leading \0 which are artefacts of banyard2's C string \0 terminators
     if ( ord(substr($data, 0, 1)) == 0 ) {
