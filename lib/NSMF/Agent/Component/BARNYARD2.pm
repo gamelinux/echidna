@@ -115,6 +115,16 @@ sub barnyard2_dispatcher
 {
     my ($kernel, $heap, $data) = @_[KERNEL, HEAP, ARG0];
 
+    # there is no point processing if we're not connected to the server
+    # NOTE:
+    # the benefit of not processing is that barnyard2 will block on input
+    # processing and thus will take care of all caching overhead.
+    my $connected =  $kernel->call('node', 'connected') // 0;
+
+    if( $connected == 0 ) {
+        return;
+    }
+
     # ignore any empty string artefacts
     if ( length($data) == 0 ) {
         return;
