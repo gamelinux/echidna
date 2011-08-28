@@ -65,7 +65,7 @@ sub new {
             _db         => undef,
             _sessid     => undef,
         },
-        __main          => \&run,
+        __client        => undef,
     }, $class;
 }
 
@@ -107,7 +107,7 @@ sub sync {
 
     return if ( ! defined_args($host, $port) );
 
-    POE::Component::Client::TCP->new(
+    $self->{__client} = POE::Component::Client::TCP->new(
         Alias         => 'node',
         RemoteAddress => $host,
         RemotePort    => $port,
@@ -125,7 +125,11 @@ sub sync {
             $kernel->yield('authenticate');
         },
         ConnectError => sub {
-            $logger->warn("Could not connect to server ($host:$port) ...");
+            my ($kernel, $heap) = @_[KERNEL, HEAP];
+            $logger->warn("Could not connect to server ($host:$port)... Attempting reconnect in " . $heap->{reconnect} . 's');
+
+            # reconnect
+            $kernel->delay('connect', $heap->{reconnect});
         },
         ServerInput => sub {
             my ($kernel, $response) = @_[KERNEL, ARG0];
@@ -134,14 +138,27 @@ sub sync {
         },
         ServerError => sub {
             my ($kernel, $heap) = @_[KERNEL, HEAP];
-            $logger->warn("Lost connection to server...");
-            $logger->info("Going Down.");
-            exit;
+            $logger->warn('Lost connection to server... Attempting reconnect in ' . $heap->{reconnect} . 's');
+
+            # reconnect
+            $kernel->delay('connect', $heap->{reconnect});
+        },
+        InlineStates => {
+            connected => sub {
+                my ($kernel, $heap) = @_[KERNEL, HEAP];
+
+                return $heap->{connected} // 0;
+            }
         },
         ObjectStates => [
             $proto => $proto->states(),
             $self => [ 'run', 'ident_node_get' ]
         ],
+        Started => sub {
+            my ($kernel, $heap) = @_[KERNEL, HEAP];
+
+            $heap->{reconnect} = 10;
+        },
     );
 }
 
@@ -173,7 +190,7 @@ sub session {
 }
 
 sub start {
-    POE::Kernel->run;
+    POE::Kernel->run();
 }
 
 1;

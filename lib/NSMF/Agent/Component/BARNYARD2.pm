@@ -57,13 +57,9 @@ sub hello {
     $logger->debug('Hello from BARNYARD2 node!!');
 }
 
-sub run {
-    my ($kernel, $heap) = @_[KERNEL, HEAP];
-    my $self = shift;
-
-    $logger->debug("Running barnyard2 processing..");
-
-    $self->hello();
+sub sync {
+    my ($self) = shift;
+    $self->SUPER::sync();
 
     my $settings = $self->{__config}->settings();
 
@@ -71,12 +67,12 @@ sub run {
     my $host = $settings->{barnyard2}{host} // "localhost";
     my $port = $settings->{barnyard2}{port} // 7060;
 
-    $heap->{listener} = new POE::Component::Server::TCP(
+    $self->{__barnyard2} = new POE::Component::Server::TCP(
         Alias         => 'by2',
         Address       => $host,
         Port          => $port,
         ClientConnected => sub {
-            my ($session, $heap) = @_[SESSION, HEAP];
+            my ($kernel, $session, $heap) = @_[KERNEL, SESSION, HEAP];
 
             $logger->debug('Barnyard2 instance connected: ' . $heap->{remote_ip});
 
@@ -100,6 +96,15 @@ sub run {
             $logger->info('Listening for barnyard2 instances on ' . $host . ':' . $port);
         },
     );
+}
+
+sub run {
+    my ($kernel, $heap) = @_[KERNEL, HEAP];
+    my $self = shift;
+
+    $logger->debug("Running barnyard2 processing..");
+
+    $self->hello();
 }
 
 #

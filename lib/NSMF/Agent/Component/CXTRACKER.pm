@@ -56,6 +56,22 @@ sub hello {
     $logger->debug('   Hello from CXTRACKER Node!!');
 }
 
+sub sync {
+    my $self = shift;
+
+    $self->SUPER::sync();
+    my $settings = $self->{__config}->settings();
+
+    $logger->error('CXTDIR undefined!') unless $settings->{cxtdir};
+
+    $self->{watcher} = NSMF::Agent::Action->file_watcher({
+        directory => $settings->{cxtdir},
+        callback  => [ $self, '_process' ],
+        interval  => 3,
+        pattern   => 'stats\..+\.(\d){10}'
+    });
+}
+
 sub run {
     my ($kernel, $heap) = @_[KERNEL, HEAP];
     my $self = shift;
@@ -64,23 +80,21 @@ sub run {
     $logger->debug("Running cxtracker processing..");
 
     $self->hello();
-
-    my $settings = $self->{__config}->settings();
-
-    $logger->error('CXTDIR undefined!') unless $settings->{cxtdir};
-
-    $heap->{watcher} = NSMF::Agent::Action->file_watcher({
-        directory => $settings->{cxtdir},
-        callback  => [ $self, '_process' ],
-        interval  => 3,
-        pattern   => 'stats\..+\.(\d){10}'
-    });
 }
+
 
 sub _process {
     my ($kernel, $heap, $file) = @_[KERNEL, HEAP, ARG0];
     my $self = shift;
 
+    # there is no point sending if we're not connected to the server
+    my $connected =  $kernel->call('node', 'connected') // 0;
+
+    if( $connected == 0 ) {
+        return;
+    }
+
+    # we need a valid node_id to mark identify all our communications
     my $node_id = $heap->{node_id} // -1;
 
     if ( $node_id < 0 ) {
