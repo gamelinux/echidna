@@ -38,7 +38,7 @@ use NSMF::Server;
 
 
 sub load {
-    my ($self, $module_name) = @_;
+    my ($self, $module_name, $acl) = @_;
 
     my $module_path;
     my $nsmf    = NSMF::Server->new();
@@ -53,7 +53,7 @@ sub load {
             die { status => 'error', message => "Failed to load module $module_name: $@" };
         }
         else {
-            return $module_path->new;
+            return $module_path->new($acl);
         }
     }
 

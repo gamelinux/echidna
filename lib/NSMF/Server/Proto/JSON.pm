@@ -58,6 +58,13 @@ my $config = NSMF::Server::ConfigMngr->instance;
 my $modules = $config->modules() // [];
 my $logger = NSMF::Common::Logger->new();
 
+
+#
+# CLIENT/NODE tracking
+#
+my $nodes = {};
+my $clients = {};
+
 sub instance {
     return $instance if ( $instance );
 
@@ -77,12 +84,38 @@ sub states {
         'ping',
         'post',
         'get',
-#        'child_output',
-#        'child_error',
-#        'child_signal',
-#        'child_close',
+        'node_registered',
+        'node_unregistered',
+        'client_registered',
+        'client_unregistered'
     ];
 }
+
+sub node_registered {
+    my ($kernel, $session, $heap) = @_[KERNEL, SESSION, HEAP];
+
+    $nodes->{$session->ID()} = {};
+}
+
+sub node_unregistered {
+    my ($kernel, $session, $heap) = @_[KERNEL, SESSION, HEAP];
+
+    delete $nodes->{$session->ID()};
+}
+
+sub client_registered {
+    my ($kernel, $session, $heap) = @_[KERNEL, SESSION, HEAP];
+
+    $clients->{$session->ID()} = {};
+}
+
+sub client_unregistered {
+    my ($kernel, $session, $heap) = @_[KERNEL, SESSION, HEAP];
+
+    delete $clients->{$session->ID()};
+}
+
+
 
 sub dispatcher {
     my ($kernel, $heap, $request) = @_[KERNEL, HEAP, ARG0];
@@ -199,6 +232,7 @@ sub authenticate {
         }
 
         $heap->{name} = $client;
+        $heap->{acl} = $client_details->{level};
         $heap->{module} = {};
 
         $logger->debug("Client authenticated: $client");
@@ -263,7 +297,7 @@ sub identify {
         $heap->{status}     = 'EST';
 
         eval {
-            $heap->{module} = NSMF::Server::ModMngr->load(uc($module_type));
+            $heap->{module} = NSMF::Server::ModMngr->load(uc($module_type), 255); # full ACL priveleges applied
         };
 
         if ($@) {
@@ -446,7 +480,7 @@ sub get {
             $logger->debug("-> " .uc($module_type). " supported!");
 
             eval {
-                $heap->{module}{$module_type} = NSMF::Server::ModMngr->load(uc($module_type));
+                $heap->{module}{$module_type} = NSMF::Server::ModMngr->load(uc($module_type), $heap->{acl});
             };
 
             if ($@) {
