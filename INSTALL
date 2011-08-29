@@ -1,10 +1,16 @@
 DEPENDENCIES:
 
-- POE
-- ObjectDriver
-- Perl YAML::Tiny
-- Perl Log::Dispatch
-- Perl Module::Pluggable
+  - Perl POE
+  - Perl ObjectDriver
+  - Perl YAML::Tiny
+  - Perl Module::Pluggable
+  - Perl JSON
 
-INSTALL:
-    prompt>> sudo apt-get install libpoe-perl libdata-objectdriver-perl libyaml-tiny-perl liblog-dispatch-perl
+
+UBUNTU INSTALL:
+  # sudo apt-get install libpoe-perl libdata-objectdriver-perl libyaml-tiny-perl
+
+
+FEDORA INSTALL
+  # sudo yum install perl-POE perl-Data-ObjectDriver perl-YAML-Tiny perl-TimeDate perl-JSON
+
