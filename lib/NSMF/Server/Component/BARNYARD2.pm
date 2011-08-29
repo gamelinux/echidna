@@ -93,9 +93,11 @@ sub validate {
     my $db = NSMF::Server->database();
 
     # verify number of elements
-    if ( @{ $event } < 39 )
+    my $event_fields = @{ $event };
+
+    if ( @{ $event } < 25 )
     {
-        $logger->debug('Insufficient fields in EVENT line.');
+        $logger->debug('Insufficient fields in EVENT line. Got ' . $event_fields . ' and expected 25.');
         return 0;
     }
 
