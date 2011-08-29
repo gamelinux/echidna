@@ -26,7 +26,32 @@ use warnings;
 use strict;
 use v5.10;
 
-use base qw(Data::ObjectDriver::BaseObject);
+#
+# NSMF INCLUDES
+#
+use NSMF::Common::Logger;
 
+#
+# GLOBALS
+#
+my $logger = NSMF::Common::Logger->new();
+
+sub new {
+    my $class = shift;
+
+    my $obj = bless {
+        _get_commands => undef
+    }, $class;
+
+    return $obj->init(@_);
+}
+
+sub init {
+    my ($self, $acl) = @_;
+
+    $logger->warning('Base INIT needs to be overridden.');
+
+    return $self;
+}
 
 1;
