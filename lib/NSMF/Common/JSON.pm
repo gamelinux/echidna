@@ -103,6 +103,13 @@ use constant {
     code => -22,
     message => 'IDENT details not consistent with registration.'
   },
+
+  #
+  # GET
+  JSONRPC_NSMF_GET_UNSUPPORTED => {
+    code => -30,
+    message => 'GET module unsupported.'
+  },
 };
 
 #
@@ -130,6 +137,7 @@ our @EXPORT = qw(
     JSONRPC_NSMF_IDENT_UNSUPPORTED
     JSONRPC_NSMF_IDENT_REGISTERED
     JSONRPC_NSMF_IDENT_INCONSISTENT
+    JSONRPC_NSMF_GET_UNSUPPORTED
 );
 
 my $logger = NSMF::Common::Logger->new();
