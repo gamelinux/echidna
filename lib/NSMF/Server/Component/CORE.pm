@@ -1,7 +1,7 @@
 #
 # This file is part of the NSM framework
 #
-
+# Copyright (C) 2010-2011, Edward Fjellskål <edwardfjellskaal@gmail.com>
 #                          Eduardo Urias    <windkaiser@gmail.com>
 #                          Ian Firns        <firnsy@securixlive.com>
 #
@@ -20,44 +20,49 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #
-package NSMF::Server::ModMngr;
+package NSMF::Server::Component::CORE;
 
 use warnings;
 use strict;
 use v5.10;
 
+use base qw(NSMF::Server::Component);
+
 #
 # PERL INCLUDES
 #
-use Data::Dumper;
+use Module::Pluggable require => 1;
 
 #
 # NSMF INCLUDES
 #
 use NSMF::Server;
+use NSMF::Common::Logger;
 
+#
+# GLOBALS
+#
+my $logger = NSMF::Common::Logger->new();
 
-sub load {
-    my ($self, $module_name) = @_;
-
-    my $module_path;
-    my $nsmf    = NSMF::Server->new();
-    my $config  = $nsmf->config;
-    my $modules = ["core", $config->modules()];
-
-    if( lc($module_name) ~~ @$modules ) {
-        $module_path = 'NSMF::Server::Component::' . uc($module_name);
-        eval "use $module_path";
-
-        if( $@ ) {
-            die { status => 'error', message => "Failed to load module $module_name: $@" };
-        }
-        else {
-            return $module_path->new;
-        }
-    }
-
-    die { status => 'error', message => 'Module Not Enabled' }; 
+sub hello {
+    $logger->debug("Hello World from the CORE Module!");
+    my $self = shift;
+    $_->hello for $self->plugins;
 }
+
+
+sub post {
+    my ($self) = @_;
+
+    return 1;
+}
+
+
+sub get {
+    my ($self, $data) = @_;
+
+    $logger->debug($self, $data);
+}
+
 
 1;

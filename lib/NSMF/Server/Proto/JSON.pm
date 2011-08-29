@@ -76,7 +76,6 @@ sub states {
         'identify',
         'ping',
         'post',
-        'send_ping',
         'get',
 
 # Server -> Node
@@ -208,6 +207,7 @@ sub authenticate {
         }
 
         $heap->{name} = $client;
+        $heap->{module} = {};
 
         $logger->debug("Client authenticated: $client");
 
@@ -395,7 +395,7 @@ sub post {
       return;
     }
 
-    $logger->debug(' -> This is a post for ' . $heap->{name});
+    $logger->debug('This is a POST for ' . $heap->{name});
 
     my $module = $heap->{module};
 
@@ -424,37 +424,81 @@ sub post {
     }
 }
 
-sub send_ping {
-    my ($kernel, $heap, $request) = @_[KERNEL, HEAP, ARG0];
-    my $self = shift;
-
-    $logger->debug('  -> Sending PING');
-    my $payload = "PING " .time. " NSMF/1.0\r\n";
-    $heap->{client}->put($payload);
-}
-
 sub get {
     my ($kernel, $heap, $json) = @_[KERNEL, HEAP, ARG0];
     my $self = shift;
 
     if ( $heap->{status} ne 'EST' || ! $heap->{session_key}) {
-        $heap->{client}->put(json_error_create($json, JSONRPC_NSMF_BAD_REQUEST));
+        $heap->{client}->put(json_result_create($json, 'Bad request'));
         return;
     }
 
     eval {
-       my ($ret, $response) = json_validate($json, ['$type', '$jobid', '%data']);
+        my ($ret, $response) = json_validate($json, ['$type', '$jobid', '%data']);
     };
 
-    if ( ref $@ ) {
+    if ( ref($@) ) {
       $logger->error('Incomplete GET request. ' . $@->{message});
       $heap->{client}->put($@->{object});
       return;
     }
 
-    # search data
-    my $payload = encode_base64( compress( 'A'x1000 ) );
-    $heap->{client}->put(json_result_create($json, $payload));
+    my $module_type = $json->{params}{type};
+    $logger->debug($module_type, @$modules);
+
+    $logger->debug('This is a GET for ' . $module_type);
+
+    if ($module_type ~~ ["core", $modules]) {
+        # dyamically load module as required
+        if ( ! defined($heap->{module}{$module_type}) ) {
+            $logger->debug("-> " .uc($module_type). " supported!");
+
+            eval {
+                $heap->{module}{$module_type} = NSMF::Server::ModMngr->load(uc($module_type));
+            };
+
+            if ($@) {
+                $logger->error('Could not load module type: ' . $module_type);
+                $logger->debug($@);
+
+                $heap->{client}->put(json_error_create($json, JSONRPC_NSMF_GET_UNSUPPORTED));
+                return;
+            }
+        }
+
+
+        if ( defined($heap->{module}{$module_type}) ) {
+            $logger->debug("----> Module Call <----");
+
+            my $ret = undef;
+
+            eval {
+                $ret = $heap->{module}{$module_type}->get( $json->{params} );
+            };
+
+            my $response = '';
+
+            if ( $@ ) {
+                $logger->error($@);
+                $response = json_error_create($json, {
+                    message => $@->{message},
+                    code => $@->{code}
+                });
+            }
+            else {
+                $response = json_result_create($json, $ret);
+            }
+
+            # don't reply with empty strings
+            if ( $response ne '' ) {
+                $heap->{client}->put($response);
+            }
+        }
+    }
+    # module is not supported
+    else {
+        $heap->{client}->put(json_error_create($json, JSONRPC_NSMF_GET_UNSUPPORTED));
+    }
 }
 
 sub _is_authenticated {
