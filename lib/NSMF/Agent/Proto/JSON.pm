@@ -215,7 +215,10 @@ sub send_ping {
     my ($kernel, $heap) = @_[KERNEL, HEAP];
     my $self = shift;
 
-    return if $heap->{shutdown};
+    if ( ( ! $heap->{connected} ) ||
+         ( $heap->{shutdown} ) ) {
+        return;
+    }
 
     # verify established connection
     return if ( $heap->{stage} ne 'EST' );
