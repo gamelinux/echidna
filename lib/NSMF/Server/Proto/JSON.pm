@@ -444,11 +444,12 @@ sub get {
     }
 
     my $module_type = $json->{params}{type};
-    $logger->debug($module_type, @$modules);
 
     $logger->debug('This is a GET for ' . $module_type);
 
-    if ($module_type ~~ ["core", $modules]) {
+    my $modules_allowed = ["core", @{ $modules }];
+
+    if ( $module_type ~~ @{ $modules_allowed } ) {
         # dyamically load module as required
         if ( ! defined($heap->{module}{$module_type}) ) {
             $logger->debug("-> " .uc($module_type). " supported!");
@@ -465,7 +466,6 @@ sub get {
                 return;
             }
         }
-
 
         if ( defined($heap->{module}{$module_type}) ) {
             $logger->debug("----> Module Call <----");

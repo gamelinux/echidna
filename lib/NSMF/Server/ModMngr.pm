@@ -43,9 +43,9 @@ sub load {
     my $module_path;
     my $nsmf    = NSMF::Server->new();
     my $config  = $nsmf->config;
-    my $modules = ["core", $config->modules()];
+    my $modules = ["core", @{ $config->modules() } ];
 
-    if( lc($module_name) ~~ @$modules ) {
+    if( lc($module_name) ~~ @{ $modules } ) {
         $module_path = 'NSMF::Server::Component::' . uc($module_name);
         eval "use $module_path";
 
