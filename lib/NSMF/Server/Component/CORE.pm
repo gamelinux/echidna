@@ -44,6 +44,10 @@ use NSMF::Common::Logger;
 #
 my $logger = NSMF::Common::Logger->new();
 
+my $nsmf    = NSMF::Server->new();
+my $config  = $nsmf->config;
+my $modules =["core", @{ $config->modules() }];
+
 sub hello {
     $logger->debug("Hello World from the CORE Module!");
     my $self = shift;
@@ -62,6 +66,29 @@ sub get {
     my ($self, $data) = @_;
 
     $logger->debug($self, $data);
+
+    my $command = '';
+
+    if( ref($data->{data}) eq 'ARRAY' ) {
+        $command = $data->{data}->[0];
+    }
+    else {
+        $command = $data->{data};
+    }
+
+    given( $command ) {
+        when('modules_available')  {
+            return $modules;
+        }
+        default {
+            die {
+                message => 'Unknown module command',
+                code => -10000
+            };
+        }
+    }
+
+    return 0;
 }
 
 
