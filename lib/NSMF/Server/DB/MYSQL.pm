@@ -68,24 +68,9 @@ sub create {
 
     my @data_types = __PACKAGE__->data_types();
 
-    my $host = $settings->{host} // 'localhost';
-    my $port = $settings->{port} // '3306';
-    my $name = $settings->{name} // $logger->fatal('No database name provided.');
-    my $user = $settings->{user} // $logger->fatal('No database user provided.');
-    my $pass = $settings->{pass} // $logger->fatal('No database password provided.');
-
     $self->{__settings} = $settings;
 
-    # establish connection
-    $self->{__connection} = "dbi:mysql:$name:$host:$port";
-
-    eval {
-        $self->{__handle} = DBI->connect($self->{__connection}, $user, $pass, { RaiseError => 0, PrintError => 1});
-    };
-
-    if ( $@ ) {
-        $logger->fatal('Unable to connect to the database.');
-    }
+    $self->connect($settings);
 
     # load establish call backs
     for my $data_type_path ( @data_types )
@@ -126,6 +111,31 @@ sub create {
 }
 
 
+sub connect {
+    my ( $self, $settings ) = @_;
+
+    if ( ! defined($self->{__connection}) ) {
+        my $host = $settings->{host} // 'localhost';
+        my $port = $settings->{port} // '3306';
+        my $name = $settings->{name} // $logger->fatal('No database name provided.');
+
+        # establish connection
+        $self->{__connection} = "dbi:mysql:$name:$host:$port";
+    }
+
+    my $user = $settings->{user} // $logger->fatal('No database user provided.');
+    my $pass = $settings->{pass} // $logger->fatal('No database password provided.');
+
+    eval {
+        $self->{__handle} = DBI->connect($self->{__connection}, $user, $pass, { RaiseError => 0, PrintError => 1});
+    };
+
+    if ( $@ ) {
+        $logger->fatal('Unable to connect to the database.');
+    }
+}
+
+
 sub server_version_get {
     my $self = shift;
 
@@ -162,7 +172,6 @@ sub insert {
 
     for my $entry ( @{ $batch } )
     {
-        $logger->debug($entry);
         if ( ref($entry) ne 'HASH' )
         {
             $logger->warn('Ignoring entry due to unknown format: ' . ref($entry));
@@ -171,7 +180,17 @@ sub insert {
 
         $logger->debug('Adding entry');
 
-        $ret |= $type_map->{$type}->insert($entry);
+        eval {
+            $ret |= $type_map->{$type}->insert($entry);
+        };
+
+        if ( $@ ) {
+            # database has disappeared, let's reconnect
+            if( $DBI::err == 2006 ) {
+                $self->connect();
+                redo;
+            }
+        }
     }
 
     # end transaction
@@ -196,7 +215,24 @@ sub search {
     if ( $type ~~ @supported_types )
     {
         # remove the type from the filter
-        return $type_map->{$type}->search($filter);
+        my $ret = undef;
+
+        eval {
+            $ret = $type_map->{$type}->search($filter);
+        };
+
+        if ( $@ ) {
+            # database has disappeared, let's reconnect
+            if( $DBI::err == 2006 ) {
+                $self->connect();
+
+                eval {
+                    $ret = $type_map->{$type}->search($filter);
+                };
+            }
+        }
+
+        return $ret;
     }
 
     $logger->warn('Ignoring filter due to unsupported type: ' . $type, @supported_types);
