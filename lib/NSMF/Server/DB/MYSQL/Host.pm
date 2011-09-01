@@ -94,7 +94,7 @@ sub insert {
 
     # set sane defaults for optional
     $data->{data}{ip}          //=  0; # "81.29.231.51"
-    $data->[data}{type}        //= ''; # "SYN" (SYN,RST,SERVER,CLIENT,REPUTUATION.... etc)
+    $data->{data}{type}        //= ''; # "SYN" (SYN,RST,SERVER,CLIENT,REPUTUATION.... etc)
     $data->{data}{type_data}   //= ''; # "S4:57:1:60:M1460,S,T,N,W7:.:"
 
     $data->{data}{node}        //=  0; # "sensor1" - name of the node that recorded the data
@@ -103,7 +103,7 @@ sub insert {
     $data->{data}{os}          //=  0; # "Linux"
     $data->{data}{os_details}  //= ''; # "2.6 (newer, 7)"
     $data->{data}{timestamp}   //=  0; # "1303520845"
-    $data->[data}{type}        //= ''; # "SYN" (SYN,RST,SERVER,CLIENT.... etc) Repetuation :)
+    $data->{data}{type}        //= ''; # "SYN" (SYN,RST,SERVER,CLIENT.... etc) Repetuation :)
     $data->{data}{type_data}   //= ''; # "S4:57:1:60:M1460,S,T,N,W7:.:"
                                        # if type == CLIENT -> "http:Mozilla/5.0 (X11; Linux x86_64; rv:2.0) Gecko/20100101 Firefox/4.0"
     $data->{data}{mac}         //=  0; # "51:52:01:3c:4d:d8"
