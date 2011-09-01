@@ -98,7 +98,7 @@ sub insert {
     $data->{data}{length}   //= 0;
     $data->{vendor_meta}    //= {};
 
-    my $sql = 'INSERT INTO event (id, timestamp, classification, node_id, net_version, net_protocol, net_src_ip, net_src_port, net_dst_ip, net_dst_port) VALUES (' .
+    my $sql = 'INSERT INTO event (id, timestamp, classification, node_id, net_version, net_protocol, net_src_ip, net_src_port, net_dst_ip, net_dst_port, sig_id, sig_revision, sig_message, sig_priority, sig_category) VALUES (' .
         join(",", (
             $data->{id},
             $self->{__handle}->quote($data->{timestamp}),
@@ -110,6 +110,11 @@ sub insert {
             $data->{net_src_port},
             'INET_PTON("'.$data->{net_dst_ip}.'")',
             $data->{net_dst_port},
+            $data->{sig_id},
+            $data->{sig_revision},
+            $data->{sig_message},
+            $data->{sig_priority},
+            $data->{sig_category},
         )). ')';
 
     $logger->debug("SQL: $sql");
