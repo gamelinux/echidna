@@ -112,9 +112,9 @@ sub insert {
             $data->{net_dst_port},
             $data->{sig_id},
             $data->{sig_revision},
-            $data->{sig_message},
+            '"'.$data->{sig_message}.'"',
             $data->{sig_priority},
-            $data->{sig_category},
+            '"'.$data->{sig_category}.'"',
         )). ')';
 
     $logger->debug("SQL: $sql");
