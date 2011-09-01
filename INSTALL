@@ -8,7 +8,7 @@ DEPENDENCIES:
 
 
 UBUNTU INSTALL:
-  # sudo apt-get install libpoe-perl libdata-objectdriver-perl libyaml-tiny-perl
+  # sudo apt-get install libpoe-perl libdbd-mysql-perl libyaml-tiny-perl libjson-perl
 
 
 FEDORA INSTALL
