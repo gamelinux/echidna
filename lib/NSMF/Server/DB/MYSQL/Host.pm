@@ -175,7 +175,7 @@ sub custom {
 #
 
 # Taken from EVENT, not usable here... but left here for now
-subhost_id_max {
+sub host_id_max {
     my ($self, $filter) = @_;
 
     my $sql = 'SELECT IFNULL(MAX(ip), 0) as host_id_max FROM host ' . $self->create_filter($filter);
