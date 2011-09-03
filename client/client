@@ -109,6 +109,16 @@ POE::Component::Client::TCP->new(
 
 $logger->info('Client Initialized ...');
 
+sub init
+{
+#    $commands
+#        "modules_available" => {
+#          "help" => "Returns the available modules.",
+#          "exec" => \&get_modules_available,
+#        },
+
+}
+
 
 sub login
 {
@@ -163,6 +173,8 @@ sub load_session
         InputEvent => "prompt"
     );
 
+    # show we are ready to recieve user prompt
+    prompt_print();
 }
 
 
@@ -178,28 +190,73 @@ sub prompt
         given( $action[0] )
         {
             when(/^(h|help|\?)$/) {
-                say('No help for you!');
+                # check if we want help of a specific command
+                if ( ( @action == 2 ) &&
+                     ( $action[1] ~~ @{ $commands->{$module_active} } ) ) {
+                    $kernel->yield('get', {
+                        type => $module_active,
+                        data => [ 'help_' . $action[1] ]
+                    }, sub {
+                        my ($s, $k, $h, $json) = @_;
 
-                # list all commands for the current level
-                foreach my $c ( @{ $commands->{$module_active} } ) {
-                    say( $c );
+                        my $result = $json->{result} // '';
+
+                        say( $result );
+                    });
                 }
+                else {
+                    say('Commands available:');
 
-                # list available modules if at root level
-                if ( $module_active eq 'core' ) {
-                    foreach my $m ( @{ $modules } ) {
-                        continue if ( $m eq 'core' );
+                    # list all commands for the current level
+                    foreach my $c ( @{ $commands->{$module_active} } ) {
+                        say( '  ' . $c );
+                    }
 
-                        say( '[' . $m . ']' );
+                    # list available modules if at root level
+                    if ( $module_active eq 'core' ) {
+                        foreach my $m ( @{ $modules } ) {
+                            next if ( $m eq 'core' );
+
+                            say( '  [' . $m . ']' );
+                        }
                     }
                 }
+            }
+            when( @{ $commands->{$module_active} } ) {
+                $kernel->yield('get', {
+                    type => $module_active,
+                    data => @action
+                }, sub {
+                    my ($s, $k, $h, $json) = @_;
+
+                    my $result = $json->{result} // '';
+
+                    say( $result );
+                });
+            }
+            when ( @{ $modules } ) {
+                $module_active = $action[0];
+
             }
             default {
               say('ERROR: Unknown action: ' . $action[0]);
             }
         }
     }
+
+    prompt_print();
 }
+
+sub prompt_print
+{
+    if ( $module_active eq 'core' ) {
+        print('nsmf> ');
+    }
+    else {
+        print($module_active . '> ');
+    }
+}
+
 
 sub input_get {
     my ( $message ) = @_;

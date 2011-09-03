@@ -146,7 +146,7 @@ sub get {
                 }
             }
 
-            return "Commands available: " . join(", ", @{ $self->get_commands_avavailable() })
+            return "Commands available: " . join(", ", @{ $self->get_commands_available() })
         }
         default {
             $logger->debug($self->{_commands_available});
