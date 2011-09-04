@@ -72,6 +72,7 @@ sub states {
         'send_ping',
         'send_pong',
         'post',
+        'get',
 
         # -> From Server
         'got_ping',
@@ -159,7 +160,7 @@ sub authenticate {
             $logger->debug('Authenticated. Client ID = ' . $heap->{client_id});
 
             $heap->{stage} = 'EST';
-            $kernel->yield('prompt');
+            $kernel->yield('load_session');
         }
         elsif ( defined($json->{error}) ) {
             $logger->debug('Authentication NOT ACCEPTED!');
@@ -295,6 +296,31 @@ sub post {
     #}
 
     my $payload = json_encode(json_message_create('post', $data, $callback));
+
+    $heap->{server}->put($payload);
+
+    $logger->debug('Data Size: ' . length($payload));
+}
+
+sub get {
+    my ($kernel, $heap, $data, $callback) = @_[KERNEL, HEAP, ARG0, ARG1];
+    my $self = shift;
+
+    return if $heap->{shutdown};
+
+    # verify established connection
+    return if ( $heap->{stage} ne 'EST' );
+
+    $logger->debug('-> Sending POST...');
+
+    # TODO: validate type croak on fail
+    #if ( ref($type) ) {
+    #   my %hash = %$data;
+    #   $type = keys %hash;
+    #   $data = $hash{$type};
+    #}
+
+    my $payload = json_encode(json_message_create('get', $data, $callback));
 
     $heap->{server}->put($payload);
 
