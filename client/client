@@ -34,8 +34,9 @@ use v5.10;
 use Carp;
 use Data::Dumper;
 use POE;
-use POE::Filter::Line;
 use POE::Component::Client::TCP;
+use POE::Filter::Line;
+use POE::Wheel::ReadWrite;
 
 #
 # NSMF INCLUDES
@@ -58,7 +59,10 @@ my ($self) = @_;
 
 my $host = $config->host();
 my $port = $config->port();
-my @commands = ();
+
+my $module_active = 'core';
+my $modules = [];
+my $commands = {};
 
 
 if ( ! defined_args($host, $port) ) {
@@ -98,7 +102,8 @@ POE::Component::Client::TCP->new(
     ],
     InlineStates => {
         'login' => \&login,
-        'prompt' => \&prompt
+        'prompt' => \&prompt,
+        'load_session' => \&load_session,
     }
 );
 
@@ -110,40 +115,104 @@ sub login
     my ($kernel, $heap) = @_[KERNEL, HEAP];
 
     if( ! defined($heap->{name}) ) {
-        $heap->{name} = $logger->prompt('Username: ');
+        $heap->{name} = input_get('Username: ');
     }
 
     if( ! defined($heap->{secret}) ) {
-        $heap->{secret} = $logger->prompt('Password: ');
+        $heap->{secret} = input_get('Password: ');
     }
 
     $kernel->yield('authenticate');
 }
 
-
-sub prompt
+sub load_session
 {
     my ($kernel, $heap) = @_[KERNEL, HEAP];
 
-    my $input = $logger->prompt('');
+    # clear existing known commands
+    $modules = [];
+    $commands = {};
 
-    my @action = split(/ /, $input);
+    # start the query process
+    $kernel->yield('get', {
+        type => 'core',
+        data => [ 'modules_available' ]
+    }, sub {
+        my ($s, $k, $h, $json) = @_;
+
+        $modules = $json->{result} // [];
+
+        foreach my $m ( @{ $modules } ) {
+            $commands->{$m} = [];
+
+            $kernel->yield('get', {
+                type => $m,
+                data => [ 'commands_available' ]
+            }, sub {
+                my ($s, $k, $h, $json) = @_;
+
+                $commands->{$m} = $json->{result} // [];
+            });
+        }
+    });
+
+    # build up
+    $heap->{console} = POE::Wheel::ReadWrite->new(
+        InputHandle => \*STDIN,
+        OutputHandle => \*STDOUT,
+        InputEvent => "prompt"
+    );
+
+}
+
+
+
+
+sub prompt
+{
+    my ($kernel, $heap, $data) = @_[KERNEL, HEAP, ARG0];
+
+    my @action = split(/ /, $data);
 
     if( @action ) {
         given( $action[0] )
         {
             when(/^(h|help|\?)$/) {
-              $logger->debug('No help for you!');
+                say('No help for you!');
+
+                # list all commands for the current level
+                foreach my $c ( @{ $commands->{$module_active} } ) {
+                    say( $c );
+                }
+
+                # list available modules if at root level
+                if ( $module_active eq 'core' ) {
+                    foreach my $m ( @{ $modules } ) {
+                        continue if ( $m eq 'core' );
+
+                        say( '[' . $m . ']' );
+                    }
+                }
             }
             default {
-                $logger->error('Unknown action: ' . $action[0]);
+              say('ERROR: Unknown action: ' . $action[0]);
             }
         }
     }
-
-    $kernel->yield('prompt');
 }
 
+sub input_get {
+    my ( $message ) = @_;
+
+    $message //= '';
+
+    print( 'nsmf> ' . $message );
+
+    my $input = <STDIN>;
+    chomp($input);
+
+    return $input;
+}
 
 POE::Kernel->run();
 

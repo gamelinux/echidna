@@ -36,7 +36,6 @@ use Carp;
 #
 use NSMF::Common::Logger;
 use NSMF::Server;
-use NSMF::Server::Model::Agent;
 
 #
 # GLOBALS

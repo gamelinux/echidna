@@ -503,7 +503,7 @@ sub get {
         }
 
         if ( defined($heap->{module}{$module_type}) ) {
-            $logger->debug("----> Module Call <----");
+            $logger->debug("Module Called");
 
             my $ret = undef;
 

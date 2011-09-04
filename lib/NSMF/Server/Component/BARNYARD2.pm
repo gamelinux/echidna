@@ -37,7 +37,6 @@ use Module::Pluggable require => 1;
 # NSMF INCLUDES
 #
 use NSMF::Server;
-use NSMF::Server::Driver;
 use NSMF::Common::Logger;
 
 #
