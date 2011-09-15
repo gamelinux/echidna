@@ -31,7 +31,7 @@ use v5.10;
 #
 use POE;
 use POE::Wheel::Run;
-
+use Data::Dumper;
 #
 # NSMF INCLUDES
 #
@@ -48,24 +48,43 @@ sub file_catcher {
     $logger->fatal('Expected hash ref of parameters. Got: ', $settings) if ( ! ref($settings) );
 
     my $trx_id   = $settings->{transfer_id}   // $logger->fatal('Transfer Id Expected');
-    #my $dir      = $settings->{directory}     // $logger->fatal('Directory Expected');
-    #my $time     = $settings->{duration}      // 60;
-    #my $cb_obj   = $settings->{callback}->[0] // $logger->fatal('Callback Expected');
-    #my $cb_func  = $settings->{callback}->[1] // $logger->fatal('Callback Expected');
     my $checksum = $settings->{checksum}      // $logger->fatal('Checksum Expected');
 
-
-    POE::Session->create(
+    return POE::Session->create(
         inline_states => {
             _start => sub {
                 $_[KERNEL]->yield('catch');
                 $_[KERNEL]->alias_set('listener_'. $trx_id);
+                $_[HEAP]{job_id} = $trx_id;
+            },
+            got_signal => sub {
+                my ($pid, $status) = @_[ARG1, ARG2];
+                given($status) {
+                    when(/^0$/) {
+                        $logger->debug("PCAP Transferred Successfully");
+                    }
+                    when(/2304/) {
+                        $logger->debug("PCAP Listener timed out!");
+                    }
+                    default {
+                        $logger->debug("Listener pid $pid exited with status $status.");
+                    }
+                }
+
+                my $child = delete $_[HEAP]{transfer_by_pid}{$pid};
+
+                # May have been reaped by on_child_close().
+                return unless defined $child;
+
+                delete $_[HEAP]{transfer_by_wid}{$child->ID};
+
+                # Remove transfer session from queue
+                $_[KERNEL]->post(transfer_mngr => queue_remove => $_[HEAP]{job_id});
             },
             catch => sub {
                 my ($kernel, $heap) = @_[KERNEL, HEAP];
-                my $file_back;
 
-                say "Spawning Listener..";
+                $logger->debug("Spawning Listener..");
 
                 # get unique job id
                 my $child  = POE::Wheel::Run->new(
@@ -73,53 +92,38 @@ sub file_catcher {
                         "/home/larsx/transfer/server.pl",
                         #$checksum,
                     ],
-                    StdoutEvent => "got_stdout",
-                    StderrEvent => "got_stderr",
-                    CloseEvent => "got_close",
+                    StdoutEvent => sub {
+                        my ($stderr_line, $wheel_id) = @_[ARG0, ARG1];
+                        my $child = $_[HEAP]{transfer_by_wid}{$wheel_id};
+                        $logger->debug("pid ", $child->PID, " LISTENER: $stderr_line");
+                    },
+                    StderrEvent => sub {
+                        my ($stderr_line, $wheel_id) = @_[ARG0, ARG1];
+                        my $child = $_[HEAP]{transfer_by_wid}{$wheel_id};
+                        $logger->debug("pid ", $child->PID, " STDERR: $stderr_line");
+                    },
+                    CloseEvent => sub {
+                        my $wheel_id = $_[ARG0];
+                        my $child = delete $_[HEAP]{transfer_by_wid}{$wheel_id};
+
+                        unless (defined $child) {
+                        $logger->debug("wid $wheel_id closed all pipes.");
+                        return;
+                        }
+
+                        $logger->debug("pid ", $child->PID, " closed all pipes.");
+                        delete $_[HEAP]{transfer_by_pid}{$child->PID};
+                    },
                 );
 
                 $kernel->sig_child($child->PID, "got_signal");
                 $_[HEAP]{transfer_by_wid}{$child->ID} = $child;
                 $_[HEAP]{transfer_by_pid}{$child->PID} = $child;
 
-                say "Listener pid ". $child->PID ." started as wheel". $child->ID. ".";
+                $logger->debug("Listener pid ". $child->PID ." started as wheel". $child->ID. ".");
             },
         },
     );
 }
-    sub got_stdout {
-        my ($stderr_line, $wheel_id) = @_[ARG0, ARG1];
-        my $child = $_[HEAP]{transfer_by_wid}{$wheel_id};
-        say "pid ", $child->PID, " LISTENER: $stderr_line";
-    }
-
-    sub got_close {
-        my $wheel_id = $_[ARG0];
-        my $child = delete $_[HEAP]{transfer_by_wid}{$wheel_id};
-
-        unless (defined $child) {
-            say "wid $wheel_id closed all pipes.";
-            return;
-        }
-
-        say "pid ", $child->PID, " closed all pipes.";
-        delete $_[HEAP]{transfer_by_pid}{$child->PID};
-    }
-
-    sub got_stderr {
-        my ($stderr_line, $wheel_id) = @_[ARG0, ARG1];
-        my $child = $_[HEAP]{transfer_by_wid}{$wheel_id};
-        say "pid ", $child->PID, " STDERR: $stderr_line";
-    }
-
-    sub got_signal {
-        say "pid $_[ARG1] exited with status $_[ARG2].";
-        my $child = delete $_[HEAP]{transfer_by_pid}{$_[ARG1]};
-
-        # May have been reaped by on_child_close().
-        return unless defined $child;
-
-        delete $_[HEAP]{transfer_by_wid}{$child->ID};
-    }
 
 1;

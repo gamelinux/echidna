@@ -315,8 +315,6 @@ sub post {
 sub has_pcap {
     my ($kernel, $heap, $json) = @_[KERNEL, HEAP, ARG0];
 
-    $logger->debug('params: '. Dumper $json->{params});
-
     $logger->debug('  CHECKING IF THE DATA EXISTS ON THE NODE STORAGE');
 
     my $result_params =   {

@@ -48,7 +48,6 @@ use NSMF::Server;
 use NSMF::Server::AuthMngr;
 use NSMF::Server::ConfigMngr;
 use NSMF::Server::ModMngr;
-use NSMF::Server::Action;
 
 
 #
@@ -109,11 +108,17 @@ sub dispatcher {
 
     # check if we should respond first
     if ( defined($action->{callback}) ) {
+
         # fire the callback providing
         #   1. ourself
         #   2. POE kernel
         #   3. POE connection heap
         #   4. JSON response
+
+        #if ($action->{method} eq 'has_pcap') {
+        #    $heap->{pcap} = $action->{callback}($self, $kernel, $heap, $json);
+        #    return;
+        #}
         return $action->{callback}($self, $kernel, $heap, $json);
     }
 
@@ -281,7 +286,7 @@ sub identify {
             $logger->debug("----> Module Call <----");
 
             $heap->{client}->put(json_result_create($json, $module_details));
-            # $kernel->yield('has_pcap'); # DEBUG
+            #$kernel->yield('has_pcap'); # DEBUG
             return;
 
             #
@@ -310,6 +315,7 @@ sub ping {
 
     $logger->debug("  <- Got PING");
 
+    $kernel->post(transfer_mngr => 'queue_status');
     eval {
         json_validate($json, ['$timestamp']);
     };
@@ -474,13 +480,7 @@ sub has_pcap {
  
         if (defined($json->{result})) {
             $logger->debug("File Metadata Recevied");
-            $logger->debug(" -> SPAWNING LISTENER");
-
-           NSMF::Server::Action->file_catcher({
-              transfer_id => $json->{id},,
-              checksum    => $json->{result}{checksum},
-           });
-
+            $kernel->post('transfer_mngr', 'catch', $json);
         } else {
             $logger->debug("Error: Expected file metadata from node");
             $logger->debug(Dumper $json);
