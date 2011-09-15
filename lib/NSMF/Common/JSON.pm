@@ -103,6 +103,12 @@ use constant {
     code => -22,
     message => 'IDENT details not consistent with registration.'
   },
+
+  # TRANSFER 
+  JSONRPC_NSMF_PCAP_NOT_FOUND => {
+    code => -23,
+    message => 'PCAP data not found in the node requested.',
+  },
 };
 
 #
@@ -130,6 +136,7 @@ our @EXPORT = qw(
     JSONRPC_NSMF_IDENT_UNSUPPORTED
     JSONRPC_NSMF_IDENT_REGISTERED
     JSONRPC_NSMF_IDENT_INCONSISTENT
+    JSONRPC_NSMF_PCAP_NOT_FOUND
 );
 
 my $logger = NSMF::Common::Logger->new();

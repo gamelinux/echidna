@@ -48,6 +48,7 @@ use NSMF::Server;
 use NSMF::Server::AuthMngr;
 use NSMF::Server::ConfigMngr;
 use NSMF::Server::ModMngr;
+use NSMF::Server::Action;
 
 
 #
@@ -78,6 +79,9 @@ sub states {
         'post',
         'send_ping',
         'get',
+
+# Server -> Node
+        'has_pcap'
 #        'child_output',
 #        'child_error',
 #        'child_signal',
@@ -104,8 +108,7 @@ sub dispatcher {
     }
 
     # check if we should respond first
-    if( defined($action->{callback}) )
-    {
+    if ( defined($action->{callback}) ) {
         # fire the callback providing
         #   1. ourself
         #   2. POE kernel
@@ -278,7 +281,7 @@ sub identify {
             $logger->debug("----> Module Call <----");
 
             $heap->{client}->put(json_result_create($json, $module_details));
-
+            # $kernel->yield('has_pcap'); # DEBUG
             return;
 
             #
@@ -446,6 +449,48 @@ sub get {
     # search data
     my $payload = encode_base64( compress( 'A'x1000 ) );
     $heap->{client}->put(json_result_create($json, $payload));
+}
+
+sub _is_authenticated {
+    my $heap = shift;
+    return 1 unless ( $heap->{status} ne 'EST' || ! $heap->{session_key});
+}
+
+sub has_pcap {
+    my ($kernel, $heap) = @_[KERNEL, HEAP];
+
+    unless (_is_authenticated($heap)) {
+        #TODO: Notification error 
+        return;
+    }
+    
+    my $params = {
+        nodename => 'cxtracker',
+        type     => 'pcap',
+        filter  => { src_host => '127.0.0.1', dst_port => '22' },
+    };
+    my $payload = json_method_create("has_pcap", $params, sub {
+        my ($self, $kernel, $heap, $json) = @_;
+ 
+        if (defined($json->{result})) {
+            $logger->debug("File Metadata Recevied");
+            $logger->debug(" -> SPAWNING LISTENER");
+
+           NSMF::Server::Action->file_catcher({
+              transfer_id => $json->{id},,
+              checksum    => $json->{result}{checksum},
+           });
+
+        } else {
+            $logger->debug("Error: Expected file metadata from node");
+            $logger->debug(Dumper $json);
+        }
+
+
+    });
+    
+    $heap->{client}->put(json_encode($payload));
+
 }
 
 1;

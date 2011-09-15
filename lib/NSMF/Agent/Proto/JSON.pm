@@ -76,6 +76,7 @@ sub states {
         # -> From Server
         'got_ping',
         'got_pong',
+        'has_pcap',
     ];
 }
 
@@ -131,6 +132,9 @@ sub dispatcher {
             given($action->{method}) {
                 when(/^ping/i) {
                     $kernel->yield('got_ping');
+                }
+                when(/^has_pcap/i) {
+                    $kernel->yield('has_pcap' => $json);
                 }
                 default: {
                     $logger->debug(" UNKNOWN RESPONSE: $request");
@@ -306,6 +310,32 @@ sub post {
     $heap->{server}->put($payload);
 
     $logger->debug('Data Size: ' . length($payload));
+}
+
+sub has_pcap {
+    my ($kernel, $heap, $json) = @_[KERNEL, HEAP, ARG0];
+
+    $logger->debug('params: '. Dumper $json->{params});
+
+    $logger->debug('  CHECKING IF THE DATA EXISTS ON THE NODE STORAGE');
+
+    my $result_params =   {
+        filter => $json->{params}{filter},
+        checksum => '57239a761d86ff5430321193ab3fd9cbeba69a77',
+        type => $json->{params}{type},
+        size => 104528,
+    };
+
+    my $found = 1;
+    if ($found) {
+        $heap->{server}->put(json_result_create($json, $result_params));
+        $logger->debug(' Meta data sent.');
+    }
+    # not
+    else {
+        $heap->{server}->put(json_error_create($json,
+            JSONRPC_NSMF_PCAP_NOT_FOUND));
+    }
 }
 
 1;
