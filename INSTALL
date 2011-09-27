@@ -1,18 +1,18 @@
 DEPENDENCIES:
 
   - Perl POE
-  - Perl ObjectDriver
   - Perl YAML::Tiny
   - Perl Module::Pluggable
   - Perl JSON
+  - Perl Log-Dispatch
 
 
 UBUNTU INSTALL:
-  # sudo apt-get install libpoe-perl libdbd-mysql-perl libyaml-tiny-perl libjson-perl 
+  # sudo apt-get install libpoe-perl libdbd-mysql-perl libyaml-tiny-perl libjson-perl libmodule-pluggable-perl liblog-dispatch-perl
 
 
 FEDORA INSTALL
-  # sudo yum install perl-POE perl-Data-ObjectDriver perl-YAML-Tiny perl-TimeDate perl-JSON
+  # sudo yum install perl-POE perl-YAML-Tiny perl-TimeDate perl-JSON
 
 
 NOTES:
