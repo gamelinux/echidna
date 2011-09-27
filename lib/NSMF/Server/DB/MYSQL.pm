@@ -126,11 +126,9 @@ sub connect {
     my $user = $settings->{user} // $logger->fatal('No database user provided.');
     my $pass = $settings->{pass} // $logger->fatal('No database password provided.');
 
-    eval {
-        $self->{__handle} = DBI->connect($self->{__connection}, $user, $pass, { RaiseError => 0, PrintError => 1});
-    };
+    $self->{__handle} = DBI->connect($self->{__connection}, $user, $pass, { RaiseError => 0, PrintError => 1});
 
-    if ( $@ ) {
+    if ( ! $self->{__handle} ) {
         $logger->fatal('Unable to connect to the database.');
     }
 }
