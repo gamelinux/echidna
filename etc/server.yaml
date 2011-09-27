@@ -32,7 +32,9 @@ log:
 #   - http
 #   - json
 #
-protocol: json
+protocol:
+    client: json
+    node: json
 
 #
 # DATABASE

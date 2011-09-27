@@ -33,7 +33,8 @@ use Data::Dumper;
 use File::Spec;
 use Module::Pluggable search_path => 'NSMF::Server::Component', sub_name => 'modules';
 use Module::Pluggable search_path => 'NSMF::Server::Worker', sub_name => 'workers';
-use Module::Pluggable search_path => 'NSMF::Server::Proto', sub_name => 'protocols';
+use Module::Pluggable search_path => 'NSMF::Server::Proto::Node', sub_name => 'node_protocols';
+use Module::Pluggable search_path => 'NSMF::Server::Proto::Client', sub_name => 'client_protocols';
 use Module::Pluggable search_path => 'NSMF::Server::DB', sub_name => 'databases';
 
 #
@@ -62,12 +63,14 @@ sub new {
         my $config = NSMF::Server::ConfigMngr::instance();
         $config->load($config_path);
 
-        my $proto;
+        my $node_proto;
+        my $client_proto;
         my $database;
 
         eval {
             $database = NSMF::Server::DBMngr->create($config->database());
-            $proto = NSMF::Server::ProtoMngr->create($config->protocol());
+            $node_proto = NSMF::Server::ProtoMngr->create('node', $config->protocol('node'));
+            $client_proto = NSMF::Server::ProtoMngr->create('client', $config->protocol('client'));
         };
 
         if ( $@ )
@@ -79,7 +82,10 @@ sub new {
             __config_path => $config_path,
             __config      => $config,
             __database    => $database,
-            __proto       => $proto, 
+            __proto       => {
+                node    => $node_proto,
+                client  => $client_proto,
+            }
         }, __PACKAGE__;
     }
 
@@ -92,16 +98,20 @@ sub config {
 
     return if ( ref($instance) ne __PACKAGE__ );
 
-    return $instance->{__config} // die { status => 'error', message => 'No Configuration File Enabled' }; 
+    return $instance->{__config} // die { status => 'error', message => 'No configuration file enabled!' }; 
 }
 
 # get method for proto singleton object
 sub proto {
-    my ($self) = @_;
+    my ($self, $type) = @_;
 
     return if ( ref($instance) ne __PACKAGE__ );
 
-    return $instance->{__proto} // die { status => 'error', message => 'No Protocol Enabled' };
+    if ( defined($type) ) {
+        return $instance->{__proto}{$type};
+    }
+
+    return $instance->{__proto};
 }
 
 # get method for database singleton object
@@ -110,7 +120,7 @@ sub database {
 
     return if ( ref($instance) ne __PACKAGE__ );
 
-    return $instance->{__database} // die { status => 'error', message => 'No Database Enabled' };
+    return $instance->{__database} // die { status => 'error', message => 'No database defined.' };
 }
 
 1;

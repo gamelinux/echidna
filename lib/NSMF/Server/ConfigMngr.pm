@@ -89,7 +89,8 @@ sub load {
     $self->{config}{log}{error_is_fatal}    //= 0;
     $logger->load($self->{config}{log});
 
-    $self->{config}{protocol}               //= 'json';
+    $self->{config}{protocol}{node}         //= 'json';
+    $self->{config}{protocol}{client}       //= 'json';
 
     $self->{config}{modules}                //= [];
     map { $_ = lc $_ } @{ $self->{config}{modules} };
@@ -136,6 +137,12 @@ sub database {
 sub protocol {
     my $self = shift;
     return if ( ref($self) ne __PACKAGE__ );
+
+    my $type = shift;
+
+    if ( defined($type) ) {
+        return $instance->{config}{protocol}{$type};
+    }
 
     return $instance->{config}{protocol};
 }

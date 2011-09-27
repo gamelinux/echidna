@@ -48,7 +48,8 @@ our $VERSION = '0.1';
 
 my $nsmf    = NSMF::Server->new();
 my $config  = $nsmf->config();
-my $proto   = $nsmf->proto();
+my $proto_nodes   = $nsmf->proto('node');
+my $proto_clients = $nsmf->proto('client');
 my $logger  = NSMF::Common::Logger->new();
 
 # service node connections
@@ -63,12 +64,13 @@ my $nodes = POE::Component::Server::TCP->new(
         $kernel->yield('dispatcher', $input);
     },
     ClientFilter => "POE::Filter::Line",
-    ObjectStates => [ $proto => $proto->states ],
+    ObjectStates => [ $proto_nodes => $proto_nodes->states() ],
     Started => sub {
         $logger->info('Listening for nodes on ' . $config->node_host() . ':' . $config->node_port());
     },
 );
 
+# service client connections
 my $clients = POE::Component::Server::TCP->new(
     Alias              => "client_listener",
     Address            => $config->client_host(),
@@ -80,7 +82,7 @@ my $clients = POE::Component::Server::TCP->new(
         $kernel->yield('dispatcher', $input);
     },
     ClientFilter => "POE::Filter::Line",
-    ObjectStates => [ $proto => $proto->states ],
+    ObjectStates => [ $proto_clients => $proto_clients->states() ],
     Started => sub {
         $logger->info('Listening for clients on ' . $config->client_host() . ':' . $config->client_port());
     },
