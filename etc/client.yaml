@@ -10,7 +10,7 @@ client:
 
 server:
     host: 127.0.0.1
-    port: 10201
+    port: 20201
 
 #
 # LOG

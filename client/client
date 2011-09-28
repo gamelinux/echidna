@@ -231,6 +231,7 @@ sub prompt
 
                     my $result = $json->{result} // '';
 
+                    # TODO post process result with client aware components
                     say( $result );
                 });
             }
