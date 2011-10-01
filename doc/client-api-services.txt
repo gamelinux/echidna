@@ -1,0 +1,109 @@
+## Echidna Client API
+# Requests we expect to provide from the API to UI/Mobile/CLI clients
+
+# Echidna system status
+* How many clients are connected
+* How many nodes/agents/workers are connected
+* How many users are connected
+* How many jobs are in the queue (pcap extraction etc.)
+* Echidna runtime (how long since the server started)
+* Echidna server version
+* Echidna plugins loaded/supported
+* System status (simple)
+  - avg CPU usage
+  - Memory usage
+  - Load
+  - Disk and DB usage
+
+# Event
+* Get event status
+  - How many total events in DB
+    - How many reviewed and not reviewed events in DB
+  - How many total events in DB for sensor X
+    - How many reviewed and not reviewed events in DB for sensor X
+  - How many total events in DB for network/sensor group Y
+    - How many reviewed and not reviewed events in DB for network/sensor group Y
+  - How many Events are recieved to the server /sec (avarage last 5 mins etc.)
+    - Granual - how many are from Snort, Suricata, OSSEC etc...
+** Expect full data set back? client displays what it wants
+
+* Search for events
+  - Based on different criterias
+    - Get ALL reviewed/unreviewed evens in DB
+    - Get all reviewed/unreviewed events for sensor X in DB
+    - Get all reviewed/unreviewed events for network/sensor group Y in DB
+    - Get all reviewed/unreviewed events for TYPE X (snort/OSSEC/...) in DB
+    - Get all reviewed/unreviewed events for IP/Network (10.10.10.22 or 10.10.10.0/24 etc)
+    - Get all reviewed/unreviewed events with message "/^regexp$/"
+    - There should also be a time contraint.
+      - Search for events the last minute, hour, days, weeks, months, year.....
+  - Based on a set of different criterias. Examples:
+    - Get all reviewed events from sensor X that matches IP n.n.n.n and has event message "foo"
+    - Get all reviewed and unreviewed events from all sensors that has src_ip "123.123.123.1"
+    - Get all unreviewed events from all sensors that has snort ID (sid) "31337"
+    - Get all events from sensor X, Y , Z, for the last 24 hours and with src_network "123.123.123.0/24"
+** Expect full data set back? client displays what it wants
+
+# Session
+* Get session status (not sure if this is smart :)
+  - Get total flows in DB
+    - Get total flows for day X
+  - Get total flows in DB from sensor/network_group X
+    - Get total flows for day X for sensor Y
+
+* Search in session
+  - Search for sessions to/from IP x.x.x.x
+  - Search for sessions to/from Network x.x.x.x/yy
+  - Additional fields to contrain search:
+    - Time (from-date and to-date or just $day)
+    - Port (src_port and/or dst_port)
+    - Protocol (tcp,udp,icmp,and all others)
+    - Sensor/Network_Group
+    - src_packet/dst_packets
+    - src_bytes/dst_bytes
+    - src_flags/dst_flags
+  - Examples :
+    - Search for session from IP x.x.x.x to IP y.y.y.y and protocol 6 and src_port or dst_port = 443
+    - Search for session from (src_ip) Network x.x.x.x/yy and (dst_ip) Network z.z.z.z/aa and protocol = 17
+    - Search for session from src_ip x.x.x.x to dst_ip y.y.y.y between time "2011-01-01 00:00:01" and "2012-01-01 00:00:01"
+    - Search for session where (src_packet and dst_packet = 5) and (src_bytes and dst_bytes = 256)
+    - Search for session where (src_packet = 1 and dst_packet = 0) and (src_flags = SYN)
+    - Search for session where (dst_network =  x.x.x.x/yy) and dst_port = 443 and protocol = 6 and \
+        src_flags = SYN and dst_flags = (FIN+RST) between time "2011-01-01 16:00:01" and "2011-01-01 23:00:01"
+** Expect full data set back? client displays what it wants
+
+# PCAP
+* From session search
+  - Get pcap with <bpf> <date> <date> [pcap-filename] [pcap-file-start-position] [pcap-file-end-position]...
+    ...[pcap-filenameN] [pcap-file-start-positionN] [pcap-file-end-positionN] ?
+    "host $src_ip and port $src_port and host $dst_ip and port $dst_port and proto $protocol" + 
+    "$session_start_time $session_end_time" "F:/echidna/amazon_ext_int_fw_1/pcap/1317427203.pcap" "S:345666" "E:448222"
+* A smart ting todo, would be to contrain for a client to be able to search for pcaps over a large amount of time
+  do prevent DoS of the system. Think if someone sends a search for a pcap that will read all pcap files! over
+  and over again... :)
+  - Configurable, but dont search for pcaps where from-date and to-date spands over a week etc.
+
+** Expect one or more pcap files
+
+# HOST
+* Status
+  - How many total hosts entries do we have.
+  - How many unique IPs/hosts
+  - How many host entries of TYPE X,Y,Z....
+
+* Search
+  Get all host entries where type = PASSIVEDNS and dnstype = A (record) and IP = 255.255.255.255
+  Get all host entries where type = PASSIVEDNS and dnstype = A (record) and Domain = www.gamelinux.org
+  Get all host entries where first_seen = "date" and/or last seen ="date"...
+  Get all host entries where type = PRADS-TCP-SYN and IP = x.x.x.x
+  Get all host entries where type = OS and Network = x.x.x.x/ff
+  Get all host entries where first_seen = "date" and Network = x.x.x.x/ff
+
+** Expect full data set back? client displays what it wants
+
+
+# Other module
+...
+
+
+To be continued...
