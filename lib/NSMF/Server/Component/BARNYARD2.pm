@@ -130,6 +130,7 @@ sub save {
     return $event_id if ($validation == 2);
 
     my $db = NSMF::Server->database();
+#2011-09-01 20:11:40 [D] {"params":{"parameters":["1","376631","21","2011-09-01 22:07:30.308857","1","30100000","1","Snort Alert [1:30100000:0]","3","not-suspicious","4","85.19.221.250","8","8.8.4.4","0","1","4","5","0","84","0","2","0","64","64399","","","","","","","","","","","","","","02E65F4E4FB6040008090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F202122232425262728292A2B2C2D2E2F3031323334353637"],"action":"event_alert"},"jsonrpc":"2.0","id":"33612","method":"post"}
 
     my $ret = $db->insert({
         event => {
@@ -149,6 +150,7 @@ sub save {
             sig_message => $event->[7],
             sig_priority => $event->[8]+0,
             sig_category => $event->[9],
+            meta => $event->[38],
             meta_u2_event_id => $event->[2]+0,
             meta_u2_filename => ''
         }
