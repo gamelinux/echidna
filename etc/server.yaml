@@ -6,10 +6,10 @@
 network:
     node:
         host: localhost
-        port: 10101
+        port: 20101
     client:
         host: localhost
-        port: 10201
+        port: 20201
 
 #
 # LOG
@@ -32,7 +32,9 @@ log:
 #   - http
 #   - json
 #
-protocol: json
+protocol:
+    client: json
+    node: json
 
 #
 # DATABASE

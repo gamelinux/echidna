@@ -1,0 +1,85 @@
+
+#
+SERVER asks the node for certain data
+
+{
+  "jsonrpc": "2.0",
+  "id": unique_integer_id,
+  "method": "get",
+  "params": {
+    "filters": 
+        // bpf, parameters etc..
+    "id": node_id,
+    "type": "type of data i.e. pcap"
+  }
+}
+
+NODE responds to the server if has the data or not
+
+ON ERROR
+{
+  "jsonrpc": "2.0",
+  "id": unique_id_matching_the_initial_request,
+  "result": {
+    "error": {
+        "message": message description of error code,
+        "code": error code,
+    }
+  }
+}
+
+ON SUCCESS
+{
+  "jsonrpc": "2.0",
+  "id": unique_id_matching_the_initial_request,
+  "result": {
+    "id": unique id of the node,
+    "filter": filter used,
+    "checksum": SHA1(filename),
+    "type": "pcap",
+    "size": in bytes for the file
+    "status": {
+      "timestamp": time of last known status of the node,
+      "state": last known state of node
+    }
+  }
+}
+
+SERVER receives the file hash and informs the port to
+connect to
+{
+  "jsonrpc": "2.0",
+  "id": unique_integer_id,
+  "method": "transfer",
+  "params": {
+    "id": node_id,
+    "port": port to connect to transfer the file,
+  }
+}
+
+SERVER spawn a listener on that port only for the node src ip for 60 seconds
+
+When the data is received the SERVER verifies the file with the checksum
+received and sends a mismatch error or ok
+
+ON ERROR
+{
+  "jsonrpc": "2.0",
+  "id": unique_id_matching_the_initial_request,
+  "result": {
+    "error": {
+        "message": message description of error code,
+        "code": error code,
+    }
+  }
+}
+
+ON SUCCESS
+{
+  "jsonrpc": "2.0",
+  "id": unique_id_matching_the_initial_request,
+  "result": {
+    "id": unique id of the node
+    "message": "ok"
+  }
+}

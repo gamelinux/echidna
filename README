@@ -2,10 +2,9 @@
  0. INTRODUCTION
 --------------------------------------------------------------------------
 
-The Network Security Monitoring Framework (TM)
- - NSMF
+Echidna - A Cyber-Security Monitoring Framework (TM)
 
-NSMF is a framework for connecting the variety of different Network
+Echidna is a framework for connecting the variety of different Network
 Security Monitoring disciplines together in an open, module based
 framework.
 
@@ -73,15 +72,16 @@ CLIENT
  2. ROADMAP
 --------------------------------------------------------------------------
 
-The projects need to aim high, but start with implementing the fundamentals.
+The project needs to aim high, but start with implementing the fundamentals.
 
 STAGE 1
 
 So the most important part would be to implement some of the NODES functions.
-I would say that Flowdata, IPS/IDS data and PCAP handling is the most important.
+I would say that Flowdata, IPS/IDS data and PCAP handling is the most
+important.
 
-But with out having a system to collect data, how would one know if the NODES are
-working? So SERVER and NODE goes hand in hand.
+But with out having a system to collect data, how would one know if the NODES
+are working? So SERVER and NODE goes hand in hand.
 
 
 STAGE 2

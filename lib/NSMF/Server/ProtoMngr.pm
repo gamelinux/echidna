@@ -32,23 +32,38 @@ use v5.10;
 use NSMF::Server;
 
 sub create {
-    my ($self, $type) = @_;
-    
-    $type //= 'JSON';
-    my $proto_path = 'NSMF::Server::Proto::' . uc($type);
+    my ($self, $class, $type) = @_;
 
-    my @protocols = NSMF::Server->protocols();
-    if ( $proto_path ~~ @protocols ) {
-        eval "use $proto_path";
-        if ( $@ ) {
-            die { status => 'error', message => 'Failed to Load Protocol ' . $@ };
-        };
-        
-        return $proto_path->instance;
+    $class //= 'NODE';
+    $type //= 'JSON';
+
+    my $proto_path;
+    my @protocols;
+
+    given( $class ) {
+        when(/^client$/i) {
+            @protocols = NSMF::Server->client_protocols();
+            $proto_path = 'NSMF::Server::Proto::Client::' . uc($type);
+        }
+        when(/^node$/i) {
+            @protocols = NSMF::Server->node_protocols();
+            $proto_path = 'NSMF::Server::Proto::Node::' . uc($type);
+        }
+        default {
+            die { status => 'error', message => 'Unknown class type: ' . $class };
+        }
     }
-    else {
-        die { status => 'error', message => 'Protocol Not Supported' };
+
+    if ( ! ( $proto_path ~~ @protocols ) ) {
+        die { status => 'error', message => 'Protocol is not supported' };
     }
+
+    eval "use $proto_path";
+    if ( $@ ) {
+        die { status => 'error', message => 'Failed to load ' . $class . ' protocol! ' . $@ };
+    };
+
+    return $proto_path->instance;
 }
 
 1;

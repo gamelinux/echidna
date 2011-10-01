@@ -32,12 +32,14 @@ use v5.10;
 # PERL INCLUDES
 #
 use POE qw(Component::Server::TCP);
+use Data::Dumper;
 
 #
 # NSMF INCLUDES
 #
 use NSMF::Common::Logger;
 use NSMF::Server;
+use NSMF::Server::Action;
 
 #
 # GLOBALS
@@ -46,7 +48,8 @@ our $VERSION = '0.1';
 
 my $nsmf    = NSMF::Server->new();
 my $config  = $nsmf->config();
-my $proto   = $nsmf->proto();
+my $proto_nodes   = $nsmf->proto('node');
+my $proto_clients = $nsmf->proto('client');
 my $logger  = NSMF::Common::Logger->new();
 
 # service node connections
@@ -61,12 +64,13 @@ my $nodes = POE::Component::Server::TCP->new(
         $kernel->yield('dispatcher', $input);
     },
     ClientFilter => "POE::Filter::Line",
-    ObjectStates => [ $proto => $proto->states ],
+    ObjectStates => [ $proto_nodes => $proto_nodes->states() ],
     Started => sub {
         $logger->info('Listening for nodes on ' . $config->node_host() . ':' . $config->node_port());
     },
 );
 
+# service client connections
 my $clients = POE::Component::Server::TCP->new(
     Alias              => "client_listener",
     Address            => $config->client_host(),
@@ -78,12 +82,41 @@ my $clients = POE::Component::Server::TCP->new(
         $kernel->yield('dispatcher', $input);
     },
     ClientFilter => "POE::Filter::Line",
-    ObjectStates => [ $proto => $proto->states ],
+    ObjectStates => [ $proto_clients => $proto_clients->states() ],
     Started => sub {
         $logger->info('Listening for clients on ' . $config->client_host() . ':' . $config->client_port());
     },
 );
 
+my $transfer_queue = {};
+my $transfer_mngr = POE::Session->create(
+    inline_states => {
+        _start => sub {
+            $_[KERNEL]->alias_set('transfer_mngr');
+        },
+        catch => sub {
+            my ($json) = $_[ARG0];
+
+            $transfer_queue->{$json->{id}} =  NSMF::Server::Action->file_catcher({
+                transfer_id => $json->{id},
+                checksum    => $json->{result}{checksum},
+            });
+
+            if (defined $transfer_queue->{$json->{id}}) {
+                $logger->debug("Action file_catcher added to TransferQueue with job id " .$json->{id});
+            }
+        },
+        queue_remove => sub {
+            my ($job_id) = $_[ARG0];
+            $logger->debug("Removing job id $job_id from TransferQueue");
+            delete $transfer_queue->{$job_id};
+        },
+        queue_status => sub {
+            $logger->debug("The Transfer queue has " . scalar(keys %$transfer_queue). " jobs");
+            $logger->debug('Job Ids: ('. keys(%$transfer_queue).')');
+        }
+    },
+);
 sub node_connected {
     my ($session, $heap) = @_[SESSION, HEAP];
 
@@ -98,8 +131,10 @@ sub node_connected {
 }
 
 sub node_disconnected {
-    my ($session, $heap) = @_[SESSION, HEAP];
+    my ($kernel, $session, $heap) = @_[KERNEL, SESSION, HEAP];
     $logger->debug('Node with ' . $session->ID . ' disconnected');
+
+    $kernel->call('node_unregistered');
 }
 
 sub client_connected {
@@ -116,8 +151,10 @@ sub client_connected {
 }
 
 sub client_disconnected {
-    my ($session, $heap) = @_[SESSION, HEAP];
+    my ($kernel, $session, $heap) = @_[KERNEL, SESSION, HEAP];
     $logger->debug('Client with ' . $session->ID . ' disconnected');
+
+    $kernel->call('client_unregistered');
 }
 
 $logger->info('Server Initialized ...');

@@ -38,14 +38,14 @@ use NSMF::Server;
 
 
 sub load {
-    my ($self, $module_name) = @_;
+    my ($self, $module_name, $acl) = @_;
 
     my $module_path;
     my $nsmf    = NSMF::Server->new();
     my $config  = $nsmf->config;
-    my $modules = $config->modules();
+    my $modules = ["core", @{ $config->modules() } ];
 
-    if( lc($module_name) ~~ @$modules ) {
+    if( lc($module_name) ~~ @{ $modules } ) {
         $module_path = 'NSMF::Server::Component::' . uc($module_name);
         eval "use $module_path";
 
@@ -53,7 +53,7 @@ sub load {
             die { status => 'error', message => "Failed to load module $module_name: $@" };
         }
         else {
-            return $module_path->new;
+            return $module_path->new($acl);
         }
     }
 

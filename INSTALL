@@ -1,16 +1,22 @@
 DEPENDENCIES:
 
   - Perl POE
-  - Perl ObjectDriver
   - Perl YAML::Tiny
   - Perl Module::Pluggable
   - Perl JSON
+  - Perl Log-Dispatch
 
 
 UBUNTU INSTALL:
-  # sudo apt-get install libpoe-perl libdbd-mysql-perl libyaml-tiny-perl libjson-perl
+  # sudo apt-get install libpoe-perl libdbd-mysql-perl libyaml-tiny-perl libjson-perl libmodule-pluggable-perl liblog-dispatch-perl
 
 
 FEDORA INSTALL
-  # sudo yum install perl-POE perl-Data-ObjectDriver perl-YAML-Tiny perl-TimeDate perl-JSON
+  # sudo yum install perl-POE perl-YAML-Tiny perl-TimeDate perl-JSON
 
+
+NOTES:
+ * Node/CXTRACKER works with cxtracker version 0.9.6 and above.
+ ** cxtracker needs the option "-f nsmf" for the correct format.
+ * Node/BARNYARD2 works with barnyard2 version 2.1.10-beta1 (Build 266) and above.
+ ** in barnyard2.conf: output platypus: agent_port=7060
