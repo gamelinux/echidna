@@ -44,6 +44,30 @@ use NSMF::Common::Logger;
 #
 my $logger = NSMF::Common::Logger->new();
 
+#
+# MEMBERS
+#
+
+sub init {
+    my ($self, $acl) = @_;
+
+    # init the base class first
+    $self->SUPER::init($acl);
+
+    $self->command_get_add({
+        "search_event" => {
+            "help" => "Search for events..",
+            "exec" => \&search_event,
+            "acl" => 0,
+        },
+    });
+
+    $self->{_commands_allowed} = [ grep { $self->{_commands_all}{$_}{acl} <= $acl } sort( keys( %{ $self->{_commands_all} } ) ) ];
+
+    return $self;
+}
+
+
 sub hello {
     $logger->debug("Hello World from BARNYARD2 server component!!");
     my $self = shift;
@@ -161,6 +185,23 @@ sub save {
     }
 
     return -1;
+}
+
+
+#
+# GET
+#
+
+sub search_event {
+    my ($self, $params) = @_;
+
+    my $db = NSMF::Server->database();
+
+    $logger->debug($params);
+
+    # TODO validate, process the params and return the result
+
+    return 0;
 }
 
 1;
