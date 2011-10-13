@@ -102,7 +102,6 @@ sub client_unregistered {
 }
 
 
-
 sub dispatcher {
     my ($kernel, $heap, $request) = @_[KERNEL, HEAP, ARG0];
     my $self = shift;

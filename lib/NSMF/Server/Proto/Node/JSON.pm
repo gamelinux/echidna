@@ -424,7 +424,7 @@ sub get {
 
     $logger->debug('This is a GET for ' . $module_type);
 
-    my $modules_allowed = ["core", @{ $modules }];
+    my $modules_allowed = @{ $modules };
 
     if ( $module_type ~~ @{ $modules_allowed } ) {
         # dyamically load module as required
