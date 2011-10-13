@@ -184,7 +184,7 @@ sub prompt
 {
     my ($kernel, $heap, $data) = @_[KERNEL, HEAP, ARG0];
 
-    my @action = split(/ /, $data);
+    my @action = split(/[ =]/, $data);
 
     if( @action ) {
         given( $action[0] )
