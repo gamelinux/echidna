@@ -29,6 +29,7 @@ use strict;
 # PERL INCLUDES
 #
 use Digest::MD5 qw(md5);
+use POE::Filter::Line;
 
 #
 # NSMF INCLUDES
@@ -40,8 +41,7 @@ use NSMF::Common::Logger;
 #
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT = qw(websocket_handshake
-                 %APPVARS);
+our @EXPORT = qw(websocket_handshake);
 
 #
 # GLOBAL VARIABLES
@@ -56,11 +56,8 @@ my $logger  = NSMF::Common::Logger->new();
 #
 sub websocket_handshake
 {
-    my ($wheel_id, $data) = @_;
-    my $heap = $APPVARS{"HEAP"};
+    my ($wheel, $data) = @_;
     my ($resource, $host, $origin, $key1, $key2) = ("", "", "", "", "");
-
-    $APPVARS{"BROWSER"}{"CONN"}{$wheel_id}{"BUFFER"} .= $data . "\n";
 
     $logger->debug("WebSocket upgrade request: \n" . $data);
 
@@ -76,8 +73,7 @@ sub websocket_handshake
     my $ws_origin = "WebSocket-Origin: ";
 
     # check if we have a key challenge
-    if ( ($key1 ne "") && ($key2 ne "") )
-    {
+    if ( ($key1 ne "") && ($key2 ne "") ) {
         # build up the clients challenge
         my $challenge = "";
         $challenge .= websocket_key_decode($key1);
@@ -90,8 +86,7 @@ sub websocket_handshake
         $ws_location = "Sec-" . $ws_location;
         $ws_origin = "Sec-" . $ws_origin;
     }
-    else
-    {
+    else {
         $logger->debug("This is a non-challenge request.");
     }
 
@@ -104,35 +99,31 @@ sub websocket_handshake
                    "\r\n";
 
     # add the challenge if appropriate
-    if ( $challenge_md5 ne "" )
-    {
+    if ( $challenge_md5 ne "" ) {
         $response .= $challenge_md5;
     }
 
-    websocket_upgrade_connection($wheel_id, $response);
+    websocket_upgrade_connection($wheel, $response);
 }
 
 #
 #
 sub websocket_upgrade_connection
 {
-    my ($browser, $response) = @_;
-    my $heap = $APPVARS{"HEAP"};
+    my ($wheel, $response) = @_;
 
-    if ( defined($heap->{browsers}->{$browser}) )
+    if ( 1 ) # check wheel
     {
-        $logger->debug('Upgrading WebSocket connection browser ' . $browser . " with:\n" . $response);
+        $logger->debug("Upgrading WebSocket connection with:\n" . $response);
 
         # push the response back to the client
-        $heap->{browsers}->{$browser}->put($response);
+        $wheel->put($response);
 
         # once the connection has been upgraded we need to update our filter
-        $heap->{browsers}->{$browser}->set_filter( POE::Filter::Line->new( Literal => chr(0xff) ) );
+        $wheel->set_filter( POE::Filter::Line->new( Literal => chr(0xff) ) );
 
         # XXX: for some reason we need to send dummy data once connection is opened
-        $heap->{browsers}->{$browser}->put(chr(0x00) . "nullage");
-
-        $APPVARS{"BROWSER"}{"CONN"}{$browser}{"HANDSHAKE"} = 1;
+        $wheel->put(chr(0x00) . "nullage");
     }
 }
 

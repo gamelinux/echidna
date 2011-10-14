@@ -40,6 +40,7 @@ use Data::Dumper;
 use NSMF::Common::Logger;
 use NSMF::Server;
 use NSMF::Server::Action;
+use NSMF::Server::WebSocket qw(websocket_handshake);
 
 #
 # GLOBALS
@@ -79,10 +80,33 @@ my $clients = POE::Component::Server::TCP->new(
     ClientDisconnected => \&client_disconnected,
     ClientInput => sub {
         my ($kernel, $heap, $input) = @_[KERNEL, HEAP, ARG0];
-        $kernel->yield('dispatcher', $input);
+
+        # 
+        $kernel->yield('handshake', $input);
     },
     ClientFilter => "POE::Filter::Line",
     ObjectStates => [ $proto_clients => $proto_clients->states() ],
+    InlineStates => {
+        handshake => sub {
+            my ($kernel, $heap, $input) = @_[KERNEL, HEAP, ARG0];
+
+            # TODO: make this a tidier check for WebSocket handshake
+            if ( $input =~ /WebSocket-/ ) {
+                $logger->debug("HANDSHAKE");
+                websocket_handshake($heap->{client}, $input);
+            }
+            else {
+                # no special handshakes here, should've gone to the dispatcher
+                $kernel->yield('dispatcher', $input);
+            }
+
+            # from here on direct all input straight to the dispatcher
+            $kernel->state('tcp_server_got_input' => sub {
+                return if ( $_[HEAP]->{shutdown} );
+                $_[KERNEL]->yield('dispatcher', $_[ARG0]);
+            });
+        },
+    },
     Started => sub {
         $logger->info('Listening for clients on ' . $config->client_host() . ':' . $config->client_port());
     },
