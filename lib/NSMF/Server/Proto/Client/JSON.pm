@@ -365,7 +365,7 @@ sub get {
             my $ret = undef;
 
             eval {
-                $ret = $heap->{module}{$module_type}->get( $json->{params} );
+                $ret = $heap->{module}{$module_type}->get( $json->{params}{data} );
             };
 
             my $response = '';

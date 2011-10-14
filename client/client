@@ -184,7 +184,7 @@ sub prompt
 {
     my ($kernel, $heap, $data) = @_[KERNEL, HEAP, ARG0];
 
-    my @action = split(/[ =]/, $data);
+    my @action = split(/[ ]/, $data);
 
     if( @action ) {
         given( $action[0] )
@@ -225,7 +225,7 @@ sub prompt
             when( @{ $commands->{$module_active} } ) {
                 $kernel->yield('get', {
                     type => $module_active,
-                    data => @action
+                    data => [ @action ],
                 }, sub {
                     my ($s, $k, $h, $json) = @_;
 
@@ -251,7 +251,7 @@ sub prompt
 sub prompt_print
 {
     if ( $module_active eq 'core' ) {
-        print('nsmf> ');
+        print('echidna> ');
     }
     else {
         print($module_active . '> ');
@@ -264,7 +264,7 @@ sub input_get {
 
     $message //= '';
 
-    print( 'nsmf> ' . $message );
+    print( 'echidna> ' . $message );
 
     my $input = <STDIN>;
     chomp($input);

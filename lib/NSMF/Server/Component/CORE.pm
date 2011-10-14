@@ -94,6 +94,22 @@ sub init {
           "exec" => sub{ },
           "acl" => 127,
         },
+
+        "search_event" => {
+            "help" => "Search for events.",
+            "exec" => \&search_event,
+            "acl" => 0,
+        },
+        "search_session" => {
+            "help" => "Search for sessions.",
+            "exec" => \&search_session,
+            "acl" => 0,
+        },
+        "search_data" => {
+            "help" => "Search for full-content data.",
+            "exec" => \&search_data,
+            "acl" => 0,
+        },
     });
 
     $self->{_commands_allowed} = [ grep { $self->{_commands_all}{$_}{acl} <= $acl } sort( keys( %{ $self->{_commands_all} } ) ) ];
@@ -125,6 +141,106 @@ sub get_modules_available
     my ($self) = @_;
 
     return $modules;
+}
+
+
+
+
+#
+# CORE STRUCTURE SEARCHES
+#
+
+sub search_event {
+    my ($self, $params) = @_;
+
+    my $db = NSMF::Server->database();
+    $logger->debug($params);
+    say $params;
+
+    my $sql = {};
+
+    foreach my $k ( @{ $params } ) {
+        given( $k ) {
+            when(/^--src-ip=([^ ]*)/) {
+                $sql->{net_src_ip} = $1;
+            }
+            when(/^--src-port=([^ ]*)/) {
+                $sql->{net_src_port} = $1;
+            }
+            when(/^--dst-ip=([^ ]*)/) {
+                $sql->{net_dst_ip} = $1;
+            }
+            when(/^--dst-port=([^ ]* )/) {
+                $sql->{net_dst_port} = $1;
+            }
+            when(/^--version=([^ ]*)/) {
+                $sql->{net_version} = $1;
+            }
+            default {
+                $logger->debug('Unsupported parameter: ' . $k);
+            }
+        }
+    }
+
+    $logger->debug($sql);
+
+    my $ret = $db->search({
+        event => $sql
+    });
+
+    return $ret;
+}
+
+sub search_session {
+    my ($self, $params) = @_;
+
+    my $db = NSMF::Server->database();
+
+    my $sql = {};
+
+    foreach my $k ( @{ $params } ) {
+        given( $k ) {
+            when(/^--src-ip=([^ ]*)/) {
+                $sql->{net_src_ip} = $1;
+            }
+            when(/^--src-port=([^ ]*)/) {
+                $sql->{net_src_port} = $1;
+            }
+            when(/^--dst-ip=([^ ]*)/) {
+                $sql->{net_dst_ip} = $1;
+            }
+            when(/^--dst-port=([^ ]* )/) {
+                $sql->{net_dst_port} = $1;
+            }
+            when(/^--version=([^ ]*)/) {
+                $sql->{net_version} = $1;
+            }
+            default {
+                $logger->debug('Unsupported parameter: ' . $k);
+            }
+        }
+    }
+
+    $logger->debug("PARAMS:", $params);
+    $logger->debug("SQL:", $sql);
+
+    my $ret = $db->search({
+        session => $sql
+    });
+
+    return $ret;
+}
+
+sub search_data {
+    my ($self, $params) = @_;
+
+    my $db = NSMF::Server->database();
+
+    $logger->debug($params);
+
+    # TODO validate, process the params and return the result
+
+    return "TODO: implement me";
 }
 
 1;

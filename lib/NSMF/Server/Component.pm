@@ -123,12 +123,12 @@ sub get {
     my $command = undef;
     my $params = undef;
 
-    if( ref($data->{data}) eq 'ARRAY' ) {
-        $command = $data->{data}->[0];
-        $params = splice(@{ $data->{data} }, 1);
+    if( ref($data) eq 'ARRAY' ) {
+        $params = $data;
+        $command = shift(@{ $params } );
     }
     else {
-        $command = $data->{data};
+        $command = $data;
     }
 
     given( $command ) {
