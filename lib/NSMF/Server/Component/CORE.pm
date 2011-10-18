@@ -154,38 +154,11 @@ sub search_event {
     my ($self, $params) = @_;
 
     my $db = NSMF::Server->database();
-    $logger->debug($params);
-    say $params;
 
-    my $sql = {};
-
-    foreach my $k ( @{ $params } ) {
-        given( $k ) {
-            when(/^--src-ip=([^ ]*)/) {
-                $sql->{net_src_ip} = $1;
-            }
-            when(/^--src-port=([^ ]*)/) {
-                $sql->{net_src_port} = $1;
-            }
-            when(/^--dst-ip=([^ ]*)/) {
-                $sql->{net_dst_ip} = $1;
-            }
-            when(/^--dst-port=([^ ]* )/) {
-                $sql->{net_dst_port} = $1;
-            }
-            when(/^--version=([^ ]*)/) {
-                $sql->{net_version} = $1;
-            }
-            default {
-                $logger->debug('Unsupported parameter: ' . $k);
-            }
-        }
-    }
-
-    $logger->debug($sql);
+    # TODO: validate params
 
     my $ret = $db->search({
-        event => $sql
+        event => $params
     });
 
     return $ret;
@@ -196,36 +169,10 @@ sub search_session {
 
     my $db = NSMF::Server->database();
 
-    my $sql = {};
-
-    foreach my $k ( @{ $params } ) {
-        given( $k ) {
-            when(/^--src-ip=([^ ]*)/) {
-                $sql->{net_src_ip} = $1;
-            }
-            when(/^--src-port=([^ ]*)/) {
-                $sql->{net_src_port} = $1;
-            }
-            when(/^--dst-ip=([^ ]*)/) {
-                $sql->{net_dst_ip} = $1;
-            }
-            when(/^--dst-port=([^ ]* )/) {
-                $sql->{net_dst_port} = $1;
-            }
-            when(/^--version=([^ ]*)/) {
-                $sql->{net_version} = $1;
-            }
-            default {
-                $logger->debug('Unsupported parameter: ' . $k);
-            }
-        }
-    }
-
-    $logger->debug("PARAMS:", $params);
-    $logger->debug("SQL:", $sql);
+    # TODO: validate params
 
     my $ret = $db->search({
-        session => $sql
+        session => $params
     });
 
     return $ret;

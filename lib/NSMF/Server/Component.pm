@@ -123,12 +123,14 @@ sub get {
     my $command = undef;
     my $params = undef;
 
-    if( ref($data) eq 'ARRAY' ) {
-        $params = $data;
-        $command = shift(@{ $params } );
+    # TODO: apply some structure here
+    if( ref($data) ne 'HASH' ) {
+        $command = $data;
     }
     else {
-        $command = $data;
+      my @c = keys(%{ $data });
+      $command = $c[0];
+      $params = $data->{$command};
     }
 
     given( $command ) {

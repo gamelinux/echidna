@@ -41,6 +41,7 @@ use POE::Wheel::ReadWrite;
 #
 # NSMF INCLUDES
 #
+use NSMF::Common::JSON;
 use NSMF::Common::Logger;
 use NSMF::Common::Util;
 use NSMF::Client;
@@ -146,7 +147,7 @@ sub load_session
     # start the query process
     $kernel->yield('get', {
         type => 'core',
-        data => [ 'modules_available' ]
+        data => 'modules_available'
     }, sub {
         my ($s, $k, $h, $json) = @_;
 
@@ -157,7 +158,7 @@ sub load_session
 
             $kernel->yield('get', {
                 type => $m,
-                data => [ 'commands_available' ]
+                data => 'commands_available'
             }, sub {
                 my ($s, $k, $h, $json) = @_;
 
@@ -187,9 +188,55 @@ sub prompt
     my @action = split(/[ ]/, $data);
 
     if( @action ) {
-        given( $action[0] )
+        given( $data )
         {
-            when(/^(h|help|\?)$/) {
+            when(/^search\sevent\s(.*)/) {
+                my $sql = prompt_process_event_search($1);
+                $kernel->yield('get', {
+                    type => "core",
+                    data => {
+                      "search_event" => $sql
+                    },
+                }, sub {
+                    my ($s, $k, $h, $json) = @_;
+
+                    my $result = $json->{result} // [];
+
+                    # TODO post process result with client aware components
+
+                    say( "Total records: " . @{ $result });
+                });
+            }
+            when(/^search\ssession\s(.*)/) {
+                my $sql = prompt_process_session_search($1);
+                $kernel->yield('get', {
+                    type => "core",
+                    data => {
+                      "search_session" => $sql
+                    },
+                }, sub {
+                    my ($s, $k, $h, $json) = @_;
+
+                    my $result = $json->{result} // [];
+
+                    # TODO post process result with client aware components
+
+                    say( "Total records: " . @{ $result });
+                });
+            }
+            when(/^json\s({.*})$/) {
+                $kernel->yield('get', json_decode($1), sub {
+                    my ($s, $k, $h, $json) = @_;
+
+                    my $result = $json->{result} // [];
+
+                    # TODO post process result with client aware components
+
+                    say( "Total records: " . @{ $result });
+                });
+
+            }
+            when(/^(h|help|\?)/) {
                 # check if we want help of a specific command
                 if ( ( @action == 2 ) &&
                      ( $action[1] ~~ @{ $commands->{$module_active} } ) ) {
@@ -222,7 +269,7 @@ sub prompt
                     }
                 }
             }
-            when( @{ $commands->{$module_active} } ) {
+            when( /^@{ $commands->{$module_active} }/ ) {
                 $kernel->yield('get', {
                     type => $module_active,
                     data => [ @action ],
@@ -235,7 +282,7 @@ sub prompt
                     say( $result );
                 });
             }
-            when ( @{ $modules } ) {
+            when ( /^@{ $modules }/ ) {
                 $module_active = $action[0];
 
             }
@@ -271,6 +318,136 @@ sub input_get {
 
     return $input;
 }
+
+
+sub prompt_process_event_search {
+    my ($args) = @_;
+
+    my $sql = {};
+    my @search_args = split(/[ ]/, $args);
+
+    foreach my $k ( @search_args ) {
+        given( $k ) {
+            when(/^--timestamp=([^ ]*)/) {
+                $sql->{timestamp} = $1;
+            }
+            when(/^--classification=([^ ]*)/) {
+                $sql->{timestamp} = $1;
+            }
+            when(/^--node-id=([^ ]*)/) {
+                $sql->{node_id} = $1;
+            }
+            when(/^--src-ip=([^ ]*)/) {
+                $sql->{net_src_ip} = $1;
+            }
+            when(/^--src-port=([^ ]*)/) {
+                $sql->{net_src_port} = $1;
+            }
+            when(/^--dst-ip=([^ ]*)/) {
+                $sql->{net_dst_ip} = $1;
+            }
+            when(/^--dst-port=([^ ]* )/) {
+                $sql->{net_dst_port} = $1;
+            }
+            when(/^--protocol=([^ ]*)/) {
+                $sql->{net_protocol} = $1;
+            }
+            when(/^--version=([^ ]*)/) {
+                $sql->{net_version} = $1;
+            }
+            when(/^--sig-id=([^ ]*)/) {
+                $sql->{sig_id} = $1;
+            }
+            when(/^--sig-revision=([^ ]*)/) {
+                $sql->{sig_revision} = $1;
+            }
+            when(/^--sig-priority=([^ ]*)/) {
+                $sql->{sig_priority} = $1;
+            }
+            when(/^--sig-message=([^ ]*)/) {
+                $sql->{sig_message} = $1;
+            }
+            when(/^--sig-category=([^ ]*)/) {
+                $sql->{sig_category} = $1;
+            }
+            default {
+                $logger->debug('Unsupported parameter: ' . $k);
+            }
+        }
+    }
+
+    return $sql;
+}
+
+
+sub prompt_process_session_search {
+    my ($args) = @_;
+
+    my $sql = {};
+    my @search_args = split(/[ ]/, $args);
+
+    foreach my $k ( @search_args ) {
+        given( $k ) {
+            when(/^--timestamp=([^ ]*)/) {
+                $sql->{timestamp} = $1;
+            }
+            when(/^--time-start=([^ ]*)/) {
+                $sql->{time_start} = $1;
+            }
+            when(/^--time-end=([^ ]*)/) {
+                $sql->{time_end} = $1;
+            }
+            when(/^--time-duration=([^ ]*)/) {
+                $sql->{time_duration} = $1;
+            }
+            when(/^--node-id=([^ ]*)/) {
+                $sql->{node_id} = $1;
+            }
+            when(/^--src-ip=([^ ]*)/) {
+                $sql->{net_src_ip} = $1;
+            }
+            when(/^--src-port=([^ ]*)/) {
+                $sql->{net_src_port} = $1;
+            }
+            when(/^--src-total-bytes=([^ ]*)/) {
+                $sql->{net_src_total_bytes} = $1;
+            }
+            when(/^--src-total-packets=([^ ]*)/) {
+                $sql->{net_src_total_packets} = $1;
+            }
+            when(/^--src-flagss=([^ ]*)/) {
+                $sql->{net_src_flags} = $1;
+            }
+            when(/^--dst-ip=([^ ]*)/) {
+                $sql->{net_dst_ip} = $1;
+            }
+            when(/^--dst-port=([^ ]* )/) {
+                $sql->{net_dst_port} = $1;
+            }
+            when(/^--dst-total-bytes=([^ ]*)/) {
+                $sql->{net_dst_total_bytes} = $1;
+            }
+            when(/^--dst-total-packets=([^ ]*)/) {
+                $sql->{net_dst_total_packets} = $1;
+            }
+            when(/^--dst-flagss=([^ ]*)/) {
+                $sql->{net_dst_flags} = $1;
+            }
+            when(/^--protocol=([^ ]*)/) {
+                $sql->{net_protocol} = $1;
+            }
+            when(/^--version=([^ ]*)/) {
+                $sql->{net_version} = $1;
+            }
+            default {
+                $logger->debug('Unsupported parameter: ' . $k);
+            }
+        }
+    }
+
+    return $sql;
+}
+
 
 POE::Kernel->run();
 
