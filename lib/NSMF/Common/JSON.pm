@@ -157,7 +157,7 @@ my $method_map = {};
 sub json_decode {
     my $ref = shift;
 
-    $logger->debug($ref);
+#    $logger->debug(substr($ref, 0, 1024) . "...");
 
     my $decoded = decode_json($ref);
 
@@ -170,7 +170,7 @@ sub json_encode {
 
     my $encoded = encode_json($ref);
 
-    $logger->debug($encoded);
+#    $logger->debug(substr($encoded, 0, 1024) . "...");
 
     return $encoded;
 }
