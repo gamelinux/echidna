@@ -32,7 +32,6 @@ use v5.10;
 # PERL INCLUDES
 #
 use POE qw(Component::Server::TCP);
-use Data::Dumper;
 
 #
 # NSMF INCLUDES

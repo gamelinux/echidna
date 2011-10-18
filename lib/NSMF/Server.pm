@@ -29,7 +29,6 @@ use v5.10;
 #
 # PERL INCLUDES
 #
-use Data::Dumper;
 use File::Spec;
 use Module::Pluggable search_path => 'NSMF::Server::Component', sub_name => 'modules';
 use Module::Pluggable search_path => 'NSMF::Server::Worker', sub_name => 'workers';
@@ -48,11 +47,25 @@ use NSMF::Server::ProtoMngr;
 #
 # GLOBALS
 #
-my $instance;
+my $singleton;
 my $logger = NSMF::Common::Logger->new();
 
+#
+# CONSTANTS
+#
+my $VERSION = {
+  major     => 0,
+  minor     => 1,
+  revision  => 0,
+  build     => 1,
+};
+
 sub new {
-    if ( ! defined($instance) ) {
+    return instance();
+}
+
+sub instance {
+    if ( ! defined($singleton) ) {
 
         my $config_path = File::Spec->catfile('../etc', 'server.yaml');
 
@@ -78,10 +91,12 @@ sub new {
             $logger->fatal(Dumper($@));
         }
 
-        $instance = bless {
+        $singleton = bless {
             __config_path => $config_path,
             __config      => $config,
             __database    => $database,
+            __started     => time(),
+            __version     => $VERSION,
             __proto       => {
                 node    => $node_proto,
                 client  => $client_proto,
@@ -89,38 +104,38 @@ sub new {
         }, __PACKAGE__;
     }
 
-    return $instance;
+    return $singleton;
 }
 
 # get method for config singleton object
 sub config {
     my ($self) = @_;
 
-    return if ( ref($instance) ne __PACKAGE__ );
+    return if ( ref($singleton) ne __PACKAGE__ );
 
-    return $instance->{__config} // die { status => 'error', message => 'No configuration file enabled!' }; 
+    return $singleton->{__config} // die { status => 'error', message => 'No configuration file enabled!' }; 
 }
 
 # get method for proto singleton object
 sub proto {
     my ($self, $type) = @_;
 
-    return if ( ref($instance) ne __PACKAGE__ );
+    return if ( ref($singleton) ne __PACKAGE__ );
 
     if ( defined($type) ) {
-        return $instance->{__proto}{$type};
+        return $singleton->{__proto}{$type};
     }
 
-    return $instance->{__proto};
+    return $singleton->{__proto};
 }
 
 # get method for database singleton object
 sub database {
     my ($self) = @_;
 
-    return if ( ref($instance) ne __PACKAGE__ );
+    return if ( ref($singleton) ne __PACKAGE__ );
 
-    return $instance->{__database} // die { status => 'error', message => 'No database defined.' };
+    return $singleton->{__database} // die { status => 'error', message => 'No database defined.' };
 }
 
 1;
