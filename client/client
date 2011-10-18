@@ -232,7 +232,15 @@ sub prompt
 
                     # TODO post process result with client aware components
 
-                    say( "Total records: " . @{ $result });
+                    if( ref($result) eq 'ARRAY' ) {
+                      say( "Total records: " . @{ $result });
+                    }
+                    elsif( ref($result) eq 'HASH' ) {
+                      say( Dumper($result) );
+                    }
+                    else {
+                      say( $result );
+                    }
                 });
 
             }
