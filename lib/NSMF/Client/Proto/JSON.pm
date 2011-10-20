@@ -286,7 +286,7 @@ sub post {
     # verify established connection
     return if ( $heap->{stage} ne 'EST' );
 
-    $logger->debug('-> Sending POST...');
+#    $logger->debug('-> Sending POST...');
 
     # TODO: validate type croak on fail
     #if ( ref($type) ) {
@@ -299,7 +299,7 @@ sub post {
 
     $heap->{server}->put($payload);
 
-    $logger->debug('Data Size: ' . length($payload));
+#    $logger->debug('Data Size: ' . length($payload));
 }
 
 sub get {
@@ -311,7 +311,7 @@ sub get {
     # verify established connection
     return if ( $heap->{stage} ne 'EST' );
 
-    $logger->debug('-> Sending POST...');
+#    $logger->debug('-> Sending GET...');
 
     # TODO: validate type croak on fail
     #if ( ref($type) ) {
@@ -324,7 +324,7 @@ sub get {
 
     $heap->{server}->put($payload);
 
-    $logger->debug('Data Size: ' . length($payload));
+#    $logger->debug('Data Size: ' . length($payload));
 }
 
 1;

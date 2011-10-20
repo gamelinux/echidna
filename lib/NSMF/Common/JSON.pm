@@ -359,12 +359,12 @@ sub json_message_create
 
     # a valid callback will invoke creation of JSON RPC method
     if( ref($callback) eq 'CODE' ) {
-        $logger->debug('Creating JSON RPC method.');
+#        $logger->debug('Creating JSON RPC method.');
         $payload = json_method_create($method, $params, $callback);
     }
     # otherwise it will be a JSON RPC notification
     else {
-        $logger->debug('Creating JSON RPC notification.');
+#        $logger->debug('Creating JSON RPC notification.');
         $payload = json_notification_create($method, $params);
     }
 
