@@ -183,6 +183,8 @@ sub insert {
         };
 
         if ( $@ ) {
+            $logger->warn('DB ERROR: ' . $DBI::err);
+
             # database has disappeared, let's reconnect
             if( $DBI::err == 2006 ) {
                 $self->connect();
@@ -220,6 +222,8 @@ sub search {
         };
 
         if ( $@ ) {
+            $logger->warn('DB ERROR: ' . $DBI::err);
+
             # database has disappeared, let's reconnect
             if( $DBI::err == 2006 ) {
                 $self->connect();
@@ -257,6 +261,43 @@ sub update {
 sub delete {
     my ($self, $filter) = @_;
 
+    # ensure the filter is provided
+    if ( ref($filter) ne 'HASH' && keys( %{ $filter }) == 1)
+    {
+        $logger->warn('Ignoring filter due to unknown format: ' . ref($filter));
+        return [];
+    }
+
+    my $type = ( keys( %{ $filter } ) )[0];
+    $filter = $filter->{$type};
+
+    # search if our type is supported
+    if ( $type ~~ @supported_types )
+    {
+        # remove the type from the filter
+        my $ret = undef;
+
+        eval {
+            $ret = $type_map->{$type}->delete($filter);
+        };
+
+        if ( $@ ) {
+            $logger->warn('DB ERROR: ' . $DBI::err);
+
+            # database has disappeared, let's reconnect
+            if( $DBI::err == 2006 ) {
+                $self->connect();
+
+                eval {
+                    $ret = $type_map->{$type}->delete($filter);
+                };
+            }
+        }
+
+        return $ret;
+    }
+
+    $logger->warn('Ignoring filter due to unsupported type: ' . $type, @supported_types);
 }
 
 1;

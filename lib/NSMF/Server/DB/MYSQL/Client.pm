@@ -32,6 +32,7 @@ use base qw(NSMF::Server::DB::MYSQL::Base);
 # PERL CONSTANTS
 #
 use Data::Dumper;
+use Digest::SHA qw(sha256_hex);
 
 #
 # CONSTANTS
@@ -137,7 +138,11 @@ sub search {
 }
 
 sub delete {
-    $logger->warn('Base delete method needs to be overridden.');
+    my ($self, $filter) = @_;
+
+    my $sql = 'DELETE FROM client ' . $self->create_filter($filter);
+
+    $self->{__handle}->do($sql);
 }
 
 #
@@ -168,8 +173,8 @@ CREATE TABLE client (
     $logger->info('Inserting DEV/DEMO data');
 
     $self->insert({
-        name => 'DOE',
-        password => 'john',
+        name => 'admin',
+        password => sha256_hex("admin"),
         level => 255
     });
 
