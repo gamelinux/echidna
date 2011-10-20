@@ -95,11 +95,18 @@ sub states {
 sub node_registered {
     my ($kernel, $session, $heap) = @_[KERNEL, SESSION, HEAP];
 
-    $nodes->{$session->ID()} = {};
+    my $nodes = NSMF::Server->instance()->nodes();
+
+    $nodes->{$session->ID()} = {
+        agent_details => $heap->{agent_details},
+        node_details => $heap->{module_details}
+    };
 }
 
 sub node_unregistered {
     my ($kernel, $session, $heap) = @_[KERNEL, SESSION, HEAP];
+
+    my $nodes = NSMF::Server->instance()->nodes();
 
     delete $nodes->{$session->ID()};
 }
@@ -192,6 +199,7 @@ sub authenticate {
 
     $heap->{agent} = $agent;
     $heap->{status} = 'ID';
+    $heap->{agent_details} = $agent_details;
 
     $logger->debug("Agent authenticated: $agent");
 
@@ -246,6 +254,7 @@ sub identify {
         $heap->{name} = $module_name;
         $heap->{session_key} = 1;
         $heap->{status}     = 'EST';
+        $heap->{module_details} = $module_details;
 
         eval {
             $heap->{module} = NSMF::Server::ModMngr->load(uc($module_type), 255); # full ACL priveleges applied
@@ -261,6 +270,8 @@ sub identify {
 
         if (defined $heap->{module}) {
             $logger->debug("----> Module Call <----");
+
+            $kernel->yield('node_registered');
 
             $heap->{client}->put(json_result_create($json, $module_details));
             #$kernel->yield('has_pcap'); # DEBUG

@@ -157,7 +157,7 @@ sub node_disconnected {
     my ($kernel, $session, $heap) = @_[KERNEL, SESSION, HEAP];
     $logger->debug('Node with ' . $session->ID . ' disconnected');
 
-    $kernel->call('node_unregistered');
+    $kernel->call($session, 'node_unregistered');
 }
 
 sub client_connected {
@@ -177,7 +177,7 @@ sub client_disconnected {
     my ($kernel, $session, $heap) = @_[KERNEL, SESSION, HEAP];
     $logger->debug('Client with ' . $session->ID . ' disconnected');
 
-    $kernel->call('client_unregistered');
+    $kernel->call($session, 'client_unregistered');
 }
 
 $logger->info('Server Initialized ...');

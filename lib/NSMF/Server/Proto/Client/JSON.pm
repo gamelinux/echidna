@@ -38,6 +38,7 @@ use POE::Session;
 use POE::Wheel::Run;
 use POE::Filter::Reference;
 
+
 #
 # NSMF INCLUDES
 #
@@ -62,9 +63,6 @@ my $logger = NSMF::Common::Logger->new();
 #
 # CLIENT/NODE tracking
 #
-my $nodes = {};
-my $clients = {};
-
 sub instance {
     return $instance if ( $instance );
 
@@ -92,11 +90,17 @@ sub states {
 sub client_registered {
     my ($kernel, $session, $heap) = @_[KERNEL, SESSION, HEAP];
 
-    $clients->{$session->ID()} = {};
+    my $clients = NSMF::Server->instance()->clients();
+
+    $clients->{$session->ID()} = {
+        details => $heap->{details}
+    };
 }
 
 sub client_unregistered {
     my ($kernel, $session, $heap) = @_[KERNEL, SESSION, HEAP];
+
+    my $clients = NSMF::Server->instance()->clients();
 
     delete $clients->{$session->ID()};
 }
@@ -187,12 +191,15 @@ sub authenticate {
 
     $heap->{name} = $client;
     $heap->{acl} = $client_details->{level};
+    $heap->{details} = $client_details;
     $heap->{module} = {};
 
     $logger->debug("Client authenticated: $client");
 
     # generate the session ID
     $heap->{session_key} = 1;
+
+    $kernel->yield('client_registered');
 
     $heap->{client}->put(json_result_create($json, $client_details));
 

@@ -100,7 +100,9 @@ sub instance {
             __proto       => {
                 node    => $node_proto,
                 client  => $client_proto,
-            }
+            },
+            __clients     => {},
+            __nodes       => {}
         }, __PACKAGE__;
     }
 
@@ -137,5 +139,23 @@ sub database {
 
     return $singleton->{__database} // die { status => 'error', message => 'No database defined.' };
 }
+
+sub clients {
+    my ($self) = @_;
+
+    return if ( ref($singleton) ne __PACKAGE__ );
+
+    return $singleton->{__clients} // {};
+}
+
+
+sub nodes {
+    my ($self) = @_;
+
+    return if ( ref($singleton) ne __PACKAGE__ );
+
+    return $singleton->{__nodes} // {};
+}
+
 
 1;
