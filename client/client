@@ -33,10 +33,12 @@ use v5.10;
 #
 use Carp;
 use Data::Dumper;
+use Digest::SHA qw(sha256_hex);
 use POE;
 use POE::Component::Client::TCP;
 use POE::Filter::Line;
 use POE::Wheel::ReadWrite;
+use POSIX;
 
 #
 # NSMF INCLUDES
@@ -63,7 +65,9 @@ my $port = $config->port();
 
 my $module_active = 'core';
 my $modules = [];
-my $commands = {};
+my $api_commands = {};
+my $ncommands = {};
+my $acommands = [];
 
 
 if ( ! defined_args($host, $port) ) {
@@ -82,6 +86,7 @@ POE::Component::Client::TCP->new(
         $heap->{name}   = undef; #$config->name();
         $heap->{secret} = undef; #$config->secret();
 
+        $kernel->yield('init');
         $kernel->yield('login');
     },
     ConnectError => sub {
@@ -102,6 +107,7 @@ POE::Component::Client::TCP->new(
         $proto => $proto->states(),
     ],
     InlineStates => {
+        'init' => \&init,
         'login' => \&login,
         'prompt' => \&prompt,
         'load_session' => \&load_session,
@@ -118,6 +124,59 @@ sub init
 #          "exec" => \&get_modules_available,
 #        },
 
+    $ncommands = {
+        core => {
+            register_client => [
+                {
+                    command => "register client",
+                    help => "--name, --password",
+                    function => \&register_client,
+                }
+            ],
+            unregister_client => [
+                {
+                    command => "unregister client",
+                    help => "--id",
+                    function => \&unregister_client,
+                }
+            ],
+            search_event => [
+                {
+                    command => "search session",
+                    help => "--src-ip, --dst-ip",
+                    function => \&search_event,
+                }
+            ],
+            search_session => [
+                {
+                    command => "search session",
+                    help => "--src-ip, --dst-ip",
+                    function => \&search_session,
+                }
+            ],
+            clients_connected => [
+                {
+                    command => "show clients",
+                    help => "None.",
+                    function => \&show_clients
+                }
+            ],
+            server_uptime => [
+                {
+                    command => "server uptime",
+                    help => "",
+                    function => \&show_server_uptime
+                }
+            ],
+            server_version => [
+                {
+                    command => "server version",
+                    help => "",
+                    function => \&show_server_version
+                }
+            ],
+        }
+    }
 }
 
 
@@ -130,7 +189,7 @@ sub login
     }
 
     if( ! defined($heap->{secret}) ) {
-        $heap->{secret} = input_get('Password: ');
+        $heap->{secret} = sha256_hex(input_get('Password: '));
     }
 
     $kernel->yield('authenticate');
@@ -141,8 +200,7 @@ sub load_session
     my ($kernel, $heap) = @_[KERNEL, HEAP];
 
     # clear existing known commands
-    $modules = [];
-    $commands = {};
+    $acommands = [];
 
     # start the query process
     $kernel->yield('get', {
@@ -151,18 +209,16 @@ sub load_session
     }, sub {
         my ($s, $k, $h, $json) = @_;
 
-        $modules = $json->{result} // [];
+        my $modules = $json->{result} // [];
 
         foreach my $m ( @{ $modules } ) {
-            $commands->{$m} = [];
-
             $kernel->yield('get', {
                 type => $m,
                 data => 'commands_available'
             }, sub {
                 my ($s, $k, $h, $json) = @_;
 
-                $commands->{$m} = $json->{result} // [];
+                check_available_commands($m, $json->{result} // []);
             });
         }
     });
@@ -178,126 +234,38 @@ sub load_session
     prompt_print();
 }
 
+sub check_available_commands {
+    my ($m, $r) = @_;
 
+    if( defined( $ncommands->{$m} ) ) {
+        foreach my $c ( @{ $r } ) {
+            if( defined( $ncommands->{$m}{$c} ) ) {
+                foreach my $n ( @{ $ncommands->{$m}{$c} } ) {
+                    push( @{ $acommands }, $n );
+                }
+            }
+        }
+    }
+}
 
 
 sub prompt
 {
     my ($kernel, $heap, $data) = @_[KERNEL, HEAP, ARG0];
 
-    my @action = split(/[ ]/, $data);
+    # loop through all available commands
+    foreach my $c ( @{ $acommands } ) {
+        return if( ! $c->{function}($kernel, $data) );
+    }
 
-    if( @action ) {
-        given( $data )
-        {
-            when(/^search\sevent\s(.*)/) {
-                my $sql = prompt_process_event_search($1);
-                $kernel->yield('get', {
-                    type => "core",
-                    data => {
-                      "search_event" => $sql
-                    },
-                }, sub {
-                    my ($s, $k, $h, $json) = @_;
+    # no commands seen
+    if( $data =~ /^(h|help|\?)(.*)$/ ) {
+        my $extra = $2;
 
-                    my $result = $json->{result} // [];
-
-                    # TODO post process result with client aware components
-
-                    say( "Total records: " . @{ $result });
-                });
-            }
-            when(/^search\ssession\s(.*)/) {
-                my $sql = prompt_process_session_search($1);
-                $kernel->yield('get', {
-                    type => "core",
-                    data => {
-                      "search_session" => $sql
-                    },
-                }, sub {
-                    my ($s, $k, $h, $json) = @_;
-
-                    my $result = $json->{result} // [];
-
-                    # TODO post process result with client aware components
-
-                    say( "Total records: " . @{ $result });
-                });
-            }
-            when(/^json\s({.*})$/) {
-                $kernel->yield('get', json_decode($1), sub {
-                    my ($s, $k, $h, $json) = @_;
-
-                    my $result = $json->{result} // [];
-
-                    # TODO post process result with client aware components
-
-                    if( ref($result) eq 'ARRAY' ) {
-                      say( "Total records: " . @{ $result });
-                    }
-                    elsif( ref($result) eq 'HASH' ) {
-                      say( Dumper($result) );
-                    }
-                    else {
-                      say( $result );
-                    }
-                });
-
-            }
-            when(/^(h|help|\?)/) {
-                # check if we want help of a specific command
-                if ( ( @action == 2 ) &&
-                     ( $action[1] ~~ @{ $commands->{$module_active} } ) ) {
-                    $kernel->yield('get', {
-                        type => $module_active,
-                        data => [ 'help_' . $action[1] ]
-                    }, sub {
-                        my ($s, $k, $h, $json) = @_;
-
-                        my $result = $json->{result} // '';
-
-                        say( $result );
-                    });
-                }
-                else {
-                    say('Commands available:');
-
-                    # list all commands for the current level
-                    foreach my $c ( @{ $commands->{$module_active} } ) {
-                        say( '  ' . $c );
-                    }
-
-                    # list available modules if at root level
-                    if ( $module_active eq 'core' ) {
-                        foreach my $m ( @{ $modules } ) {
-                            next if ( $m eq 'core' );
-
-                            say( '  [' . $m . ']' );
-                        }
-                    }
-                }
-            }
-            when( /^@{ $commands->{$module_active} }/ ) {
-                $kernel->yield('get', {
-                    type => $module_active,
-                    data => [ @action ],
-                }, sub {
-                    my ($s, $k, $h, $json) = @_;
-
-                    my $result = $json->{result} // '';
-
-                    # TODO post process result with client aware components
-                    say( $result );
-                });
-            }
-            when ( /^@{ $modules }/ ) {
-                $module_active = $action[0];
-
-            }
-            default {
-              say('ERROR: Unknown action: ' . $action[0]);
-            }
-        }
+        say Dumper($acommands);
+    }
+    elsif( $data =~ /^[^\s]+/ ) {
+        say('Sorry DAVE, I don\'t understand that: ' . $data);
     }
 
     prompt_print();
@@ -327,133 +295,394 @@ sub input_get {
     return $input;
 }
 
+#
+# COMMAND TESTING AND PROCESSING
+#
 
-sub prompt_process_event_search {
-    my ($args) = @_;
+sub register_client {
+    my ($kernel, $data) = @_;
 
-    my $sql = {};
-    my @search_args = split(/[ ]/, $args);
+    if( $data =~ /^register\sclient\s(.*)/) {
+        my $sql = {};
 
-    foreach my $k ( @search_args ) {
-        given( $k ) {
-            when(/^--timestamp=([^ ]*)/) {
-                $sql->{timestamp} = $1;
-            }
-            when(/^--classification=([^ ]*)/) {
-                $sql->{timestamp} = $1;
-            }
-            when(/^--node-id=([^ ]*)/) {
-                $sql->{node_id} = $1;
-            }
-            when(/^--src-ip=([^ ]*)/) {
-                $sql->{net_src_ip} = $1;
-            }
-            when(/^--src-port=([^ ]*)/) {
-                $sql->{net_src_port} = $1;
-            }
-            when(/^--dst-ip=([^ ]*)/) {
-                $sql->{net_dst_ip} = $1;
-            }
-            when(/^--dst-port=([^ ]* )/) {
-                $sql->{net_dst_port} = $1;
-            }
-            when(/^--protocol=([^ ]*)/) {
-                $sql->{net_protocol} = $1;
-            }
-            when(/^--version=([^ ]*)/) {
-                $sql->{net_version} = $1;
-            }
-            when(/^--sig-id=([^ ]*)/) {
-                $sql->{sig_id} = $1;
-            }
-            when(/^--sig-revision=([^ ]*)/) {
-                $sql->{sig_revision} = $1;
-            }
-            when(/^--sig-priority=([^ ]*)/) {
-                $sql->{sig_priority} = $1;
-            }
-            when(/^--sig-message=([^ ]*)/) {
-                $sql->{sig_message} = $1;
-            }
-            when(/^--sig-category=([^ ]*)/) {
-                $sql->{sig_category} = $1;
-            }
-            default {
-                $logger->debug('Unsupported parameter: ' . $k);
+        my @search_args = split(/[ ]/, $1);
+
+        foreach my $k ( @search_args ) {
+            given( $k ) {
+                when(/^--name=([^ ]*)/) {
+                    $sql->{name} = $1;
+                }
+                when(/^--acl=([^ ]*)/) {
+                    $sql->{level} = $1;
+                }
+                when(/^--password=([^ ]*)/) {
+                    $sql->{password} = sha256_hex($1);
+                }
+                when(/^--description=([^ ]*)/) {
+                    $sql->{description} = $1;
+                }
+                default {
+                    $logger->debug('Unsupported parameter: ' . $k);
+                    return 0;
+                }
             }
         }
+
+        if( ! defined_args( $sql->{name},
+                            $sql->{level},
+                            $sql->{password} ) ) {
+            say("Mandatory arguments are missing.");
+            prompt_print();
+            return 0;
+        }
+
+        $kernel->yield('get', {
+            type => "core",
+            data => {
+              "register_client" => $sql
+            },
+        }, sub {
+            my ($s, $k, $h, $json) = @_;
+
+            my $result = $json->{result} // [];
+
+            # TODO post process result with client aware components
+
+            say(Dumper($result));
+            prompt_print();
+        });
+
+        return 0;
     }
 
-    return $sql;
+    return 1;
+}
+
+sub unregister_client {
+    my ($kernel, $data) = @_;
+
+    if( $data =~ /^unregister\sclient\s(.*)/) {
+        my $sql = {};
+
+        my @search_args = split(/[ ]/, $1);
+
+        foreach my $k ( @search_args ) {
+            given( $k ) {
+                when(/^--id=([^ ]*)/) {
+                    $sql->{id} = $1;
+                }
+                default {
+                    $logger->debug('Unsupported parameter: ' . $k);
+                    return 0;
+                }
+            }
+        }
+
+        $kernel->yield('get', {
+            type => "core",
+            data => {
+              "unregister_client" => $sql
+            },
+        }, sub {
+            my ($s, $k, $h, $json) = @_;
+
+            my $result = $json->{result} // [];
+
+            # TODO post process result with client aware components
+
+            say(Dumper($result));
+            prompt_print();
+        });
+
+        return 0;
+    }
+
+    return 1;
+}
+
+sub show_clients {
+    my ($kernel, $data) = @_;
+
+    if( $data =~ /^show\sclients$/) {
+        $kernel->yield('get', {
+            type => "core",
+            data => "clients_connected",
+        }, sub {
+            my ($s, $k, $h, $json) = @_;
+
+            my $result = $json->{result};
+
+            if( ref($result) eq 'HASH' ) {
+                say Dumper($result);
+                prompt_print();
+            }
+            else {
+                # TODO post process result with client aware components
+                say( "Unknown!");
+                prompt_print();
+            }
+        });
+
+        return 0;
+    }
+
+    return 1;
+}
+
+sub show_nodes {
+    my ($kernel, $data) = @_;
+
+    if( $data =~ /^show\snodes$/) {
+        $kernel->yield('get', {
+            type => "core",
+            data => "nodes_connected",
+        }, sub {
+            my ($s, $k, $h, $json) = @_;
+
+            my $result = $json->{result};
+
+            if( ref($result) eq 'HASH' ) {
+                say Dumper($result);
+                prompt_print();
+            }
+            else {
+                # TODO post process result with client aware components
+                say( "Unknown!");
+                prompt_print();
+            }
+        });
+
+        return 0;
+    }
+
+    return 1;
 }
 
 
-sub prompt_process_session_search {
-    my ($args) = @_;
+sub show_server_uptime {
+    my ($kernel, $data) = @_;
 
-    my $sql = {};
-    my @search_args = split(/[ ]/, $args);
+    if( $data =~ /^server\suptime$/) {
+        $kernel->yield('get', {
+            type => "core",
+            data => "server_uptime",
+        }, sub {
+            my ($s, $k, $h, $json) = @_;
 
-    foreach my $k ( @search_args ) {
-        given( $k ) {
-            when(/^--timestamp=([^ ]*)/) {
-                $sql->{timestamp} = $1;
-            }
-            when(/^--time-start=([^ ]*)/) {
-                $sql->{time_start} = $1;
-            }
-            when(/^--time-end=([^ ]*)/) {
-                $sql->{time_end} = $1;
-            }
-            when(/^--time-duration=([^ ]*)/) {
-                $sql->{time_duration} = $1;
-            }
-            when(/^--node-id=([^ ]*)/) {
-                $sql->{node_id} = $1;
-            }
-            when(/^--src-ip=([^ ]*)/) {
-                $sql->{net_src_ip} = $1;
-            }
-            when(/^--src-port=([^ ]*)/) {
-                $sql->{net_src_port} = $1;
-            }
-            when(/^--src-total-bytes=([^ ]*)/) {
-                $sql->{net_src_total_bytes} = $1;
-            }
-            when(/^--src-total-packets=([^ ]*)/) {
-                $sql->{net_src_total_packets} = $1;
-            }
-            when(/^--src-flagss=([^ ]*)/) {
-                $sql->{net_src_flags} = $1;
-            }
-            when(/^--dst-ip=([^ ]*)/) {
-                $sql->{net_dst_ip} = $1;
-            }
-            when(/^--dst-port=([^ ]* )/) {
-                $sql->{net_dst_port} = $1;
-            }
-            when(/^--dst-total-bytes=([^ ]*)/) {
-                $sql->{net_dst_total_bytes} = $1;
-            }
-            when(/^--dst-total-packets=([^ ]*)/) {
-                $sql->{net_dst_total_packets} = $1;
-            }
-            when(/^--dst-flagss=([^ ]*)/) {
-                $sql->{net_dst_flags} = $1;
-            }
-            when(/^--protocol=([^ ]*)/) {
-                $sql->{net_protocol} = $1;
-            }
-            when(/^--version=([^ ]*)/) {
-                $sql->{net_version} = $1;
-            }
-            default {
-                $logger->debug('Unsupported parameter: ' . $k);
-            }
-        }
+            my $result = $json->{result};
+
+            say('Echidna Server has been up for ' . $result . ' seconds');
+            prompt_print();
+        });
+
+        return 0;
     }
 
-    return $sql;
+    return 1;
+}
+
+sub show_server_version {
+    my ($kernel, $data) = @_;
+
+    if( $data =~ /^server\sversion$/) {
+        $kernel->yield('get', {
+            type => "core",
+            data => "server_version",
+        }, sub {
+            my ($s, $k, $h, $json) = @_;
+
+            my $result = $json->{result};
+
+            if( ref($result) eq 'HASH' ) {
+                my $literal = 'Echidna Server Version: v' . join('.', $result->{major}, $result->{minor}, $result->{revision}) . ' (b' . $result->{build} . ')';
+                say($literal);
+                prompt_print();
+            }
+            else {
+                # TODO post process result with client aware components
+                say( "Unknown");
+                prompt_print();
+            }
+        });
+
+        return 0;
+    }
+
+    return 1;
+}
+
+
+sub search_session {
+    my ($kernel, $data) = @_;
+
+    if( $data =~ /^search\ssession\s(.*)/) {
+        my $sql = {};
+
+        my @search_args = split(/[ ]/, $1);
+
+        foreach my $k ( @search_args ) {
+            given( $k ) {
+                when(/^--timestamp=([^ ]*)/) {
+                    $sql->{timestamp} = $1;
+                }
+                when(/^--time-start=([^ ]*)/) {
+                    $sql->{time_start} = $1;
+                }
+                when(/^--time-end=([^ ]*)/) {
+                    $sql->{time_end} = $1;
+                }
+                when(/^--time-duration=([^ ]*)/) {
+                    $sql->{time_duration} = $1;
+                }
+                when(/^--node-id=([^ ]*)/) {
+                    $sql->{node_id} = $1;
+                }
+                when(/^--src-ip=([^ ]*)/) {
+                    $sql->{net_src_ip} = $1;
+                }
+                when(/^--src-port=([^ ]*)/) {
+                    $sql->{net_src_port} = $1;
+                }
+                when(/^--src-total-bytes=([^ ]*)/) {
+                    $sql->{net_src_total_bytes} = $1;
+                }
+                when(/^--src-total-packets=([^ ]*)/) {
+                    $sql->{net_src_total_packets} = $1;
+                }
+                when(/^--src-flagss=([^ ]*)/) {
+                    $sql->{net_src_flags} = $1;
+                }
+                when(/^--dst-ip=([^ ]*)/) {
+                    $sql->{net_dst_ip} = $1;
+                }
+                when(/^--dst-port=([^ ]* )/) {
+                    $sql->{net_dst_port} = $1;
+                }
+                when(/^--dst-total-bytes=([^ ]*)/) {
+                    $sql->{net_dst_total_bytes} = $1;
+                }
+                when(/^--dst-total-packets=([^ ]*)/) {
+                    $sql->{net_dst_total_packets} = $1;
+                }
+                when(/^--dst-flagss=([^ ]*)/) {
+                    $sql->{net_dst_flags} = $1;
+                }
+                when(/^--protocol=([^ ]*)/) {
+                    $sql->{net_protocol} = $1;
+                }
+                when(/^--version=([^ ]*)/) {
+                    $sql->{net_version} = $1;
+                }
+                default {
+                    $logger->debug('Unsupported parameter: ' . $k);
+                    return 0;
+                }
+            }
+        }
+
+        $kernel->yield('get', {
+            type => "core",
+            data => {
+              "search_session" => $sql
+            },
+        }, sub {
+            my ($s, $k, $h, $json) = @_;
+
+            my $result = $json->{result} // [];
+
+            # TODO post process result with client aware components
+
+            say( "Total records: " . @{ $result });
+            prompt_print();
+        });
+
+        return 0;
+    }
+
+    return 1;
+}
+
+
+
+sub search_event {
+    my ($kernel, $data) = @_;
+
+    if( $data =~ /^search\sevent\s(.*)/) {
+        my $sql = {};
+
+        my @search_args = split(/[ ]/, $1);
+
+        foreach my $k ( @search_args ) {
+            given( $k ) {
+                when(/^--timestamp=([^ ]*)/) {
+                    $sql->{timestamp} = $1;
+                }
+                when(/^--classification=([^ ]*)/) {
+                    $sql->{timestamp} = $1;
+                }
+                when(/^--node-id=([^ ]*)/) {
+                    $sql->{node_id} = $1;
+                }
+                when(/^--src-ip=([^ ]*)/) {
+                    $sql->{net_src_ip} = $1;
+                }
+                when(/^--src-port=([^ ]*)/) {
+                    $sql->{net_src_port} = $1;
+                }
+                when(/^--dst-ip=([^ ]*)/) {
+                    $sql->{net_dst_ip} = $1;
+                }
+                when(/^--dst-port=([^ ]* )/) {
+                    $sql->{net_dst_port} = $1;
+                }
+                when(/^--protocol=([^ ]*)/) {
+                    $sql->{net_protocol} = $1;
+                }
+                when(/^--version=([^ ]*)/) {
+                    $sql->{net_version} = $1;
+                }
+                when(/^--sig-id=([^ ]*)/) {
+                    $sql->{sig_id} = $1;
+                }
+                when(/^--sig-revision=([^ ]*)/) {
+                    $sql->{sig_revision} = $1;
+                }
+                when(/^--sig-priority=([^ ]*)/) {
+                    $sql->{sig_priority} = $1;
+                }
+                when(/^--sig-message=([^ ]*)/) {
+                    $sql->{sig_message} = $1;
+                }
+                when(/^--sig-category=([^ ]*)/) {
+                    $sql->{sig_category} = $1;
+                }
+                default {
+                    $logger->debug('Unsupported parameter: ' . $k);
+                    return 0;
+                }
+            }
+        }
+
+        $kernel->yield('get', {
+            type => "core",
+            data => {
+              "search_event" => $sql
+            },
+        }, sub {
+            my ($s, $k, $h, $json) = @_;
+
+            my $result = $json->{result} // [];
+
+            # TODO post process result with client aware components
+
+            say( "Total records: " . @{ $result });
+            prompt_print();
+        });
+
+        return 0;
+    }
+
+    return 1;
 }
 
 

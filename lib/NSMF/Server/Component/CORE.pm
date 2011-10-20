@@ -128,6 +128,32 @@ sub init {
           "acl" => 127,
         },
 
+
+        "nodes_connected" => {
+            "help" => "Return all nodes connected.",
+            "exec" => \&get_nodes_connected,
+            "acl" => 127,
+        },
+        "node_info" => {
+            "help" => "Return node info.",
+            "exec" => \&get_node_info,
+            "acl" => 127,
+        },
+
+        "clients_connected" => {
+            "help" => "Return all clients connected.",
+            "exec" => \&get_clients_connected,
+            "acl" => 127,
+        },
+        "client_info" => {
+            "help" => "Return client info.",
+            "exec" => \&get_client_info,
+            "acl" => 127,
+        },
+
+
+
+
         "search_agent" => {
             "help" => "Search for agents.",
             "exec" => \&get_event_details,
@@ -219,11 +245,32 @@ sub node_unregister {
 sub client_register {
     my ($self, $params) = @_;
 
+    my $db = NSMF::Server->database();
+
+    # TODO: validate params
+
+    my $ret = $db->insert({
+        client => $params
+    });
+
+    return $ret;
 }
 
 sub client_unregister {
     my ($self, $params) = @_;
 
+    # require node id
+    my $db = NSMF::Server->database();
+
+    # TODO: validate params
+
+    my $ret = $db->delete({
+        client => {
+            id => $params->{id}
+        }
+    });
+
+    return $ret;
 }
 
 
@@ -318,6 +365,9 @@ sub get_plugin_info {
 sub get_clients_connected {
     my ($self, $params) = @_;
 
+    my $clients = $nsmf->clients();
+
+    return $clients;
 }
 
 sub get_client_info {
@@ -329,6 +379,9 @@ sub get_client_info {
 sub get_nodes_connected {
     my ($self, $params) = @_;
 
+    my $nodes = $nsmf->nodes();
+
+    return $nodes;
 }
 
 sub get_node_info {
