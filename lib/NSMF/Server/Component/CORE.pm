@@ -230,21 +230,66 @@ sub get_modules_available
 sub agent_register {
     my ($self, $params) = @_;
 
+    my $db = NSMF::Server->database();
+
+    # TODO: validate params
+
+    my $ret = $db->insert({
+        agent => $params
+    });
+
+    return $ret;
 }
 
 sub agent_unregister {
     my ($self, $params) = @_;
 
+    my $db = NSMF::Server->database();
+
+    # TODO: validate params
+    if ( ! defined_args($params->{id}) ) {
+        return 1;
+    }
+
+    # remove the agent and subordinate nodes
+    my $ret = $db->delete({
+        agent => {
+            id => $params->{id}
+        }
+    });
+
+    return $ret;
 }
 
 sub node_register {
     my ($self, $params) = @_;
 
+    my $db = NSMF::Server->database();
+
+    # TODO: validate params
+
+    my $ret = $db->insert({
+        node => $params
+    });
+
+    return $ret;
 }
 
 sub node_unregister {
     my ($self, $params) = @_;
 
+    my $db = NSMF::Server->database();
+
+    # TODO: validate params
+
+    # remove the node
+    my $ret = $db->delete({
+        node => {
+            id => $params->{id}
+        }
+    });
+
+    return $ret;
 }
 
 sub client_register {
