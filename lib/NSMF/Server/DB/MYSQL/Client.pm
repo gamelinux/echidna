@@ -137,6 +137,26 @@ sub search {
     return $ret;
 }
 
+sub update {
+    my ($self, $data, $filter) = @_;
+
+    my $sql = 'UPDATE client SET ';
+
+    my @fields = ('updated=NOW()');
+
+    while ( my ($key, $value) = each(%{ $data }) ) {
+        $value = "'$value'" if ( $value =~ m/[^\d]/ );
+        push(@fields, $key . '=' . $value);
+    }
+
+    $sql .= join(',', @fields) . ' ' . $self->create_filter($filter);
+
+    $logger->debug("SQL: $sql");
+
+    $self->{__handle}->do($sql);
+}
+
+
 sub delete {
     my ($self, $filter) = @_;
 

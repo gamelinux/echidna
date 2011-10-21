@@ -96,7 +96,7 @@ sub insert {
     $data->{data}{filename} //= '';
     $data->{data}{offset}   //= 0;
     $data->{data}{length}   //= 0;
-    $data->{vendor_meta}    //= {};
+    $data->{meta}           //= {};
 
     my $sql = 'INSERT INTO event (id, timestamp, classification, node_id, net_version, net_protocol, net_src_ip, net_src_port, net_dst_ip, net_dst_port, sig_id, sig_revision, sig_message, sig_priority, sig_category, meta) VALUES (' .
         join(",", (
@@ -129,7 +129,9 @@ sub insert {
 sub search {
     my ($self, $filter) = @_;
 
-    my $sql = 'SELECT * FROM event ' . $self->create_filter($filter);
+    my $sql = 'SELECT id, timestamp, classification, node_id, net_version, net_protocol, INET_NTOP(net_src_ip) as net_src_ip, net_src_port, INET_NTOP(net_dst_ip) as net_dst_ip, net_dst_port, sig_id, sig_revision, sig_message, sig_priority, sig_category, meta FROM event ' . $self->create_filter($filter);
+
+    $logger->debug("SQL: $sql");
 
     my $sth = $self->{__handle}->prepare($sql);
     $sth->execute();
@@ -339,6 +341,23 @@ END;
 
     # success
     return 1;
+}
+
+sub create_filter_from_scalar {
+    my ($self, $value, $field, $parent_field, $conditional) = @_;
+
+    $conditional //= '=';
+    $field = $parent_field if ( $field =~ /^\$/ );
+
+    if ( $field =~ m/net_(src|dst)_ip/ ) {
+        return $field . $conditional . 'INET_PTON(' . $self->{__handle}->quote($value) . ')';
+    }
+
+    if ( $value =~ m/[^\d]/ ) {
+        return $field . $conditional . $self->{__handle}->quote($value);
+    }
+
+    return $field . $conditional . $value;
 }
 
 1;

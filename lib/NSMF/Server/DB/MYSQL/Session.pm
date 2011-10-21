@@ -136,7 +136,9 @@ sub insert {
 sub search {
     my ($self, $filter) = @_;
 
-    my $sql = 'SELECT * FROM session ' . $self->create_filter($filter);
+    my $sql = 'SELECT id, timestamp, time_start, time_end, time_duration, node_id, net_version, net_protocol, INET_NTOP(net_src_ip) AS net_src_ip, net_src_port, net_src_total_packets, net_src_total_bytes, net_src_flags, INET_NTOP(net_dst_ip) AS net_dst_ip, net_dst_port, net_dst_total_packets, net_dst_total_bytes, net_dst_flags, data_filename, data_offset, data_length FROM session ' . $self->create_filter($filter);
+
+    $logger->debug("SQL: $sql");
 
     my $sth = $self->{__handle}->prepare($sql);
     $sth->execute();
@@ -318,6 +320,23 @@ END;
 
     # success
     return 1;
+}
+
+sub create_filter_from_scalar {
+    my ($self, $value, $field, $parent_field, $conditional) = @_;
+
+    $conditional //= '=';
+    $field = $parent_field if ( $field =~ /^\$/ );
+
+    if ( $field =~ m/net_(src|dst)_ip/ ) {
+        return $field . $conditional . 'INET_PTON(' . $self->{__handle}->quote($value) . ')';
+    }
+
+    if ( $value =~ m/[^\d]/ ) {
+        return $field . $conditional . $self->{__handle}->quote($value);
+    }
+
+    return $field . $conditional . $value;
 }
 
 1;

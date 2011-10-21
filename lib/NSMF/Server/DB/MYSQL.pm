@@ -256,6 +256,54 @@ sub custom {
 sub update {
     my ($self, $data, $filter) = @_;
 
+    if ( ! ref($data) eq 'HASH' )
+    {
+        $logger->warn('Ignoring entry due to uknown format');
+        return 0;
+    }
+
+    my ($type, $batch) = each(%{ $data });
+
+    if ( ! ($type ~~ @supported_types) )
+    {
+        $logger->warn('No callback to handle type: ' . $type, @supported_types);
+        return 0;
+    }
+
+    $batch = [ $batch ] if ( ref($batch) ne 'ARRAY' );
+
+    # start transaction
+
+    my $ret = 0;
+
+    for my $entry ( @{ $batch } )
+    {
+        if ( ref($entry) ne 'HASH' )
+        {
+            $logger->warn('Ignoring entry due to unknown format: ' . ref($entry));
+            next;
+        }
+
+        $logger->debug('Adding entry');
+
+        eval {
+            $ret |= $type_map->{$type}->update($entry, $filter);
+        };
+
+        if ( $@ ) {
+            $logger->warn('DB ERROR: ' . $DBI::err);
+
+            # database has disappeared, let's reconnect
+            if( $DBI::err == 2006 ) {
+                $self->connect();
+                redo;
+            }
+        }
+    }
+
+    # end transaction
+
+    return $ret;
 }
 
 sub delete {
