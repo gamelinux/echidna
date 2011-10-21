@@ -140,17 +140,62 @@ sub init
                     function => \&unregister_client,
                 }
             ],
+            update_client => [
+                {
+                    command => "update client",
+                    help => "--id",
+                    function => \&update_client,
+                }
+            ],
             search_event => [
                 {
-                    command => "search session",
-                    help => "--src-ip, --dst-ip",
+                    command => "search event",
+                    help => "Usage: search event [options]\n" .
+                            "Options:\n" .
+                            "  --timestamp=timestamp    Filter on timestamp recorded.\n\n" .
+#                           "  --agent-id=id            Filter on events specific to the agent's id\n" .
+                            "  --node-id=id             Filter on events specific to the node's id\n\n" .
+                            "  --src-ip=ip              Filter on source ip.\n" .
+                            "  --src-port=port          Filter on source port.\n\n" .
+                            "  --dst-ip=ip              Filter on destination ip.\n" .
+                            "  --dst-port=port          Filter on destination port.\n" .
+                            "  --ip=ip                  Filter on either source or destination ip.\n" .
+                            "  --port=port              Filter on either source or destination port.\n\n" .
+                            "  --protocol=protocol      Filter on TCP/IP protocol.\n" .
+                            "  --version=version        Filter on IP version. (eg. 4 or 6).\n\n" .
+                            "  --sig-id=id              Filter on signature id).\n" .
+                            "  --sig-revision=revision  Filter on signature revision.\n" .
+                            "  --sig-priority=priority  Filter on signature priority.\n" .
+                            "  --sig-message=message    Filter on signature message.\n" .
+                            "  --sig-category=category  Filter on signature category.\n" ,
                     function => \&search_event,
                 }
             ],
             search_session => [
                 {
                     command => "search session",
-                    help => "--src-ip, --dst-ip",
+                    help => "Usage: search session [options]\n" .
+                            "Options:\n" .
+                            "  --time-start=timestamp  Filter on timestamp of first packet.\n" .
+                            "  --time-end=timestamp    Filter on timestamp of last packet.\n" .
+                            "  --time-duration=n       Filter on n seconds of duration.\n\n" .
+#                            "  --agent-id=id           Filter on sessions specific to the agent's id\n" .
+                            "  --node-id=id            Filter on sessions specific to the node's id\n\n" .
+                            "  --src-ip=ip             Filter on source ip.\n" .
+                            "  --src-port=port         Filter on source port.\n" .
+                            "  --src-total-bytes=n     Filter on total n bytes sent from source.\n" .
+                            "  --src-total-packets=n   Filter on total n packets sent from source.\n" .
+                            "  --src-flags             Filter on total flags (bitwise-or'd) of packets sent from source.\n\n" .
+
+                            "  --dst-ip=ip             Filter on destination ip.\n" .
+                            "  --dst-port=port         Filter on destination port.\n" .
+                            "  --dst-total-bytes=n     Filter on total n bytes sent from destination.\n" .
+                            "  --dst-total-packets=n   Filter on total n packets sent from destination.\n" .
+                            "  --dst-flags             Filter on total flags (bitwise-or'd) of packets sent from destination.\n\n" .
+                            "  --ip=ip                 Filter on either source or destination ip.\n" .
+                            "  --port=port             Filter on either source or destination port.\n\n" .
+                            "  --protocol=protocol     Filter on TCP/IP protocol.\n" .
+                            "  --version=version       Filter on IP version. (eg. 4 or 6).\n",
                     function => \&search_session,
                 }
             ],
@@ -358,6 +403,66 @@ sub register_client {
     return 1;
 }
 
+sub update_client {
+    my ($kernel, $data) = @_;
+
+    if( $data =~ /^update\sclient\s(.*)/) {
+        my $sql = {};
+
+        my @search_args = split(/[ ]/, $1);
+
+        foreach my $k ( @search_args ) {
+            given( $k ) {
+                when(/^--id=([^ ]*)/) {
+                    $sql->{id} = $1;
+                }
+                when(/^--name=([^ ]*)/) {
+                    $sql->{name} = $1;
+                }
+                when(/^--acl=([^ ]*)/) {
+                    $sql->{level} = $1;
+                }
+                when(/^--password=([^ ]*)/) {
+                    $sql->{password} = sha256_hex($1);
+                }
+                when(/^--description=([^ ]*)/) {
+                    $sql->{description} = $1;
+                }
+                default {
+                    $logger->debug('Unsupported parameter: ' . $k);
+                    return 0;
+                }
+            }
+        }
+
+        if( ! defined_args( $sql->{id} )  ){
+            say("Mandatory arguments are missing.");
+            prompt_print();
+            return 0;
+        }
+
+        $kernel->yield('get', {
+            type => "core",
+            data => {
+              "update_client" => $sql
+            },
+        }, sub {
+            my ($s, $k, $h, $json) = @_;
+
+            my $result = $json->{result} // [];
+
+            # TODO post process result with client aware components
+
+            say(Dumper($result));
+            prompt_print();
+        });
+
+        return 0;
+    }
+
+    return 1;
+}
+
 sub unregister_client {
     my ($kernel, $data) = @_;
 
@@ -534,8 +639,11 @@ sub search_session {
                 when(/^--time-duration=([^ ]*)/) {
                     $sql->{time_duration} = $1;
                 }
+                when(/^--agent-id=([^ ]*)/) {
+                    $sql->{agent_id} = $1;
+                }
                 when(/^--node-id=([^ ]*)/) {
-                    $sql->{node_id} = $1;
+                    $sql->{id} = $1;
                 }
                 when(/^--src-ip=([^ ]*)/) {
                     $sql->{net_src_ip} = $1;
@@ -566,6 +674,18 @@ sub search_session {
                 }
                 when(/^--dst-flagss=([^ ]*)/) {
                     $sql->{net_dst_flags} = $1;
+                }
+                when(/^--ip=([^ ]*)/) {
+                    $sql->{"\$or"} = [
+                      { net_src_ip => $1 },
+                      { net_dst_ip => $1 }
+                    ];
+                }
+                when(/^--port=([^ ]*)/) {
+                    $sql->{"\$or"} = [
+                      { net_src_port => $1 },
+                      { net_dst_port => $1 }
+                    ];
                 }
                 when(/^--protocol=([^ ]*)/) {
                     $sql->{net_protocol} = $1;
