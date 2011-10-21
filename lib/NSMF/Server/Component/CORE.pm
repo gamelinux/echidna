@@ -95,6 +95,11 @@ sub init {
           "exec" => \&client_unregister,
           "acl" => 127,
         },
+        "update_client" => {
+          "help" => "Unregister a client from the Echidna framework.",
+          "exec" => \&client_update,
+          "acl" => 127,
+        },
 
         "subscribe_agent" => {
           "help" => "Subscribe to an agent's, and all subordinate nodes', broadcasts.",
@@ -268,6 +273,24 @@ sub client_unregister {
         client => {
             id => $params->{id}
         }
+    });
+
+    return $ret;
+}
+
+sub client_update {
+    my ($self, $params) = @_;
+
+    # require node id
+    my $db = NSMF::Server->database();
+
+    # TODO: validate params
+
+    my $ret = $db->update({
+        client => $params
+    },
+    {
+        id => $params->{id}
     });
 
     return $ret;
