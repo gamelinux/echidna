@@ -136,7 +136,9 @@ sub init
             unregister_client => [
                 {
                     command => "unregister client",
-                    help => "--id",
+                    help => "Usage: unregister client --id=<client>\n\n" .
+                            "Options:\n" .
+                            "  --id=<client>  Unique <client> id.",
                     function => \&unregister_client,
                 }
             ],
@@ -150,7 +152,8 @@ sub init
             search_event => [
                 {
                     command => "search event",
-                    help => "Usage: search event [options]\n" .
+                    help => "Search through the all captured events.\n\n" .
+                            "Usage: search event [options]\n\n" .
                             "Options:\n" .
                             "  --timestamp=timestamp    Filter on timestamp recorded.\n\n" .
 #                           "  --agent-id=id            Filter on events specific to the agent's id\n" .
@@ -174,7 +177,7 @@ sub init
             search_session => [
                 {
                     command => "search session",
-                    help => "Usage: search session [options]\n" .
+                    help => "Usage: search session [options]\n\n" .
                             "Options:\n" .
                             "  --time-start=timestamp  Filter on timestamp of first packet.\n" .
                             "  --time-end=timestamp    Filter on timestamp of last packet.\n" .
@@ -202,21 +205,21 @@ sub init
             clients_connected => [
                 {
                     command => "show clients",
-                    help => "None.",
+                    help => "Show all clients currently connected to Echidna.\n",
                     function => \&show_clients
                 }
             ],
             server_uptime => [
                 {
                     command => "server uptime",
-                    help => "",
+                    help => "Show how long the Echidna server has been up.\n",
                     function => \&show_server_uptime
                 }
             ],
             server_version => [
                 {
                     command => "server version",
-                    help => "",
+                    help => "Show the version and build information for the Echidna server.",
                     function => \&show_server_version
                 }
             ],
@@ -304,10 +307,27 @@ sub prompt
     }
 
     # no commands seen
-    if( $data =~ /^(h|help|\?)(.*)$/ ) {
+    if( $data =~ /^(help|h|\?)\s?(.*)$/ ) {
         my $extra = $2;
 
-        say Dumper($acommands);
+        if( length($extra) ) {
+            for my $c (@{ $acommands }) {
+                if ( $c->{command} eq $extra ) {
+                    say("\n" . $c->{help} . "\n");
+                    prompt_print();
+                    return;
+                }
+            }
+
+            say('Sorry DAVE, I don\'t understand that: ' . $extra);
+        }
+        else {
+            say("Available commands:");
+
+            for my $c (@{ $acommands }) {
+                say('  ' . $c->{command});
+            }
+        }
     }
     elsif( $data =~ /^[^\s]+/ ) {
         say('Sorry DAVE, I don\'t understand that: ' . $data);
