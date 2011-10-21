@@ -51,6 +51,16 @@ use NSMF::Common::Util;
 #
 my $logger = NSMF::Common::Logger->new();
 
+#
+# CONSTANTS
+#
+our $VERSION = {
+  major    => 0,
+  minor    => 0,
+  revision => 0,
+  build    => 1,
+};
+
 # Constructor
 sub new {
     my $class = shift;
@@ -59,6 +69,8 @@ sub new {
         __config_path   => undef,
         __config        => NSMF::Agent::ConfigMngr->instance(),
         __proto         => undef,
+        __started       => time(),
+        __version       => $VERSION,
         __data          => {},
         __handlers      => {
             _net        => undef,

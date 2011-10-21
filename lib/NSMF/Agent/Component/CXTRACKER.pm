@@ -47,6 +47,21 @@ use NSMF::Common::Util;
 #
 my $logger = NSMF::Common::Logger->new();
 
+#
+# CONSTATS
+#
+our $VERSION = {
+  major    => 0,
+  minor    => 1,
+  revision => 0,
+  build    => 2,
+};
+
+
+#
+# IMPLEMENTATION
+#
+
 sub type {
     return "CXTRACKER";
 }
