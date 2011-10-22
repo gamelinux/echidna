@@ -47,7 +47,6 @@ use NSMF::Common::Registry;
 my $nsmf    = NSMF::Server->instance();
 my $config  = $nsmf->config;
 my $modules =["core", @{ $config->modules() }];
-my $logger  = NSMF::Common::Registry->get('log');
 my $logger = NSMF::Common::Registry->get('log') 
     // carp 'Got an empty config object from Registry';
 
