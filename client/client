@@ -1184,6 +1184,18 @@ sub search_event {
                 when(/^--version=([^ ]*)/) {
                     $sql->{net_version} = $1;
                 }
+                when(/^--ip=([^ ]*)/) {
+                    $sql->{"\$or"} = [
+                      { net_src_ip => $1 },
+                      { net_dst_ip => $1 }
+                    ];
+                }
+                when(/^--port=([^ ]*)/) {
+                    $sql->{"\$or"} = [
+                      { net_src_port => $1 },
+                      { net_dst_port => $1 }
+                    ];
+                }
                 when(/^--sig-id=([^ ]*)/) {
                     $sql->{sig_id} = $1;
                 }
