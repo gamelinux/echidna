@@ -30,9 +30,7 @@ use v5.10;
 # PERL INCLUDES
 #
 use Carp;
-use Compress::Zlib;
 use Data::Dumper;
-use MIME::Base64;
 use POE;
 use POE::Filter::Line;
 use POE::Component::Client::TCP;
@@ -43,13 +41,17 @@ use POE::Component::Client::TCP;
 use NSMF::Agent;
 use NSMF::Agent::ConfigMngr;
 use NSMF::Agent::ProtoMngr;
-use NSMF::Common::Logger;
+
 use NSMF::Common::Util;
+use NSMF::Common::Logger;
+use NSMF::Common::Registry;
 
 #
 # GLOBALS
 #
-my $logger = NSMF::Common::Logger->new();
+# The logger is going to be initialized later using the name
+# of the node for the logfile
+my $logger; 
 
 #
 # CONSTANTS
@@ -65,6 +67,16 @@ our $VERSION = {
 sub new {
     my $class = shift;
 
+    my $component = lc($1) if $class =~ /::([\w]+)$/;
+
+    # initializing the gobal logger
+    $logger = NSMF::Common::Logger->new({
+        logfile => "$component.log",
+        logdir  => File::Spec->catdir($NSMF::Agent::BASE_PATH, 'logs')
+    });
+
+    NSMF::Common::Registry->set( 'log' => $logger );
+
     bless {
         __config_path   => undef,
         __config        => NSMF::Agent::ConfigMngr->instance(),
@@ -76,6 +88,7 @@ sub new {
             _net        => undef,
             _db         => undef,
             _sessid     => undef,
+            _log        => NSMF::Common::Registry->get('log'),
         },
         __client        => undef,
     }, $class;
@@ -91,8 +104,7 @@ sub load_config {
         $self->{__proto} = NSMF::Agent::ProtoMngr->create($self->{__config}->protocol());
     };
 
-    if ( $@ )
-    {
+    if ( $@ ) {
         $logger->fatal($@);
     }
 
@@ -186,6 +198,10 @@ sub ident_node_get {
     my $self = shift;
 
     return $heap->{node_id} // -1;
+}
+
+sub logger {
+    return shift->{__handlers}{_log} // croak "Logger module has not been initialized";
 }
 
 sub type {

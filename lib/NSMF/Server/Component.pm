@@ -28,15 +28,18 @@ use v5.10;
 
 use base qw(Exporter);
 
+use Carp;
+
 #
 # NSMF INCLUDES
 #
-use NSMF::Common::Logger;
+use NSMF::Common::Registry;
 
 #
 # GLOBALS
 #
-my $logger = NSMF::Common::Logger->new();
+my $logger = NSMF::Common::Registry->get('log') 
+    // carp 'Got an empty config object from Registry';
 
 #
 # MEMBERS
@@ -177,6 +180,10 @@ sub get_commands_available
     my ($self) = @_;
 
     return $self->{_commands_allowed};
+}
+
+sub logger {
+    return NSMF::Common::Registry->get('log');   
 }
 
 1;

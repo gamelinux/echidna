@@ -28,13 +28,14 @@ use strict;
 #
 # PERL INCLUDES
 #
+use Carp;
 use Digest::MD5 qw(md5);
 use POE::Filter::Line;
 
 #
 # NSMF INCLUDES
 #
-use NSMF::Common::Logger;
+use NSMF::Common::Registry;
 
 #
 # GLOBAL EXPORTS
@@ -46,7 +47,8 @@ our @EXPORT = qw(websocket_handshake);
 #
 # GLOBAL VARIABLES
 #
-my $logger  = NSMF::Common::Logger->new();
+my $logger = NSMF::Common::Registry->get('log') 
+    // carp 'Got an empty config object from Registry';
 
 #
 # WEBSOCKET ROUTINES

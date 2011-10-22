@@ -32,33 +32,35 @@ use v5.10;
 use Compress::Zlib;
 use Data::Dumper;
 use Date::Format;
-use MIME::Base64;
-use POE;
-use POE::Session;
-use POE::Wheel::Run;
-use POE::Filter::Reference;
-
+use Carp;
+use POE qw(
+    Session
+    Wheel::Run
+    Filter::Reference
+);
 
 #
 # NSMF INCLUDES
 #
 use NSMF::Common::JSON;
-use NSMF::Common::Logger;
 use NSMF::Common::Util;
+use NSMF::Common::Registry;
+
 use NSMF::Server;
 use NSMF::Server::AuthMngr;
-use NSMF::Server::ConfigMngr;
 use NSMF::Server::ModMngr;
-
 
 #
 # GLOBALS
 #
 my $instance;
-my $config = NSMF::Server::ConfigMngr->instance;
-my $modules = $config->modules() // [];
-my $logger = NSMF::Common::Logger->new();
+my $logger = NSMF::Common::Registry->get('log') 
+    // carp 'Got an empty config object from Registry';
 
+my $config = NSMF::Common::Registry->get('config') 
+    // carp 'Got an empty config object from Registry'; 
+
+my $modules = $config->modules() // [];
 
 #
 # CLIENT/NODE tracking

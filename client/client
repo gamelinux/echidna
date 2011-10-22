@@ -21,8 +21,9 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #
-
-use lib '../lib';
+use File::Spec;
+use FindBin qw($Bin);
+use lib File::Spec->catdir($Bin, '..', 'lib');
 
 use warnings;
 use strict;
@@ -44,8 +45,10 @@ use POSIX;
 # NSMF INCLUDES
 #
 use NSMF::Common::JSON;
-use NSMF::Common::Logger;
 use NSMF::Common::Util;
+use NSMF::Common::Logger;
+use NSMF::Common::Registry;
+
 use NSMF::Client;
 
 #
@@ -53,10 +56,18 @@ use NSMF::Client;
 #
 our $VERSION = '0.1';
 
+# set base path on server singleton
+$NSMF::Client::BASE_PATH = File::Spec->catdir($Bin, '../');
+
+my $logger  = NSMF::Common::Logger->new({
+            logfile => 'client.log',
+            logdir  => File::Spec->catdir($NSMF::Client::BASE_PATH, 'logs')
+});
+NSMF::Common::Registry->set( 'log' => $logger );
+
 my $nsmf    = NSMF::Client->new();
 my $config  = $nsmf->config();
 my $proto   = $nsmf->proto();
-my $logger  = NSMF::Common::Logger->new();
 
 my ($self) = @_;
 

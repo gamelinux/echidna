@@ -29,12 +29,12 @@ use v5.10;
 #
 # NSMF INCLUDES
 #
-use NSMF::Common::Logger;
+use NSMF::Common::Registry;
 
 #
 # GLOBALS
 #
-my $logger = NSMF::Common::Logger->new();
+my $logger = NSMF::Common::Registry->get('log');
 
 #
 # CONSTRUCTOR

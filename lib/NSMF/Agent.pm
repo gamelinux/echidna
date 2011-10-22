@@ -31,4 +31,6 @@ use v5.10;
 #
 use Module::Pluggable search_path => 'NSMF::Agent::Proto', sub_name => 'protocols';
 
+our $BASE_PATH;
+
 1;

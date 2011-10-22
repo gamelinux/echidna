@@ -32,20 +32,16 @@ use base qw(NSMF::Agent::Component);
 # PERL INCLUDES
 #
 use Data::Dumper;
+use Carp;
 use POE;
 
 #
 # NSMF INCLUDES
 #
-use NSMF::Agent;
-use NSMF::Agent::Action;
-use NSMF::Common::Logger;
 use NSMF::Common::Util;
 
-#
-# GLOBALS
-#
-my $logger = NSMF::Common::Logger->new();
+use NSMF::Agent;
+use NSMF::Agent::Action;
 
 #
 # CONSTATS
@@ -68,7 +64,7 @@ sub type {
 
 sub hello {
     my ($self) = shift;
-    $logger->debug('   Hello from CXTRACKER Node!!');
+    $self->logger->debug('   Hello from CXTRACKER Node!!');
 }
 
 sub sync {
@@ -77,7 +73,7 @@ sub sync {
     $self->SUPER::sync();
     my $settings = $self->{__config}->settings();
 
-    $logger->error('CXTDIR undefined!') unless $settings->{cxtdir};
+    $self->logger->error('CXTDIR undefined!') unless $settings->{cxtdir};
 
     $self->{watcher} = NSMF::Agent::Action->file_watcher({
         directory => $settings->{cxtdir},
@@ -91,8 +87,7 @@ sub run {
     my ($kernel, $heap) = @_[KERNEL, HEAP];
     my $self = shift;
 
-#    $self->register($kernel, $heap);
-    $logger->debug("Running cxtracker processing..");
+    $self->logger->debug("Running cxtracker processing..");
 
     $self->hello();
 }
@@ -122,11 +117,11 @@ sub _process {
 
     if ( ! ( -r -w -f $file ) )
     {
-        $logger->info('Insufficient permissions to operate on file: ' . $file);
+        $self->logger->info('Insufficient permissions to operate on file: ' . $file);
         return;
     };
 
-    $logger->info("Found file: $file");
+    $self->logger->info("Found file: $file");
 
     my ($sessions, $start_time, $end_time, $process_time, $result);
 
@@ -134,7 +129,7 @@ sub _process {
     $sessions     = _get_sessions($file, $heap->{node_id});
     $end_time     = time();
     $process_time = $end_time - $start_time;
-    $logger->debug("File $file processed in $process_time seconds");
+    $self->logger->debug("File $file processed in $process_time seconds");
     $start_time   = $end_time;
 
     if ( @{ $sessions } ) {
@@ -145,10 +140,10 @@ sub _process {
         $end_time     = time();
         $process_time = $end_time - $start_time;
 
-        $logger->debug("Session record(s) sent in $process_time seconds");
+        $self->logger->debug("Session record(s) sent in $process_time seconds");
     }
 
-    unlink($file) or $logger->error("Failed to delete: $file");
+    unlink($file) or $self->logger->error("Failed to delete: $file");
 }
 
 =head2 _get_sessions
@@ -162,7 +157,9 @@ sub _get_sessions {
     my ($sfile, $node_id) = @_;
     my $sessions_data = [];
 
+    my $logger = NSMF::Common::Registry->get('log');
     $logger->debug('Session file found: ' . $sfile);
+
     if ( open(FILE, $sfile) ) {
         my $cnt = 0;
         # verify the data in the session files

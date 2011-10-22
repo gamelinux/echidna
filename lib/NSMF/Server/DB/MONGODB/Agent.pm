@@ -32,6 +32,7 @@ use base qw(NSMF::Server::DB::MONGODB::Base);
 # PERL CONSTANTS
 #
 use Data::Dumper;
+use NSMF::Common::Registry;
 
 #
 # CONSTANTS
@@ -43,7 +44,7 @@ use constant {
 #
 # GLOBALS
 #
-my $logger = NSMF::Common::Logger->new();
+my $logger = NSMF::Common::Registry->get('log');
 
 #
 # DATA STORE CREATION AND VALIDATION

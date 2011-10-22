@@ -29,7 +29,9 @@ use v5.10;
 #
 # PERL INCLUDES
 #
+use Carp;
 use File::Spec;
+use Data::Dumper;
 use Module::Pluggable search_path => 'NSMF::Server::Component', sub_name => 'modules';
 use Module::Pluggable search_path => 'NSMF::Server::Worker', sub_name => 'workers';
 use Module::Pluggable search_path => 'NSMF::Server::Proto::Node', sub_name => 'node_protocols';
@@ -39,16 +41,18 @@ use Module::Pluggable search_path => 'NSMF::Server::DB', sub_name => 'databases'
 #
 # NSMF INCLUDES
 #
-use NSMF::Common::Logger;
-use NSMF::Server::ConfigMngr;
+use NSMF::Common::Registry;
+
 use NSMF::Server::DBMngr;
 use NSMF::Server::ProtoMngr;
+use NSMF::Server::ConfigMngr;
 
 #
 # GLOBALS
 #
+our $BASE_PATH;
+
 my $singleton;
-my $logger = NSMF::Common::Logger->new();
 
 #
 # CONSTANTS
@@ -67,29 +71,38 @@ sub new {
 sub instance {
     if ( ! defined($singleton) ) {
 
-        my $config_path = File::Spec->catfile('../etc', 'server.yaml');
+        # registry needs to be set from the beginning
+        my $registry = NSMF::Common::Registry->new();
+
+        # set logger in the registry
+        my $logger = $registry->get('log');
+
+        my $config_path = File::Spec->catfile($BASE_PATH, 'etc', 'server.yaml');
 
         if ( ! -f -r $config_path) {
-            die 'Server Configuration File Not Found';
+            croak 'Server Configuration File Not Found';
         }
 
         my $config = NSMF::Server::ConfigMngr::instance();
         $config->load($config_path);
+        NSMF::Common::Registry->set( config => $config );
 
-        my $node_proto;
-        my $client_proto;
-        my $database;
+        my ($node_proto, $client_proto, $database);
 
         eval {
             $database = NSMF::Server::DBMngr->create($config->database());
             $node_proto = NSMF::Server::ProtoMngr->create('node', $config->protocol('node'));
             $client_proto = NSMF::Server::ProtoMngr->create('client', $config->protocol('client'));
-        };
 
-        if ( $@ )
-        {
+        }; 
+        
+        if ( $@ ) {
             $logger->fatal(Dumper($@));
         }
+
+        # store them on the registry
+        $registry->set( config => $config );
+        $registry->set( db => $database );
 
         $singleton = bless {
             __config_path => $config_path,

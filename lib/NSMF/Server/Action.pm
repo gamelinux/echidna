@@ -26,21 +26,26 @@ use warnings;
 use strict;
 use v5.10;
 
+use Carp;
+
 #
 # PERL INCLUDES
 #
 use POE;
 use POE::Wheel::Run;
 use Data::Dumper;
+use Carp;
+
 #
 # NSMF INCLUDES
 #
-use NSMF::Common::Logger;
+use NSMF::Common::Registry;
 
 #
 # GLOBALS
 #
-my $logger = NSMF::Common::Logger->new();
+my $logger = NSMF::Common::Registry->get('log') 
+    // carp 'Got an empty config object from Registry';
 
 sub file_catcher {
     my ($self, $settings) = @_;

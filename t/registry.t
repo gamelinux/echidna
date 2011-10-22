@@ -7,7 +7,7 @@ use lib '../lib';
 use Test::More 'no_plan';
 
 # require
-use_ok("NSMF::Common::Registry");
+use_ok('NSMF::Common::Registry');
 
 my $reg = NSMF::Common::Registry->new;
 

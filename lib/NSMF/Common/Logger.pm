@@ -1,229 +1,146 @@
 package NSMF::Common::Logger;
 
 use strict;
-use v5.10;
+use 5.010;
 
-#
-# PERL INCLUDES
-#
-use Data::Dumper; 
+use Carp;
 use POSIX qw(strftime);
+use Log::Dispatch;
+use Log::Dispatch::File;
+use Log::Dispatch::Screen;
+use Data::Dumper;
 
-#
-# CONSTANTS
-#
-use constant {
-  FATAL => 0,
-  ERROR => 1,
-  WARN  => 2,
-  INFO  => 3,
-  DEBUG => 4,
-  CHAOS => 5
-};
+our ($LOG_DIR, $FILENAME);
 
-#
-# GLOBALS
-#
 my $instance;
-
 sub new {
-    if ( ! defined($instance) )
-    {
+    my ($class, $args) = @_;
+
+    unless (defined $instance) {
         $instance = bless {
-            _level => INFO,
-            _timestamp => undef,
-            _timestamp_format => undef,
-            _warn_is_fatal => 0,
-            _error_is_fatal => 0,
-            _file => undef,
-            _file_handle => undef,
-            _file_writable => 0,
+            __handler  => _setup($args),
         }, __PACKAGE__;
     }
 
-    return $instance;
+    $instance;
+}
+
+sub _setup {
+    my ($args) = @_;
+
+    my $format_callback = sub {
+        my %p = @_;
+        
+        if (defined $args->{timestamp}) {
+            my $datetime = strftime('%Y-%m-%d %H:%M:%S', gmtime);
+    
+            return $datetime . ' ' . $p{message}. "\n";
+        } else {
+            return $p{message}. "\n";
+        }
+    };
+
+    my $logger = Log::Dispatch->new(callbacks => $format_callback); 
+    
+    my $level = $args->{level} // 'debug';
+    
+    unless ( $logger->level_is_valid( $level ) ) {
+
+        carp "Invalid Level $level"; # die?
+        $level = 'debug';
+    }
+
+    $LOG_DIR //= $args->{logdir} // croak "Logdir expected";
+
+    unless (-w $LOG_DIR) {
+        say "LogDir: " .$LOG_DIR. " ";
+        croak "Log dir is not writeable. Be sure to specify logdir."; # die?
+    }
+
+    $FILENAME //= $args->{logfile} // croak "Logfile expected";
+
+    my $screen_log = Log::Dispatch::Screen->new(
+                    name => 'screen',
+                    min_level => $level,
+                );
+
+    my $file_log = Log::Dispatch::File->new(
+                    name => 'server',
+                    min_level => $level,
+                    filename => $LOG_DIR .'/'. $FILENAME,
+                    mode    => 'append',
+                    newline => 1,
+                );
+
+    # if ($args->{screen}) {}
+    given( $args->{mode} ) {
+        when(/debug/i) {
+            $logger->add($screen_log);
+            $logger->add($file_log);
+        }
+        when(/screen/i) {
+            $logger->add($screen_log);
+        }
+        default {
+            # default should be file
+            $logger->add($file_log);
+            $logger->add($screen_log);
+        }
+    }
+
+    return $logger;
 }
 
 sub load {
     my ($self, $args) = @_;
 
-    return if ( ref($self) ne __PACKAGE__ );
+    return unless ref $self;
 
-    __PACKAGE__->new();
+    $self->{__handler} = _setup($args);
 
-    # determine the verbosiy level
-    given($args->{level}) {
-        when (/fatal/) {
-            $self->{_level} = FATAL;
-        }
-        when (/error/) {
-            $self->{_level} = ERROR;
-        }
-        when (/warn/) {
-            $self->{_level} = WARN;
-        }
-        when (/info/) {
-            $self->{_level} = INFO;
-        }
-        when (/debug/) {
-            $self->{_level} = DEBUG;
-        }
-    };
-
-    # store internal represetation with sane defaults
-    $self->{_timestamp}        = $args->{timestamp}         // 0;
-    $self->{_timestamp_format} = $args->{timestamp_format}  // '%Y-%m-%d %H:%M:%S';
-    $self->{_file}             = $args->{file}              // '';
-    $self->{_warn_is_fatal}    = $args->{warn_is_fatal}     // 0;
-    $self->{_error_is_fatal}   = $args->{error_is_fatal}    // 0;
-
-    # check if we want to write to a file
-    if ( $self->{_file} )
-    {
-        if ( ! open($self->{_file_handle}, '>' . $self->{_file}) )
-        {
-            die { state => 'error', message => 'Unable to open log file for writing.' };
-        }
-
-        $self->{_file_writable} = 1;
-    }
-
-    $instance = $self;
-
-    return $instance;
-}
-
-sub level {
-    my ($self, $arg) = @_;
-
-    $self->{_level} = $arg if ( defined($arg) );
-
-    return $self->{_level};
+    $self;
 }
 
 sub debug {
-    my ($self, @args) = @_;
+    my ($self, $msg) = @_;
 
-    return if ( $self->{_level} < DEBUG );
+    return unless ref $self eq __PACKAGE__;
 
-    $Data::Dumper::Terse = 1;
-
-    map { $_ = ref($_) ? Dumper($_) : $_ } @args;
-
-    $self->log('[D] ', @args);
+    $self->{__handler}->log(level => 'debug', message => $msg);
 }
 
 sub info {
-    my ($self, @args) = @_;
+    my ($self, $msg) = @_;
 
-    return if ( $self->{_level} < INFO );
+    return unless ref $self eq __PACKAGE__;
 
-    map { $_ = ref($_) ? Dumper($_) : $_ } @args;
-
-    $self->log('[I] ', @args);
+    $self->{__handler}->log(level => 'info', message => $msg);
 }
 
 sub warn {
-    my ($self, @args) = @_;
+    my ($self, $msg) = @_;
 
-    return if ( $self->{_level} < WARN );
+    return unless ref $self eq __PACKAGE__;
 
-    map { $_ = ref($_) ? Dumper($_) : $_ } @args;
-
-    $self->log('[W] ', @args);
-
-    exit if ( $self->{_warn_is_fatal} );
+    $self->{__handler}->log(level => 'warning', message => $msg);
 }
+
 
 sub error {
-    my ($self, @args) = @_;
+    my ($self, $msg) = @_;
 
-    return if ( $self->{_level} < ERROR );
+    return unless ref $self eq __PACKAGE__;
 
-    map { $_ = ref($_) ? Dumper($_) : $_ } @args;
-
-    $self->log('[E] ', @args);
-
-    exit if ( $self->{_error_is_fatal} );
+    $self->{__handler}->log(level => 'error', message => $msg);
 }
-
 
 sub fatal {
-    my ($self, @args) = @_;
+    my ($self, $msg) = @_;
 
-    return if ( $self->{_level} < FATAL );
+    return unless ref $self eq __PACKAGE__;
 
-    map { $_ = ref($_) ? Dumper($_) : $_ } @args;
-
-    $self->log('[!] ', @args);
-    exit;
-}
-
-
-sub prompt {
-    my ($self, $message) = @_;
-
-    my $line = $self->time_now() . '[$] ' . $message;
-
-    print $line;
-
-    my $input = <STDIN>;
-    chomp($input);
-
-    return $input;
-}
-
-
-sub prompt_with_tabcomplete {
-    my ($self, $message, $tab_func) = @_;
-
-    my $line = $self->time_now() . '[$] ' . $message;
-
-    print $line;
-
-    my $input = <STDIN>;
-    chomp($input);
-
-    return $input;
-}
-
-
-sub time_now
-{
-    my ($self) = shift;
-
-    my $zone = undef;
-
-    return '' if ( ! defined($self->{_timestamp}) ||
-                   $self->{_timestamp} != 1 );
-
-    return strftime($self->{_timestamp_format}, (defined($zone) && ( $zone eq "local" ) ) ? localtime : gmtime) . ' ';
-}
-
-
-sub log {
-    my ($self, $type, @args) = @_;
-
-    my $line = $self->time_now() . $type . join("\n", @args);
-
-    # write to stdout
-    say $line;
-
-    # write to file (as appropriate)
-    if ( $self->{_file_writable} )
-    {
-        my $fh = $self->{_file_handle};
-        say $fh $line;
-    }
-}
-
-sub DESTROY {
-    my $self = shift;
-
-    if ( $self->{_file_writable} )
-    {
-        close($self->{_file_handle});
-    }
+    $self->{__handler}->log(level => 'emergency', message => $msg);
 }
 
 1;
+

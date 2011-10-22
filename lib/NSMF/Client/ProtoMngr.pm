@@ -29,7 +29,7 @@ use v5.10;
 #
 # NSMF INCLUDES
 #
-use NSMF::Client;
+# use NSMF::Client;
 
 sub create {
     my ($self, $type) = @_;
@@ -37,6 +37,7 @@ sub create {
     $type //= 'JSON';
     my $proto_path = 'NSMF::Client::Proto::' . uc($type);
 
+    require NSMF::Client;
     my @protocols = NSMF::Client->protocols();
     if ( $proto_path ~~ @protocols ) {
         eval "use $proto_path";

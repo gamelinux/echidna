@@ -21,8 +21,9 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #
-
-use lib '../lib';
+use File::Spec;
+use FindBin qw($Bin);
+use lib File::Spec->catdir($Bin, '..', 'lib');
 
 use warnings;
 use strict;
@@ -36,21 +37,35 @@ use POE qw(Component::Server::TCP);
 #
 # NSMF INCLUDES
 #
+use NSMF::Common::Registry;
 use NSMF::Common::Logger;
+
 use NSMF::Server;
 use NSMF::Server::Action;
 use NSMF::Server::WebSocket qw(websocket_handshake);
+
+use Data::Dumper;
 
 #
 # GLOBALS
 #
 our $VERSION = '0.1';
 
-my $nsmf    = NSMF::Server->new();
-my $config  = $nsmf->config();
+# set base path on server singleton
+$NSMF::Server::BASE_PATH = File::Spec->catdir($Bin, '../');
+
+my $logger = NSMF::Common::Logger->new({
+        logfile => 'server.log',
+        logdir  => File::Spec->catdir($NSMF::Server::BASE_PATH, 'logs')
+});
+
+my $reg = NSMF::Common::Registry->new;
+$reg->set( 'log' => $logger );
+
+my $nsmf          = NSMF::Server->new();
+my $config        = $nsmf->config();
 my $proto_nodes   = $nsmf->proto('node');
 my $proto_clients = $nsmf->proto('client');
-my $logger  = NSMF::Common::Logger->new();
 
 # service node connections
 my $nodes = POE::Component::Server::TCP->new(
@@ -140,6 +155,7 @@ my $transfer_mngr = POE::Session->create(
         }
     },
 );
+
 sub node_connected {
     my ($session, $heap) = @_[SESSION, HEAP];
 

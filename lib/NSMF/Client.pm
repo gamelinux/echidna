@@ -37,20 +37,27 @@ use Module::Pluggable search_path => 'NSMF::Client::Proto', sub_name => 'protoco
 #
 # NSMF INCLUDES
 #
-use NSMF::Common::Logger;
-use NSMF::Client::ConfigMngr;
+use NSMF::Common::Registry;
 use NSMF::Client::ProtoMngr;
+use NSMF::Client::ConfigMngr;
 
 #
 # GLOBALS
 #
+our $BASE_PATH;
+
 my $instance;
-my $logger = NSMF::Common::Logger->new();
 
 sub new {
     if ( ! defined($instance) ) {
 
-        my $config_path = File::Spec->catfile('../etc', 'client.yaml');
+        # registry needs to be set from the beginning
+        my $registry = NSMF::Common::Registry->new();
+
+        # set logger in the registry
+        my $logger = $registry->get('log');
+
+        my $config_path = File::Spec->catfile($BASE_PATH, 'etc', 'client.yaml');
 
         if ( ! -f -r $config_path) {
             die 'Client configuration file not found.';
@@ -59,14 +66,15 @@ sub new {
         my $config = NSMF::Client::ConfigMngr::instance();
         $config->load($config_path);
 
+        $registry->set( config => $config );
+
         my $proto;
 
         eval {
             $proto = NSMF::Client::ProtoMngr->create($config->protocol());
         };
 
-        if ( $@ )
-        {
+        if ( $@ ) {
             $logger->fatal(Dumper($@));
         }
 

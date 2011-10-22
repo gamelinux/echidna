@@ -26,16 +26,19 @@ use warnings;
 use strict;
 use v5.10;
 
+use Carp;
+
 #
 # NSMF INCLUDES
 #
-use NSMF::Common::Logger;
 use NSMF::Server;
+use NSMF::Common::Registry;
 
 #
 # GLOBALS
 #
-my $logger = NSMF::Common::Logger->new();
+my $logger = NSMF::Common::Registry->get('log') 
+    // carp 'Got an empty config object from Registry';
 
 #
 # database_settings => {
@@ -51,6 +54,8 @@ my $logger = NSMF::Common::Logger->new();
 
 sub create {
     my ($self, $database) = @_;
+
+    $logger = NSMF::Common::Registry->get('log');
 
     my $type = $database->{type} // 'MYSQL';
 

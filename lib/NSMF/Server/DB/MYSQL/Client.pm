@@ -29,9 +29,15 @@ use v5.10;
 use base qw(NSMF::Server::DB::MYSQL::Base);
 
 #
+# NSMF INCLUDES
+#
+use NSMF::Common::Registry;
+
+#
 # PERL CONSTANTS
 #
 use Data::Dumper;
+use Carp;
 use Digest::SHA qw(sha256_hex);
 
 #
@@ -44,7 +50,8 @@ use constant {
 #
 # GLOBALS
 #
-my $logger = NSMF::Common::Logger->new();
+my $logger = NSMF::Common::Registry->get('log') 
+    // carp 'Got an empty config object from Registry';
 
 #
 # DATA STORE CREATION AND VALIDATION

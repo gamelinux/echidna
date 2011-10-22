@@ -37,14 +37,14 @@ use Module::Pluggable search_path => 'NSMF::Server::DB::MONGODB', sub_name => 'd
 #
 # NSMF INCLUDES
 #
-use NSMF::Common::Logger;
+use NSMF::Common::Registry
 
 #
 # GLOBALS
 #
 my $instance;
 my $type_map = {};
-my $logger = NSMF::Common::Logger->new();
+my $logger = NSMF::Common::Registry->get('log');
 my @supported_types = ();
 my $db_dsn;
 my $db_handle;

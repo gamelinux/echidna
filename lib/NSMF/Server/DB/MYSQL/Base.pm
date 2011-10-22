@@ -27,16 +27,18 @@ use strict;
 use v5.10;
 
 use Data::Dumper;
+use Carp;
 
 #
 # NSMF INCLUDES
 #
-use NSMF::Common::Logger;
+use NSMF::Common::Registry;
 
 #
 # GLOBALS
 #
-my $logger = NSMF::Common::Logger->new();
+my $logger = NSMF::Common::Registry->get('log') 
+    // carp 'Got an empty config object from Registry';
 
 #
 # CONSTRUCTOR

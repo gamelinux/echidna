@@ -19,9 +19,6 @@ network:
 log:
     level: debug
     timestamp: 1
-#    timestamp_format: "HH:MM"
-#    error_is_fatal: 1
-#    warn_is_fatal: 1
 
 #
 # PROTOCOL

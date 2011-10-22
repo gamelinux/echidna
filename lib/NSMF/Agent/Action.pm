@@ -34,15 +34,16 @@ use POE;
 #
 # NSMF INCLUDES
 #
-use NSMF::Common::Logger;
 
 #
 # GLOBALS
 #
-my $logger = NSMF::Common::Logger->new();
 
 sub file_watcher {
     my ($self, $settings) = @_;
+
+    require NSMF::Common::Registry;
+    my $logger = NSMF::Common::Registry->get('log');
 
     $logger->fatal('Expected hash ref of parameters. Got: ', $settings) if ( ! ref($settings) );
 

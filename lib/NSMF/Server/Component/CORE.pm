@@ -32,21 +32,24 @@ use base qw(NSMF::Server::Component);
 # PERL INCLUDES
 #
 use Module::Pluggable require => 1;
+use Carp;
 
 #
 # NSMF INCLUDES
 #
 use NSMF::Server;
-use NSMF::Common::Logger;
+use NSMF::Common::Registry;
 
 #
 # GLOBALS
 #
-my $logger = NSMF::Common::Logger->new();
 
 my $nsmf    = NSMF::Server->instance();
 my $config  = $nsmf->config;
 my $modules =["core", @{ $config->modules() }];
+my $logger  = NSMF::Common::Registry->get('log');
+my $logger = NSMF::Common::Registry->get('log') 
+    // carp 'Got an empty config object from Registry';
 
 #
 # MEMBERS

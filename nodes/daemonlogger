@@ -21,8 +21,9 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #
-
-use lib '../lib';
+use File::Spec;
+use FindBin qw($Bin);
+use lib File::Spec->catdir($Bin, "..", "lib");
 
 use warnings;
 use strict;
@@ -33,13 +34,13 @@ use v5.10;
 #
 use NSMF::Agent;
 use NSMF::Agent::Component::DAEMONLOGGER;
-
-my $config_file = '../etc/daemonlogger.yaml';
+$NSMF::Agent::BASE_PATH = File::Spec->catdir($Bin, "..");
 
 # Creating new DAEMONLOGGER Node
 my $cxt = NSMF::Agent::Component::DAEMONLOGGER->new();
 
 # Loading configuration variables
+my $config_file = File::Spec->catfile($NSMF::Agent::BASE_PATH, "etc", "daemonlogger.yaml");
 $cxt->load_config($config_file);
 
 # Connect and Authenticate

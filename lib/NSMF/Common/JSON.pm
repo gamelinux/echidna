@@ -147,7 +147,6 @@ our @EXPORT = qw(
     JSONRPC_NSMF_GET_UNSUPPORTED
 );
 
-my $logger = NSMF::Common::Logger->new();
 my $method_map = {};
 
 #

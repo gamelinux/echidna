@@ -41,8 +41,9 @@ use POE::Wheel::Run;
 #
 # NSMF INCLUDES
 #
-use NSMF::Common::Logger;
 use NSMF::Common::Util;
+use NSMF::Common::Registry;
+
 use NSMF::Server;
 use NSMF::Server::AuthMngr;
 use NSMF::Server::ConfigMngr;
@@ -53,7 +54,8 @@ use NSMF::Server::ModMngr;
 #
 my $instance;
 my $config = NSMF::Server::ConfigMngr->instance;
-my $logger = NSMF::Common::Logger->new();
+my $logger = NSMF::Common::Registry->get('log') 
+    // carp 'Got an empty config object from Registry';
 my $modules = $config->{modules} // [];
 
 my $ACCEPTED = 'NSMF/1.0 200 OK ACCEPTED';

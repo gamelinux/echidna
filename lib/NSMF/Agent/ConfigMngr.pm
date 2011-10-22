@@ -35,13 +35,11 @@ use YAML::Tiny;
 #
 # NSMF INCLUDES
 #
-use NSMF::Common::Logger;
 use NSMF::Common::Util;
 
 #
 # GLOBALS
 #
-my $logger = NSMF::Common::Logger->new();
 my $instance;
 
 sub instance {
@@ -90,6 +88,9 @@ sub load {
     $self->{config}{log}{timestamp_format}  //= '%Y-%m-%d %H:%M:%S';
     $self->{config}{log}{warn_is_fatal}     //= 0;
     $self->{config}{log}{error_is_fatal}    //= 0;
+
+    require NSMF::Common::Registry;
+    my $logger = NSMF::Common::Registry->get('log');
     $logger->load($self->{config}{log});
 
     $self->{config}{protocol}               //= 'json';

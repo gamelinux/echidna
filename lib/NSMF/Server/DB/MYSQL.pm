@@ -29,6 +29,7 @@ use v5.10;
 #
 # PERL INCLUDES
 #
+use Carp;
 use Data::Dumper;
 use DBI;
 use DBD::mysql;
@@ -37,14 +38,15 @@ use Module::Pluggable search_path => 'NSMF::Server::DB::MYSQL', sub_name => 'dat
 #
 # NSMF INCLUDES
 #
-use NSMF::Common::Logger;
+use NSMF::Common::Registry;
 
 #
 # GLOBALS
 #
 my $instance;
 my $type_map = {};
-my $logger = NSMF::Common::Logger->new();
+my $logger = NSMF::Common::Registry->get('log') 
+    // carp 'Got an empty config object from Registry';
 my @supported_types = ();
 my $db_dsn;
 my $db_handle;

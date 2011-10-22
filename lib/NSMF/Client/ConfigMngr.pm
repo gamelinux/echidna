@@ -30,18 +30,18 @@ use v5.10;
 # PERL INCLUDES
 #
 use Carp;
+use Data::Dumper;
 use YAML::Tiny;
 
 #
 # NSMF INCLUDES
 #
-use NSMF::Common::Logger;
+use NSMF::Common::Registry;
 
 #
 # GLOBALS
 #
 my $instance;
-my $logger = NSMF::Common::Logger->new();
 
 sub instance {
     if ( ! defined($instance) ) {
@@ -88,7 +88,9 @@ sub load {
     $self->{config}{log}{timestamp_format}  //= '%Y-%m-%d %H:%M:%S';
     $self->{config}{log}{warn_is_fatal}     //= 0;
     $self->{config}{log}{error_is_fatal}    //= 0;
-    $logger->load($self->{config}{log});
+
+    my $logger = NSMF::Common::Registry->get('log');
+    NSMF::Common::Registry->set( 'log' => $logger->load($self->{config}{log}));
 
     $self->{config}{protocol}               //= 'json';
 

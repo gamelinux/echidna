@@ -32,21 +32,17 @@ use base qw(NSMF::Agent::Component);
 # PERL INCLUDES
 #
 use Data::Dumper;
+use Carp;
 use POE;
 use POE::Component::Server::TCP;
 
 #
 # NSMF INCLUDES
 #
-use NSMF::Agent;
-use NSMF::Agent::Action;
-use NSMF::Common::Logger;
 use NSMF::Common::Util;
 
-#
-# GLOBALS
-#
-my $logger = NSMF::Common::Logger->new();
+use NSMF::Agent;
+use NSMF::Agent::Action;
 
 sub type {
     return "BARNYARD2";
@@ -54,7 +50,7 @@ sub type {
 
 sub hello {
     my ($self) = shift;
-    $logger->debug('Hello from BARNYARD2 node!!');
+    $self->logger->debug('Hello from BARNYARD2 node!!');
 }
 
 sub sync {
@@ -66,7 +62,9 @@ sub sync {
     # get barnyard2 listener options with sane defaults
     my $host = $settings->{barnyard2}{host} // "localhost";
     my $port = $settings->{barnyard2}{port} // 7060;
-
+    #my $self->logger = NSMF::Common::Registry->get('log') 
+    #    // 'Fetching logger object for Barnyard Sync';
+    
     $self->{__barnyard2} = new POE::Component::Server::TCP(
         Alias         => 'by2',
         Address       => $host,
@@ -74,7 +72,7 @@ sub sync {
         ClientConnected => sub {
             my ($kernel, $session, $heap) = @_[KERNEL, SESSION, HEAP];
 
-            $logger->debug('Barnyard2 instance connected: ' . $heap->{remote_ip});
+            $self->logger->debug('Barnyard2 instance connected: ' . $heap->{remote_ip});
 
             # collect the node ID and max event ID if possible
             $heap->{node_id} = $kernel->call('node', 'ident_node_get');
@@ -93,7 +91,7 @@ sub sync {
             $self => [ 'run', 'barnyard2_dispatcher', 'barnyard2_eid_max_get' ]
         ],
         Started => sub {
-            $logger->info('Listening for barnyard2 instances on ' . $host . ':' . $port);
+            $self->logger->info('Listening for barnyard2 instances on ' . $host . ':' . $port);
         },
     );
 }
@@ -102,7 +100,7 @@ sub run {
     my ($kernel, $heap) = @_[KERNEL, HEAP];
     my $self = shift;
 
-    $logger->debug("Running barnyard2 processing..");
+    $self->logger->debug("Running barnyard2 processing..");
 
     $self->hello();
 }
@@ -115,6 +113,9 @@ sub barnyard2_dispatcher
 {
     my ($kernel, $heap, $data) = @_[KERNEL, HEAP, ARG0];
 
+    my $logger = NSMF::Common::Registry->get('log')
+        // carp 'Got an empty logger object in barnyard2_dispatcher';
+    
     # there is no point processing if we're not connected to the server
     # NOTE:
     # the benefit of not processing is that barnyard2 will block on input

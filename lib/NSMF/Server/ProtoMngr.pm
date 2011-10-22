@@ -35,7 +35,7 @@ sub create {
     my ($self, $class, $type) = @_;
 
     $class //= 'NODE';
-    $type //= 'JSON';
+    $type  //= 'JSON';
 
     my $proto_path;
     my @protocols;
