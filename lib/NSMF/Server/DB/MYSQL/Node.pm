@@ -174,16 +174,16 @@ sub create_tables_node {
 
     my $sql = '
 CREATE TABLE node (
-    id          BIGINT       NOT NULL AUTO_INCREMENT,
-    agent_id    BIGINT       NOT NULL ,
-    name        VARCHAR(64)  NOT NULL ,
-    description TEXT         NULL ,
-    type        VARCHAR(64)  NOT NULL ,
-    network     VARCHAR(64)  NOT NULL ,
-    state       TINYINT(1)   NOT NULL DEFAULT 0 ,
-    updated     DATETIME     NOT NULL ,
+    id           BIGINT UNSIGNED   NOT NULL AUTO_INCREMENT,
+    agent_id     BIGINT UNSIGNED   NOT NULL ,
+    name         VARCHAR(64)       NOT NULL ,
+    description  TEXT              NULL ,
+    type         VARCHAR(64)       NOT NULL ,
+    network      VARCHAR(64)       NOT NULL ,
+    state        TINYINT UNSIGNED  NOT NULL DEFAULT 0 ,
+    updated      DATETIME          NOT NULL ,
     PRIMARY KEY (id),
-    UNIQUE KEY name_UNIQUE (name)
+    INDEX agent_IX (agent_id)
 );';
 
     $self->{__handle}->do($sql);

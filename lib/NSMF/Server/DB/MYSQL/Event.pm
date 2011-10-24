@@ -210,23 +210,25 @@ sub create_tables_event {
 
     my $sql = '
 CREATE TABLE event (
-   id              BIGINT       NOT NULL ,
-   timestamp       DATETIME     NOT NULL ,
-   classification  SMALLINT     NOT NULL ,
-   node_id         BIGINT       NOT NULL ,
-   net_version     INT          NOT NULL ,
-   net_protocol    TINYINT      NOT NULL ,
-   net_src_ip      DECIMAL(39)  NOT NULL ,
-   net_src_port    SMALLINT     NOT NULL ,
-   net_dst_ip      DECIMAL(39)  NOT NULL ,
-   net_dst_port    SMALLINT     NOT NULL ,
-   sig_id          BIGINT       NOT NULL ,
-   sig_revision    BIGINT       NOT NULL ,
-   sig_priority    BIGINT       NOT NULL ,
-   sig_message     TEXT         NOT NULL ,
+   id              BIGINT UNSIGNED    NOT NULL AUTO_INCREMENT ,
+   timestamp       DATETIME           NOT NULL ,
+   classification  SMALLINT UNSIGNED  NOT NULL ,
+   node_id         BIGINT UNSIGNED    NOT NULL ,
+   net_version     INT UNSIGNED       NOT NULL ,
+   net_protocol    TINYINT UNSIGNED   NOT NULL ,
+   net_src_ip      DECIMAL(39)        NOT NULL ,
+   net_src_port    SMALLINT UNSIGNED  NOT NULL ,
+   net_dst_ip      DECIMAL(39)        NOT NULL ,
+   net_dst_port    SMALLINT UNSIGNED  NOT NULL ,
+   sig_id          BIGINT UNSIGNED    NOT NULL ,
+   sig_revision    BIGINT UNSIGNED    NOT NULL ,
+   sig_priority    BIGINT UNSIGNED    NOT NULL ,
+   sig_message     TEXT               NOT NULL ,
    sig_category    TEXT,
    meta            TEXT,
-   PRIMARY KEY (id)
+   PRIMARY KEY (id),
+   INDEX node_ix (node_id),
+   INDEX signature_ix (sig_id)
 )';
 
     return 0 if ( ! $self->{__handle}->do($sql) );

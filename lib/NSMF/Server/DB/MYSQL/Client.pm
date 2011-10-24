@@ -183,12 +183,12 @@ sub create_tables_client {
 
     my $sql = '
 CREATE TABLE client (
-    id          BIGINT      NOT NULL AUTO_INCREMENT,
-    name        VARCHAR(64) NOT NULL ,
-    password    VARCHAR(64) NOT NULL ,
-    description TEXT        NULL ,
-    level       TINYINT(1)  NOT NULL DEFAULT 0 ,
-    updated     DATETIME    NOT NULL,
+    id           BIGINT UNSIGNED      NOT NULL AUTO_INCREMENT,
+    name         VARCHAR(64)          NOT NULL ,
+    password     VARCHAR(64)          NOT NULL ,
+    description  TEXT                 NULL ,
+    level        TINYINT(1) UNSIGNED  NOT NULL DEFAULT 0 ,
+    updated      DATETIME             NOT NULL,
     PRIMARY KEY (id)
 );';
 

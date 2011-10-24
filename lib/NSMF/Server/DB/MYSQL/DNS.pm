@@ -203,17 +203,17 @@ sub create_tables_dns {
 
     my $sql = '
 CREATE TABLE dns (
-   id              BIGINT       NOT NULL ,
-   domain          TEXT         NOT NULL ,
-   maptype         TEXT         NOT NULL , # or check the decimal representation of what is legal from RFC ?
-   element         TEXT         NOT NULL ,
-   ttl             INT          NOT NULL ,
-   firstseen       DATETIME     NOT NULL ,
-   lastseen        DATETIME     NOT NULL ,
-   extra           TEXT,
+   id         BIGINT UNSIGNED  NOT NULL AUTO_INCREMENT ,
+   domain     TEXT             NOT NULL ,
+   maptype    TEXT             NOT NULL , # or check the decimal representation of what is legal from RFC ?
+   element    TEXT             NOT NULL ,
+   ttl        INT UNSIGNED     NOT NULL ,
+   firstseen  DATETIME         NOT NULL ,
+   lastseen   DATETIME         NOT NULL ,
+   extra      TEXT,
    PRIMARY KEY (id),
    KEY domain (domain(255), element(255)),
-   INDEX domain_idx (domain(255))
+   INDEX domain_ix (domain(255))
 )';
 
     return 0 if ( ! $self->{__handle}->do($sql) );

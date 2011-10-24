@@ -221,20 +221,21 @@ sub create_tables_host {
 
     my $sql = '
 CREATE TABLE host (
-   ip              DECIMAL(39)  NOT NULL ,
-   type            INT          NOT NULL ,
-   type_data       TEXT         NOT NULL ,
-   node_id         BIGINT       NOT NULL ,
-   port            SMALLINT     NOT NULL ,
-   protocol        TINYINT      NOT NULL ,
-   os              TEXT         NOT NULL ,
-   os_details      TEXT         NOT NULL ,
-   timestamp       DATETIME     NOT NULL ,
-   mac             INT          NOT NULL ,
-   hostname        TEXT         NOT NULL ,
-   distance        SMALLINT     NOT NULL ,
-   extra           TEXT,
-   PRIMARY KEY (ip)
+   ip          DECIMAL(39)        NOT NULL ,
+   type        INT UNSIGNED       NOT NULL ,
+   type_data   TEXT               NOT NULL ,
+   node_id     BIGINT UNSIGNED    NOT NULL ,
+   port        SMALLINT UNSIGNED  NOT NULL ,
+   protocol    TINYINT UNSIGNED   NOT NULL ,
+   os          TEXT               NOT NULL ,
+   os_details  TEXT               NOT NULL ,
+   timestamp   DATETIME           NOT NULL ,
+   mac         INT                NOT NULL ,
+   hostname    TEXT               NOT NULL ,
+   distance    SMALLINT UNSIGNED  NOT NULL ,
+   meta        TEXT,
+   PRIMARY KEY (ip),
+   INDEX node_ix (node_id)
 )';
 
     return 0 if ( ! $self->{__handle}->do($sql) );
