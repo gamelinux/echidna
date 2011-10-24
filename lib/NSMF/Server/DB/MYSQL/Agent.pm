@@ -161,13 +161,13 @@ sub create_tables_agent {
 
     my $sql = '
 CREATE TABLE agent (
-    id           BIGINT UNSIGNED      NOT NULL AUTO_INCREMENT ,
-    name         VARCHAR(64)          NOT NULL ,
-    password     VARCHAR(64)          NOT NULL ,
-    description  TEXT                 NULL ,
-    ip           DECIMAL(39)          NOT NULL ,
-    state        TINYINT(1) UNSIGNED  NOT NULL DEFAULT 0 ,
-    updated      DATETIME             NOT NULL,
+    id           BIGINT UNSIGNED   NOT NULL AUTO_INCREMENT ,
+    name         VARCHAR(64)       NOT NULL ,
+    password     VARCHAR(64)       NOT NULL ,
+    description  TEXT              NULL ,
+    ip           DECIMAL(39)       NOT NULL ,
+    state        TINYINT UNSIGNED  NOT NULL DEFAULT 0 ,
+    updated      DATETIME          NOT NULL,
     PRIMARY KEY (id)
 );';
 
