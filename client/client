@@ -140,24 +140,97 @@ sub init
             register_client => [
                 {
                     command => "register client",
-                    help => "--name, --password",
+                    help => "Register a client to the Echidna framework.\n\n" .
+                            "Usage: register client [options] --name=name --password=password --acl=level\n\n" .
+                            "Options:\n" .
+                            "  --name=name          Unique name.\n" .
+                            "  --password=password  Defines the password for the new client.\n" .
+                            "  --acl=level          Level of access applied to the new client. [0-255] \n" .
+                            "  --description=blah   A description of the new client.",
                     function => \&register_client,
                 }
             ],
             unregister_client => [
                 {
                     command => "unregister client",
-                    help => "Usage: unregister client --id=<client>\n\n" .
+                    help => "Unregister a client from the Echidna frameworkn\n\n" .
+                            "Usage: unregister client --id=client\n\n" .
                             "Options:\n" .
-                            "  --id=<client>  Unique <client> id.",
+                            "  --id=client  Unique client id.",
                     function => \&unregister_client,
                 }
             ],
             update_client => [
                 {
                     command => "update client",
-                    help => "--id",
+                    help => "Update a registered client's details on the Echidna framework.\n\n" .
+                            "Usage: update client [options] --id=client --password=password --acl=level\n\n" .
+                            "Options:\n" .
+                            "  --id=client          Registered id for client.\n" .
+                            "  --name=name          Unique name.\n" .
+                            "  --password=password  Defines the password for the new client.\n" .
+                            "  --acl=level          Level of access applied to the new client. [0-255] \n" .
+                            "  --description=blah   A description of the new client.",
                     function => \&update_client,
+                }
+            ],
+            register_node => [
+                {
+                    command => "register node",
+                    help => "Register a node to the Echidna framework.\n\n" .
+                            "Usage: register node [options] --name=name --agent=agent --password=password\n\n" .
+                            "Options:\n" .
+                            "  --name=name          Unique name.\n" .
+                            "  --agent=agent        Regsitered id of the parent agent.\n" .
+                            "  --password=password  Defines the password for the new node.\n" .
+                            "  --description=blah   A description of the new node.",
+                    function => \&register_node,
+                }
+            ],
+            unregister_node => [
+                {
+                    command => "unregister node",
+                    help => "Unregister a node from the Echidna frameworkn\n\n" .
+                            "Usage: unregister node --id=agent\n\n" .
+                            "Options:\n" .
+                            "  --id=agent  Unique agent id.",
+                    function => \&unregister_node,
+                }
+            ],
+            update_node => [
+                {
+                    command => "update node",
+                    help => "--id",
+                    function => \&update_node,
+                }
+            ],
+            register_agent => [
+                {
+                    command => "register agent",
+                    help => "Register an agent to the Echidna framework.\n\n" .
+                            "Usage: register node [options] --name=name --password=password\n\n" .
+                            "Options:\n" .
+                            "  --name=name          Unique name.\n" .
+                            "  --password=password  Defines the password for the new agent.\n" .
+                            "  --description=blah   A description of the new agent.",
+                    function => \&register_agent,
+                }
+            ],
+            unregister_agent => [
+                {
+                    command => "unregister agent",
+                    help => "Unregister an agent from the Echidna frameworkn\n\n" .
+                            "Usage: unregister agent --id=agent\n\n" .
+                            "Options:\n" .
+                            "  --id=agent  Unique agent id.",
+                    function => \&unregister_agent,
+                }
+            ],
+            update_agent => [
+                {
+                    command => "update agent",
+                    help => "--id",
+                    function => \&update_agent,
                 }
             ],
             search_event => [
@@ -340,6 +413,10 @@ sub prompt
             }
         }
     }
+    elsif( $data =~ /^(quit|exit|q|x)$/ ) {
+        # TODO: close cleanly
+        exit 0;
+    }
     elsif( $data =~ /^[^\s]+/ ) {
         say('Sorry DAVE, I don\'t understand that: ' . $data);
     }
@@ -374,6 +451,160 @@ sub input_get {
 #
 # COMMAND TESTING AND PROCESSING
 #
+
+sub register_agent {
+    my ($kernel, $data) = @_;
+
+    if( $data =~ /^register\sagent\s(.*)/) {
+        my $sql = {};
+
+        my @search_args = split(/[ ]/, $1);
+
+        foreach my $k ( @search_args ) {
+            given( $k ) {
+                when(/^--name=([^ ]*)/) {
+                    $sql->{name} = $1;
+                }
+                when(/^--password=([^ ]*)/) {
+                    $sql->{password} = sha256_hex($1);
+                }
+                when(/^--description=([^ ]*)/) {
+                    $sql->{description} = $1;
+                }
+                default {
+                    $logger->debug('Unsupported parameter: ' . $k);
+                    return 0;
+                }
+            }
+        }
+
+        if( ! defined_args( $sql->{name},
+                            $sql->{password} ) ) {
+            say("Mandatory arguments are missing.");
+            prompt_print();
+            return 0;
+        }
+
+        $kernel->yield('get', {
+            type => "core",
+            data => {
+              "register_agent" => $sql
+            },
+        }, sub {
+            my ($s, $k, $h, $json) = @_;
+
+            my $result = $json->{result} // [];
+
+            # TODO post process result with client aware components
+
+            say(Dumper($result));
+            prompt_print();
+        });
+
+        return 0;
+    }
+
+    return 1;
+}
+
+sub update_agent {
+    my ($kernel, $data) = @_;
+
+    if( $data =~ /^update\sagent\s(.*)/) {
+        my $sql = {};
+
+        my @search_args = split(/[ ]/, $1);
+
+        foreach my $k ( @search_args ) {
+            given( $k ) {
+                when(/^--id=([^ ]*)/) {
+                    $sql->{id} = $1;
+                }
+                when(/^--name=([^ ]*)/) {
+                    $sql->{name} = $1;
+                }
+                when(/^--password=([^ ]*)/) {
+                    $sql->{password} = sha256_hex($1);
+                }
+                when(/^--description=([^ ]*)/) {
+                    $sql->{description} = $1;
+                }
+                default {
+                    $logger->debug('Unsupported parameter: ' . $k);
+                    return 0;
+                }
+            }
+        }
+
+        if( ! defined_args( $sql->{id} )  ){
+            say("Mandatory arguments are missing.");
+            prompt_print();
+            return 0;
+        }
+
+        $kernel->yield('get', {
+            type => "core",
+            data => {
+              "update_agent" => $sql
+            },
+        }, sub {
+            my ($s, $k, $h, $json) = @_;
+
+            my $result = $json->{result} // [];
+
+            # TODO post process result with client aware components
+
+            say(Dumper($result));
+            prompt_print();
+        });
+
+        return 0;
+    }
+
+    return 1;
+}
+
+sub unregister_agent {
+    my ($kernel, $data) = @_;
+
+    if( $data =~ /^unregister\sagent\s(.*)/) {
+        my $sql = {};
+
+        my @search_args = split(/[ ]/, $1);
+
+        foreach my $k ( @search_args ) {
+            given( $k ) {
+                when(/^--id=([^ ]*)/) {
+                    $sql->{id} = $1;
+                }
+                default {
+                    $logger->debug('Unsupported parameter: ' . $k);
+                    return 0;
+                }
+            }
+        }
+
+        $kernel->yield('get', {
+            type => "core",
+            data => {
+              "unregister_agent" => $sql
+            },
+        }, sub {
+            my ($s, $k, $h, $json) = @_;
+
+            my $result = $json->{result} // [];
+
+            # TODO post process result with client aware components
+
+            say(Dumper($result));
+            prompt_print();
+        });
+
+        return 0;
+    }
+
+    return 1;
+}
 
 sub register_client {
     my ($kernel, $data) = @_;
@@ -518,6 +749,167 @@ sub unregister_client {
             type => "core",
             data => {
               "unregister_client" => $sql
+            },
+        }, sub {
+            my ($s, $k, $h, $json) = @_;
+
+            my $result = $json->{result} // [];
+
+            # TODO post process result with client aware components
+
+            say(Dumper($result));
+            prompt_print();
+        });
+
+        return 0;
+    }
+
+    return 1;
+}
+
+sub register_node {
+    my ($kernel, $data) = @_;
+
+    if( $data =~ /^register\snode\s(.*)/) {
+        my $sql = {};
+
+        my @search_args = split(/[ ]/, $1);
+
+        foreach my $k ( @search_args ) {
+            given( $k ) {
+                when(/^--name=([^ ]*)/) {
+                    $sql->{name} = $1;
+                }
+                when(/^--agent=([^ ]*)/) {
+                    $sql->{agent_id} = $1;
+                }
+                when(/^--password=([^ ]*)/) {
+                    $sql->{password} = sha256_hex($1);
+                }
+                when(/^--description=([^ ]*)/) {
+                    $sql->{description} = $1;
+                }
+                default {
+                    $logger->debug('Unsupported parameter: ' . $k);
+                    return 0;
+                }
+            }
+        }
+
+        if( ! defined_args( $sql->{name},
+                            $sql->{agent_id},
+                            $sql->{password} ) ) {
+            say("Mandatory arguments are missing.");
+            prompt_print();
+            return 0;
+        }
+
+        $kernel->yield('get', {
+            type => "core",
+            data => {
+              "register_node" => $sql
+            },
+        }, sub {
+            my ($s, $k, $h, $json) = @_;
+
+            my $result = $json->{result} // [];
+
+            # TODO post process result with client aware components
+
+            say(Dumper($result));
+            prompt_print();
+        });
+
+        return 0;
+    }
+
+    return 1;
+}
+
+sub update_node {
+    my ($kernel, $data) = @_;
+
+    if( $data =~ /^update\snode\s(.*)/) {
+        my $sql = {};
+
+        my @search_args = split(/[ ]/, $1);
+
+        foreach my $k ( @search_args ) {
+            given( $k ) {
+                when(/^--id=([^ ]*)/) {
+                    $sql->{id} = $1;
+                }
+                when(/^--name=([^ ]*)/) {
+                    $sql->{name} = $1;
+                }
+                when(/^--agent=([^ ]*)/) {
+                    $sql->{agent_id} = $1;
+                }
+                when(/^--password=([^ ]*)/) {
+                    $sql->{password} = sha256_hex($1);
+                }
+                when(/^--description=([^ ]*)/) {
+                    $sql->{description} = $1;
+                }
+                default {
+                    $logger->debug('Unsupported parameter: ' . $k);
+                    return 0;
+                }
+            }
+        }
+
+        if( ! defined_args( $sql->{id} )  ){
+            say("Mandatory arguments are missing.");
+            prompt_print();
+            return 0;
+        }
+
+        $kernel->yield('get', {
+            type => "core",
+            data => {
+              "update_node" => $sql
+            },
+        }, sub {
+            my ($s, $k, $h, $json) = @_;
+
+            my $result = $json->{result} // [];
+
+            # TODO post process result with client aware components
+
+            say(Dumper($result));
+            prompt_print();
+        });
+
+        return 0;
+    }
+
+    return 1;
+}
+
+sub unregister_node {
+    my ($kernel, $data) = @_;
+
+    if( $data =~ /^unregister\snode\s(.*)/) {
+        my $sql = {};
+
+        my @search_args = split(/[ ]/, $1);
+
+        foreach my $k ( @search_args ) {
+            given( $k ) {
+                when(/^--id=([^ ]*)/) {
+                    $sql->{id} = $1;
+                }
+                default {
+                    $logger->debug('Unsupported parameter: ' . $k);
+                    return 0;
+                }
+            }
+        }
+
+        $kernel->yield('get', {
+            type => "core",
+            data => {
+              "unregister_node" => $sql
             },
         }, sub {
             my ($s, $k, $h, $json) = @_;

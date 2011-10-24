@@ -77,6 +77,11 @@ sub init {
           "exec" => \&agent_unregister,
           "acl" => 128,
         },
+        "update_agent" => {
+          "help" => "Update an agent's details on the Echidna framework.",
+          "exec" => \&agent_update,
+          "acl" => 128,
+        },
         "register_node" => {
           "help" => "Register a node to the Echidna framework.",
           "exec" => \&node_register,
@@ -85,6 +90,11 @@ sub init {
         "unregister_node" => {
           "help" => "Unregister a node from the Echidna framework.",
           "exec" => \&node_unregister,
+          "acl" => 128,
+        },
+        "update_node" => {
+          "help" => "Update a node's details on the Echidna framework.",
+          "exec" => \&node_update,
           "acl" => 128,
         },
         "register_client" => {
@@ -98,7 +108,7 @@ sub init {
           "acl" => 127,
         },
         "update_client" => {
-          "help" => "Unregister a client from the Echidna framework.",
+          "help" => "Update a client's details on the Echidna framework.",
           "exec" => \&client_update,
           "acl" => 127,
         },
@@ -263,6 +273,24 @@ sub agent_unregister {
     return $ret;
 }
 
+sub agent_update {
+    my ($self, $params) = @_;
+
+    # require node id
+    my $db = NSMF::Server->database();
+
+    # TODO: validate params
+
+    my $ret = $db->update({
+        agent => $params
+    },
+    {
+        id => $params->{id}
+    });
+
+    return $ret;
+}
+
 sub node_register {
     my ($self, $params) = @_;
 
@@ -289,6 +317,24 @@ sub node_unregister {
         node => {
             id => $params->{id}
         }
+    });
+
+    return $ret;
+}
+
+sub node_update {
+    my ($self, $params) = @_;
+
+    # require node id
+    my $db = NSMF::Server->database();
+
+    # TODO: validate params
+
+    my $ret = $db->update({
+        node => $params
+    },
+    {
+        id => $params->{id}
     });
 
     return $ret;
