@@ -12,7 +12,7 @@ UBUNTU INSTALL:
 
 
 FEDORA INSTALL
-  # sudo yum install perl-POE perl-YAML-Tiny perl-TimeDate perl-JSON perl-Digest-SHA
+  # sudo yum install perl-POE perl-YAML-Tiny perl-TimeDate perl-JSON perl-Digest-SHA perl-Log-Dispatch
 
 
 NOTES:
