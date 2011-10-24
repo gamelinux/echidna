@@ -401,10 +401,10 @@ The data types are described below.
   "message" => "DELETED BAD ALERT Unknown Traffic."
   "priority" => 2,
   "category" => "bad-unknown",
+  "rule" => "alert tcp $EXTERNAL_NET any -> any any (msg:"Test signature");"
   "meta_snort_gid" => 3,
   "meta_snort_sid" => 12355,
   "meta_snort_revision" => 1,
-  "meta_snort_rule" => "alert tcp $EXTERNAL_NET any -> any any (msg:"Test signature");"
 }
 
 The field descriptions are:
