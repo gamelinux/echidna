@@ -20,3 +20,50 @@ NOTES:
  ** cxtracker needs the option "-f nsmf" for the correct format.
  * Node/BARNYARD2 works with barnyard2 version 2.1.10-beta1 (Build 266) and above.
  ** in barnyard2.conf: output platypus: agent_port=7060
+
+MySQL SETUP:
+ mysql> GRANT USAGE ON *.* TO 'echidna'@'localhost' IDENTIFIED BY 'passw0rd.';
+ mysql> GRANT CREATE,SELECT,INSERT,UPDATE,DELETE,CREATE ROUTINE,EXECUTE ON echidna.* TO 'echidna'@'localhost';
+ mysql> flush privileges;
+
+
+
+SIMPLE INSTALL - SERVER AND NODES ON THE SAME HOST (EXAMPLE)
+
+GIT:
+ # cd /usr/local/
+ # git clone git://github.com/gamelinux/echidna.git
+ # cd echidna
+
+START Echidna Server Component:
+ # perl server/server
+
+START Echidna Nodes Components:
+ # perl nodes/cxtracker
+ # perl nodes/barnyard2
+ ...
+ # perl nodes/<component>
+
+NOTES:
+ * Config files are in etc/<nodename>.yaml - You might need to change something!
+ * Other dependent software needs to be running (snort/barnyard/cxtracker.....)
+ ** For Ubuntu 10.04, see: https://launchpad.net/~ebf0/+archive/nsmframework for prebuild packages
+
+CXTRACKER:
+ $ git clone git://github.com/gamelinux/cxtracker.git
+ $ cd cxtracker/src/
+ # Depends on libpcap - so install that on your system
+ $ make
+ # One way to run cxtracker:
+ $ mkdir /var/lib/cxtracker/
+ $ cxtracker -i eth1 -d /var/lib/cxtracker/ -D -f nsmf
+
+SNORT:
+...
+
+BARNYARD:
+...
+
+
+
+
