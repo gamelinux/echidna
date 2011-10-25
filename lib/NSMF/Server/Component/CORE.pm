@@ -495,7 +495,26 @@ sub get_client_info {
 sub get_nodes_connected {
     my ($self, $params) = @_;
 
-    my $nodes = $nsmf->nodes();
+    my $db = NSMF::Server->database();
+
+    # TODO: validate params
+    my $nodes = [];
+
+    my $ret = $db->search({
+        agent => {
+            state => 1
+        }
+    });
+
+    if ( @{ $ret } )
+    {
+        foreach my $r ( @{ $ret } ) {
+            push( @{ $nodes }, {
+                id => $r->{id},
+                name => $r->{name}
+            });
+        }
+    }
 
     return $nodes;
 }
