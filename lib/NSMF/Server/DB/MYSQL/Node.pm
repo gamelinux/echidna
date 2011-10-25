@@ -164,8 +164,6 @@ sub update {
 
     $sql .= join(',', @fields) . ' ' . $self->create_filter($filter);
 
-    $logger->debug("SQL: $sql");
-
     $self->{__handle}->do($sql);
 }
 

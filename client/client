@@ -983,8 +983,14 @@ sub show_nodes {
 
             my $result = $json->{result};
 
-            if( ref($result) eq 'HASH' ) {
-                say Dumper($result);
+            if( ref($result) eq 'ARRAY' ) {
+
+                my $total_nodes = @{ $result };
+                say($total_nodes . ' node(s) ' . ( $total_nodes == 1 ? 'is' : 'are' ) . ' connected.');
+
+                foreach my $n ( @{ $result } ) {
+                    say($n->{id} . ': ' . $n->{name} . ' (' . $n->{type}. ') - ' . $n->{description});
+                }
                 prompt_print();
             }
             else {

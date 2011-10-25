@@ -501,7 +501,7 @@ sub get_nodes_connected {
     my $nodes = [];
 
     my $ret = $db->search({
-        agent => {
+        node => {
             state => 1
         }
     });
@@ -511,7 +511,9 @@ sub get_nodes_connected {
         foreach my $r ( @{ $ret } ) {
             push( @{ $nodes }, {
                 id => $r->{id},
-                name => $r->{name}
+                name => $r->{name},
+                type => $r->{type},
+                description => $r->{description} // 'No description.'
             });
         }
     }
