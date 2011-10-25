@@ -30,6 +30,7 @@ use v5.10;
 # PERL INCLUDES
 #
 use Carp qw(croak);
+use Digest::SHA qw(sha256_hex);
 use YAML::Tiny;
 
 #
@@ -81,6 +82,9 @@ sub load {
     $self->{config}{node}{name}             //= 'unknown';
     $self->{config}{node}{netgroup}         //= 'default';
     $self->{config}{node}{secret}           //= '';
+
+    # let's ensure we store the secret in memory in hashed form
+    $self->{config}{node}{secret} = sha256_hex($self->{config}{node}{secret});
 
     $self->{config}{server}{host}           //= 'localhost';
     $self->{config}{server}{port}           //= 10101;
