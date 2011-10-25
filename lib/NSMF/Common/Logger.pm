@@ -10,7 +10,7 @@ use Log::Dispatch::File;
 use Log::Dispatch::Screen;
 use Data::Dumper;
 
-our $DEBUG = 1; 
+our $DEBUG = 1;
 our $LOG_DIR;
 
 my $instance;
@@ -37,10 +37,10 @@ sub _setup {
 
     my $format_callback = sub {
         my %p = @_;
-        
+
         if ($args->{timestamp} == 1) {
             my $datetime = strftime($args->{timestamp_format}, gmtime);
- 
+
             return $datetime . ' ' . $p{message}. "\n";
         } else {
             return $p{message}. "\n";
@@ -48,32 +48,32 @@ sub _setup {
     };
 
     my $logger = Log::Dispatch->new(callbacks => $format_callback); 
-    
-    my $level = $args->{level} // 'debug';
-    
+
+    my $level = $args->{level} // 'info';
+
     unless ( $logger->level_is_valid( $level ) ) {
         carp "Invalid Level $level";
-        $level = 'debug';
+        $level = 'info';
     }
 
     my ($filepath, $logfile);
     unless (defined $args->{path}) {
         $logfile = $args->{logfile} // croak "Logfile expected";
-        
+
         # use existing logdir if previously set
         if (defined $args->{logdir}) {
             $LOG_DIR = $args->{logdir};
-        } 
+        }
         else {
             croak "Undefined Log Dir" 
                 unless defined $LOG_DIR;
         }
-        
+
         $filepath = $LOG_DIR .'/'. $logfile;
 
         #croak "Not enough privileges on log filepath $filepath 1"
         #    unless -w $filepath;
-    } 
+    }
     else {
         $filepath = $args->{path};
 
@@ -137,7 +137,7 @@ sub debug {
     my ($self, @msgs) = @_;
 
     return unless ref $self eq __PACKAGE__;
-    
+
     for my $handler (@{ $self->{__handler} }) {
         for my $msg (@msgs) {
             $msg = Dumper($msg) if (ref $msg);
