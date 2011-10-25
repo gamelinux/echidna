@@ -10,7 +10,6 @@ use Log::Dispatch::File;
 use Log::Dispatch::Screen;
 use Data::Dumper;
 
-our $DEBUG = 1;
 our $LOG_DIR;
 
 my $instance;
@@ -39,66 +38,44 @@ sub _setup {
         my %p = @_;
 
         if ($args->{timestamp} == 1) {
-            my $datetime = strftime($args->{timestamp_format}, gmtime);
-
-            return $datetime . ' ' . $p{message}. "\n";
-        } else {
-            return $p{message}. "\n";
+            $p{message} = strftime($args->{timestamp_format}, gmtime) . ' ' . $p{message};
         }
+
+        return $p{message};
     };
 
     my $logger = Log::Dispatch->new(callbacks => $format_callback); 
 
-    my $level = $args->{level} // 'info';
+    my $level   = $args->{level}    // 'info';
+    my $logfile = $args->{logfile}  // 'stdout';
+    my $logdir  = $args->{logdir}   // $LOG_DIR // '/var/log/echidna';
 
     unless ( $logger->level_is_valid( $level ) ) {
         carp "Invalid Level $level";
         $level = 'info';
     }
 
-    my ($filepath, $logfile);
-    unless (defined $args->{path}) {
-        $logfile = $args->{logfile} // croak "Logfile expected";
-
-        # use existing logdir if previously set
-        if (defined $args->{logdir}) {
-            $LOG_DIR = $args->{logdir};
-        }
-        else {
-            croak "Undefined Log Dir" 
-                unless defined $LOG_DIR;
-        }
-
-        $filepath = $LOG_DIR .'/'. $logfile;
-
-        #croak "Not enough privileges on log filepath $filepath 1"
-        #    unless -w $filepath;
-    }
-    else {
-        $filepath = $args->{path};
-
-        #croak "Not enough privileges on log filepath"
-        #    unless -w $filepath;
-    }
-
-    if ($DEBUG and $profile_name eq 'default') {
+    if( $logfile eq 'stdout' ) {
         $logger->add(
             Log::Dispatch::Screen->new(
                 name      => 'screen',
                 min_level => $level,
+                newline   => 1,
             ),
         );
     }
+    else {
+        $logger->add(
+            Log::Dispatch::File->new(
+                name      => $profile_name,
+                min_level => $level,
+                filename  => $logdir. '/' . $logfile,
+                mode      => 'append',
+                newline   => 1,
+            ),
+        );
 
-    $logger->add(
-        Log::Dispatch::File->new(
-            name      => 'server',
-            min_level => $level,
-            filename  => $filepath,
-            mode      => 'append',
-            newline   => 1,
-        ),
-    );
+    }
 
     return $logger;
 }
