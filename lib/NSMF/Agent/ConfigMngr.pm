@@ -30,6 +30,7 @@ use v5.10;
 # PERL INCLUDES
 #
 use Carp qw(croak);
+use Digest::SHA qw(sha256_hex);
 use YAML::Tiny;
 
 #
@@ -88,6 +89,10 @@ sub load {
     $self->{config}{log}{timestamp_format}  //= '%Y-%m-%d %H:%M:%S';
     $self->{config}{log}{warn_is_fatal}     //= 0;
     $self->{config}{log}{error_is_fatal}    //= 0;
+
+    # let's ensure we store the secret in memory in hashed form
+    $self->{config}{node}{secret} = sha256_hex($self->{config}{node}{secret});
+
 
     require NSMF::Common::Registry;
     my $logger = NSMF::Common::Registry->get('log');
