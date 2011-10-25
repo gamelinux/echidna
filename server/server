@@ -37,13 +37,15 @@ use POE qw(Component::Server::TCP);
 #
 # NSMF INCLUDES
 #
-use NSMF::Common::Registry;
 use NSMF::Common::Logger;
+use NSMF::Common::Registry;
 
 use NSMF::Server;
 use NSMF::Server::Action;
+use NSMF::Server::ConfigMngr;
 use NSMF::Server::WebSocket qw(websocket_handshake);
 
+use Carp;
 use Data::Dumper;
 
 #
@@ -54,16 +56,20 @@ our $VERSION = '0.1';
 # set base path on server singleton
 $NSMF::Server::BASE_PATH = File::Spec->catdir($Bin, '../');
 
-my $logger = NSMF::Common::Logger->new({
-        logfile => 'server.log',
-        logdir  => File::Spec->catdir($NSMF::Server::BASE_PATH, 'logs')
-});
+my $config_path = File::Spec->catfile($NSMF::Server::BASE_PATH, 'etc', 'server.yaml');
 
-my $reg = NSMF::Common::Registry->new;
-$reg->set( 'log' => $logger );
+croak 'Server Configuration File Not Found'
+    unless -f -r $config_path;
+
+my $config = NSMF::Server::ConfigMngr->load($config_path);
+$NSMF::Common::Logger::LOG_DIR = $NSMF::Server::BASE_PATH . '/logs';
+
+my $logger = NSMF::Common::Logger->load($config->{config}{log});
+my $reg    = NSMF::Common::Registry->new;
+$reg->set( 'log'    => $logger );
+$reg->set( 'config' => $config );
 
 my $nsmf          = NSMF::Server->new();
-my $config        = $nsmf->config();
 my $proto_nodes   = $nsmf->proto('node');
 my $proto_clients = $nsmf->proto('client');
 

@@ -53,12 +53,14 @@ sub instance {
 }
 
 sub load {
-    my ($self, $file) = @_;
-    my $config;
+    my ($class, $file) = @_;
 
-    return if ( ref($self) ne __PACKAGE__ );
-
-    __PACKAGE__->instance();
+    my $self;
+    if (ref $class eq __PACKAGE__) {
+        $self = $class;
+    } else {
+        $self = __PACKAGE__->instance();
+    }
 
     my $yaml = YAML::Tiny->read($file);
 
@@ -82,16 +84,6 @@ sub load {
 
     $self->{config}{server}{host}           //= 'localhost';
     $self->{config}{server}{port}           //= 10101;
-
-    $self->{config}{log}{level}             //= 'info';
-    $self->{config}{log}{timestamp}         //= 0;
-    $self->{config}{log}{timestamp_format}  //= '%Y-%m-%d %H:%M:%S';
-    $self->{config}{log}{warn_is_fatal}     //= 0;
-    $self->{config}{log}{error_is_fatal}    //= 0;
-
-    require NSMF::Common::Registry;
-    my $logger = NSMF::Common::Registry->get('log');
-    $logger->load($self->{config}{log});
 
     $self->{config}{protocol}               //= 'json';
 

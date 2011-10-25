@@ -33,11 +33,6 @@ use Carp;
 use YAML::Tiny;
 
 #
-# NSMF INCLUDES
-#
-use NSMF::Common::Registry;
-
-#
 # GLOBALS
 #
 my $instance;
@@ -54,11 +49,14 @@ sub instance {
 }
 
 sub load {
-    my ($self, $file) = @_;
+    my ($class, $file) = @_;
 
-    return if ( ref($self) ne __PACKAGE__ );
-
-    __PACKAGE__->instance();
+    my $self;
+    if (ref $class eq __PACKAGE__) {
+        $self = $class;
+    } else {
+        $self = __PACKAGE__->instance();
+    }
 
     my $yaml = YAML::Tiny->read($file);
 
@@ -77,20 +75,10 @@ sub load {
     # configure defaults
     $self->{config}{name}                   //= 'NSMF Server';
 
-    $self->{config}{network}{node}{host}  //= 'localhost';
-    $self->{config}{network}{node}{port}  //= 10101;
+    $self->{config}{network}{node}{host}    //= 'localhost';
+    $self->{config}{network}{node}{port}    //= 10101;
     $self->{config}{network}{client}{host}  //= 'localhost';
     $self->{config}{network}{client}{port}  //= 10201;
-
-    $self->{config}{log}{level}             //= 'info';
-    $self->{config}{log}{timestamp}         //= 0;
-    $self->{config}{log}{timestamp_format}  //= '%Y-%m-%d %H:%M:%S';
-    $self->{config}{log}{warn_is_fatal}     //= 0;
-    $self->{config}{log}{error_is_fatal}    //= 0;
-
-    my $logger = NSMF::Common::Registry->get('log');
-    $logger->load($self->{config}{log});
-    NSMF::Common::Registry->set('log', $logger);
 
     $self->{config}{protocol}{node}         //= 'json';
     $self->{config}{protocol}{client}       //= 'json';
@@ -148,13 +136,6 @@ sub protocol {
     }
 
     return $instance->{config}{protocol};
-}
-
-sub logging {
-    my $self = shift;
-    return if ( ref($self) ne __PACKAGE__ );
-
-    return $instance->{config}{log};
 }
 
 1;

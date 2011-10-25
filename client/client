@@ -50,6 +50,7 @@ use NSMF::Common::Logger;
 use NSMF::Common::Registry;
 
 use NSMF::Client;
+use NSMF::Client::ConfigMngr;
 
 #
 # GLOBALS
@@ -59,14 +60,20 @@ our $VERSION = '0.1';
 # set base path on server singleton
 $NSMF::Client::BASE_PATH = File::Spec->catdir($Bin, '../');
 
-my $logger  = NSMF::Common::Logger->new({
-            logfile => 'client.log',
-            logdir  => File::Spec->catdir($NSMF::Client::BASE_PATH, 'logs')
-});
-NSMF::Common::Registry->set( 'log' => $logger );
+my $config_path = File::Spec->catfile($NSMF::Client::BASE_PATH, 'etc', 'client.yaml');
+
+croak 'Server Configuration File Not Found'
+    unless -f -r $config_path;
+
+my $config = NSMF::Client::ConfigMngr->load($config_path);
+$NSMF::Common::Logger::LOG_DIR = $NSMF::Client::BASE_PATH . '/logs';
+
+my $logger = NSMF::Common::Logger->load($config->{config}{log});
+my $reg    = NSMF::Common::Registry->new;
+$reg->set( 'log'    => $logger );
+$reg->set( 'config' => $config );
 
 my $nsmf    = NSMF::Client->new();
-my $config  = $nsmf->config();
 my $proto   = $nsmf->proto();
 
 my ($self) = @_;

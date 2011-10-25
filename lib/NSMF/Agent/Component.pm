@@ -67,19 +67,9 @@ our $VERSION = {
 sub new {
     my $class = shift;
 
-    my $component = lc($1) if $class =~ /::([\w]+)$/;
-
-    # initializing the gobal logger
-    $logger = NSMF::Common::Logger->new({
-        logfile => "$component.log",
-        logdir  => File::Spec->catdir($NSMF::Agent::BASE_PATH, 'logs')
-    });
-
-    NSMF::Common::Registry->set( 'log' => $logger );
-
     bless {
         __config_path   => undef,
-        __config        => NSMF::Agent::ConfigMngr->instance(),
+        __config        => undef, 
         __proto         => undef,
         __started       => time(),
         __version       => $VERSION,
@@ -88,7 +78,7 @@ sub new {
             _net        => undef,
             _db         => undef,
             _sessid     => undef,
-            _log        => NSMF::Common::Registry->get('log'),
+            _log        => undef,
         },
         __client        => undef,
     }, $class;
@@ -98,10 +88,19 @@ sub new {
 sub load_config {
     my ($self, $path) = @_;
 
-    $self->{__config}->load($path);
+    my $component = lc($1) if ref $self =~ /::([\w]+)$/;
+
+    # initializing the gobal logger
+    $NSMF::Common::Logger::LOG_DIR = File::Spec->catdir($NSMF::Agent::BASE_PATH, 'logs');
+
+    $self->{__config} = NSMF::Agent::ConfigMngr->load($path);
+    $logger  = NSMF::Common::Logger->load($self->{__config}{config}{log});
+
+    NSMF::Common::Registry->set( 'log'    => $logger); 
+    NSMF::Common::Registry->set( 'config' => $self->{__config}{config});
 
     eval {
-        $self->{__proto} = NSMF::Agent::ProtoMngr->create($self->{__config}->protocol());
+        $self->{__proto}  = NSMF::Agent::ProtoMngr->create($self->{__config}->protocol());
     };
 
     if ( $@ ) {
@@ -201,7 +200,7 @@ sub ident_node_get {
 }
 
 sub logger {
-    return shift->{__handlers}{_log} // croak "Logger module has not been initialized";
+    return $logger // croak "Logger module has not been initialized";
 }
 
 sub type {

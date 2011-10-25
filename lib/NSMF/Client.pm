@@ -51,22 +51,8 @@ my $instance;
 sub new {
     if ( ! defined($instance) ) {
 
-        # registry needs to be set from the beginning
-        my $registry = NSMF::Common::Registry->new();
-
-        # set logger in the registry
-        my $logger = $registry->get('log');
-
-        my $config_path = File::Spec->catfile($BASE_PATH, 'etc', 'client.yaml');
-
-        if ( ! -f -r $config_path) {
-            die 'Client configuration file not found.';
-        }
-
-        my $config = NSMF::Client::ConfigMngr::instance();
-        $config->load($config_path);
-
-        $registry->set( config => $config );
+        my $config = NSMF::Common::Registry->get('config');
+        my $logger = NSMF::Common::Registry->get('log');
 
         my $proto;
 
@@ -79,7 +65,6 @@ sub new {
         }
 
         $instance = bless {
-            __config_path => $config_path,
             __config      => $config,
             __proto       => $proto,
         }, __PACKAGE__;

@@ -71,29 +71,17 @@ sub new {
 sub instance {
     if ( ! defined($singleton) ) {
 
-        # registry needs to be set from the beginning
         my $registry = NSMF::Common::Registry->new();
 
         # set logger in the registry
         my $logger = $registry->get('log');
-
-        my $config_path = File::Spec->catfile($BASE_PATH, 'etc', 'server.yaml');
-
-        if ( ! -f -r $config_path) {
-            croak 'Server Configuration File Not Found';
-        }
-
-        my $config = NSMF::Server::ConfigMngr::instance();
-        $config->load($config_path);
-        NSMF::Common::Registry->set( config => $config );
+        my $config = $registry->get('config');
 
         my ($node_proto, $client_proto, $database);
-
         eval {
-            $database = NSMF::Server::DBMngr->create($config->database());
-            $node_proto = NSMF::Server::ProtoMngr->create('node', $config->protocol('node'));
+            $database     = NSMF::Server::DBMngr->create($config->database());
+            $node_proto   = NSMF::Server::ProtoMngr->create('node', $config->protocol('node'));
             $client_proto = NSMF::Server::ProtoMngr->create('client', $config->protocol('client'));
-
         }; 
         
         if ( $@ ) {
@@ -101,11 +89,10 @@ sub instance {
         }
 
         # store them on the registry
-        $registry->set( config => $config );
         $registry->set( db => $database );
 
         $singleton = bless {
-            __config_path => $config_path,
+        #    __config_path => $config_path,
             __config      => $config,
             __database    => $database,
             __started     => time(),

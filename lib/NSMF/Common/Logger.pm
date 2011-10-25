@@ -10,7 +10,8 @@ use Log::Dispatch::File;
 use Log::Dispatch::Screen;
 use Data::Dumper;
 
-our ($LOG_DIR, $FILENAME);
+our $DEBUG = 1; 
+our $LOG_DIR;
 
 my $instance;
 sub new {
@@ -18,22 +19,28 @@ sub new {
 
     unless (defined $instance) {
         $instance = bless {
-            __handler  => _setup($args),
+            __handler       => [],
+            _warn_is_fatal  => 0,
+            _error_is_fatal => 0,
         }, __PACKAGE__;
     }
 
-    $instance;
+    return $instance;
 }
 
 sub _setup {
-    my ($args) = @_;
+    my ($profile_name, $args) = @_;
+
+    # store internal represetation with sane defaults
+    $args->{timestamp}        //= 1;
+    $args->{timestamp_format} //= '%Y-%m-%d %H:%M:%S';
 
     my $format_callback = sub {
         my %p = @_;
         
-        if (defined $args->{timestamp}) {
-            my $datetime = strftime('%Y-%m-%d %H:%M:%S', gmtime);
-    
+        if ($args->{timestamp} == 1) {
+            my $datetime = strftime($args->{timestamp_format}, gmtime);
+ 
             return $datetime . ' ' . $p{message}. "\n";
         } else {
             return $p{message}. "\n";
@@ -45,101 +52,153 @@ sub _setup {
     my $level = $args->{level} // 'debug';
     
     unless ( $logger->level_is_valid( $level ) ) {
-
-        carp "Invalid Level $level"; # die?
+        carp "Invalid Level $level";
         $level = 'debug';
     }
 
-    $LOG_DIR //= $args->{logdir} // croak "Logdir expected";
+    my ($filepath, $logfile);
+    unless (defined $args->{path}) {
+        $logfile = $args->{logfile} // croak "Logfile expected";
+        
+        # use existing logdir if previously set
+        if (defined $args->{logdir}) {
+            $LOG_DIR = $args->{logdir};
+        } 
+        else {
+            croak "Undefined Log Dir" 
+                unless defined $LOG_DIR;
+        }
+        
+        $filepath = $LOG_DIR .'/'. $logfile;
 
-    unless (-w $LOG_DIR) {
-        say "LogDir: " .$LOG_DIR. " ";
-        croak "Log dir is not writeable. Be sure to specify logdir."; # die?
+        #croak "Not enough privileges on log filepath $filepath 1"
+        #    unless -w $filepath;
+    } 
+    else {
+        $filepath = $args->{path};
+
+        #croak "Not enough privileges on log filepath"
+        #    unless -w $filepath;
     }
 
-    $FILENAME //= $args->{logfile} // croak "Logfile expected";
-
-    my $screen_log = Log::Dispatch::Screen->new(
-                    name => 'screen',
-                    min_level => $level,
-                );
-
-    my $file_log = Log::Dispatch::File->new(
-                    name => 'server',
-                    min_level => $level,
-                    filename => $LOG_DIR .'/'. $FILENAME,
-                    mode    => 'append',
-                    newline => 1,
-                );
-
-    # if ($args->{screen}) {}
-    given( $args->{mode} ) {
-        when(/debug/i) {
-            $logger->add($screen_log);
-            $logger->add($file_log);
-        }
-        when(/screen/i) {
-            $logger->add($screen_log);
-        }
-        default {
-            # default should be file
-            $logger->add($file_log);
-            $logger->add($screen_log);
-        }
+    if ($DEBUG and $profile_name eq 'default') {
+        $logger->add(
+            Log::Dispatch::Screen->new(
+                name      => 'screen',
+                min_level => $level,
+            ),
+        );
     }
+
+    $logger->add(
+        Log::Dispatch::File->new(
+            name      => 'server',
+            min_level => $level,
+            filename  => $filepath,
+            mode      => 'append',
+            newline   => 1,
+        ),
+    );
 
     return $logger;
 }
 
 sub load {
-    my ($self, $args) = @_;
+    my ($class, $args) = @_;
 
-    return unless ref $self;
+    my $self;
+    if (ref $class eq __PACKAGE__) {
+        $self = $class;
+    } else {
+        $self = __PACKAGE__->new;
+    }
 
-    $self->{__handler} = _setup($args);
+    croak 'Expected arguments on ' .__PACKAGE__. ' as hashref'
+        unless ref $args eq 'HASH';
+
+    croak "Expected profile 'default' not found"
+        unless grep /^default$/, keys %$args;
+
+    my @blacklist = qw( warn_is_fatal error_is_fatal );
+    for my $profile_name (keys %$args) {
+        next if $profile_name ~~ @blacklist;
+
+        my $profile = $args->{$profile_name};
+        push @{ $self->{__handler} },  _setup($profile_name, $profile);
+    }
+
+    $self->{_warn_is_fatal}  = $args->{warn_is_fatal}  // 0;
+    $self->{_error_is_fatal} = $args->{error_is_fatal} // 0;
 
     $self;
 }
 
 sub debug {
-    my ($self, $msg) = @_;
+    my ($self, @msgs) = @_;
 
     return unless ref $self eq __PACKAGE__;
-
-    $self->{__handler}->log(level => 'debug', message => $msg);
+    
+    for my $handler (@{ $self->{__handler} }) {
+        for my $msg (@msgs) {
+            $msg = Dumper($msg) if (ref $msg);
+            $handler->log(level => 'debug', message => '[D] '. $msg);
+        }
+    };
 }
 
 sub info {
-    my ($self, $msg) = @_;
+    my ($self, @msgs) = @_;
 
     return unless ref $self eq __PACKAGE__;
 
-    $self->{__handler}->log(level => 'info', message => $msg);
+    for my $handler (@{ $self->{__handler} }) {
+        for my $msg (@msgs) {
+            $msg = Dumper($msg) if (ref $msg);
+            $handler->log(level => 'info', message => '[I] '. $msg);
+        }
+    }
 }
 
 sub warn {
-    my ($self, $msg) = @_;
+    my ($self, @msgs) = @_;
 
     return unless ref $self eq __PACKAGE__;
 
-    $self->{__handler}->log(level => 'warning', message => $msg);
+    for my $handler (@{ $self->{__handler} }) {
+        for my $msg (@msgs) {
+            $msg = Dumper($msg) if (ref $msg);
+            $handler->log(level => 'warning', message => '[W] '. $msg);
+        }
+    }
+    exit if ( $self->{_warn_is_fatal} );
 }
 
 
 sub error {
-    my ($self, $msg) = @_;
+    my ($self, @msgs) = @_;
 
     return unless ref $self eq __PACKAGE__;
-
-    $self->{__handler}->log(level => 'error', message => $msg);
+    for my $handler (@{ $self->{__handler} }) {
+        for my $msg (@msgs) {
+            $msg = Dumper($msg) if (ref $msg);
+            $handler->log(level => 'error', message => '[E] '. $msg);
+        }
+    }
+    exit if ( $self->{_error_is_fatal} );
 }
 
 sub fatal {
-    my ($self, $msg) = @_;
+    my ($self, @msgs) = @_;
 
     return unless ref $self eq __PACKAGE__;
 
-    $self->{__handler}->log(level => 'emergency', message => $msg);
+    for my $handler (@{ $self->{__handler} }) {
+        for my $msg (@msgs) {
+            $msg = Dumper($msg) if (ref $msg);
+            $handler->log(level => 'emergency', message => '[F] '. $msg);
+        }
+    }
+    exit;
 }
 
 1;

@@ -19,9 +19,14 @@ can_ok($config_module, @subs);
 my $config = $config_module->instance;
 $config->load('../etc/server.yaml');
 
-isa_ok($config, $config_module);
+my $mngr = NSMF::Server::ConfigMngr->load('../etc/server.yaml');
 
-ok( $config->name eq 'NSMF Server' );
+isa_ok($config, $config_module);
+isa_ok($mngr, $config_module);
+
+is_deeply($config, $mngr, 'Comparison Check');
+
+ok( $config->name eq 'NSMF Server', 'Server Name Check' );
 
 is_deeply( $config->modules,  ['cxtracker', 'barnyard2'], 'Modules compare');
 is_deeply( $config->database, { 
@@ -33,10 +38,11 @@ is_deeply( $config->database, {
     host => 'localhost',
 }, 'Database data Check');
 
-ok( $config->node_host eq 'localhost' && $config->node_port ~~ 10101, 
+ok( $config->node_host eq 'localhost' && $config->node_port ~~ 20101, 
     'Server and Port Node Check');
 
-ok( $config->client_host eq 'localhost' && $config->client_port ~~ 10201,
+ok( $config->client_host eq 'localhost' && $config->client_port ~~ 20201,
     'Server and Port Client Check');
 
-ok( $config->protocol ~~ 'json', 'Protocol Check');
+ok( $config->protocol->{node} eq 'json', 'Protocol Node Check');
+ok( $config->protocol->{client} eq 'json', 'Protocol Client Check');
