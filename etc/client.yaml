@@ -10,7 +10,7 @@ client:
 
 server:
     host: 127.0.0.1
-    port: 20201
+    port: 10201
 
 #
 # LOG
@@ -18,13 +18,13 @@ server:
 # Specify the logging characteristics.
 #
 log:
-    default: 
+    default:
         level: debug
         timestamp: 1
-        timestamp_format: "%Y/%m/%d"
+#       timestamp_format: "%Y-%m-%d %H:%M:%S"
         logfile: 'client.log'
-        warn_is_fatal: 1
-        error_is_fatal: 1
+#       warn_is_fatal: 1
+#       error_is_fatal: 1
 
 #
 # PROTOCOL

@@ -7,7 +7,7 @@ node:
 
 server:
     host: 127.0.0.1
-    port: 20101
+    port: 10101
 
 settings:
     barnyard2:
@@ -20,10 +20,10 @@ settings:
 # Specify the logging characteristics.
 #
 log:
-    default: 
+    default:
         level: debug
         timestamp: 1
-        timestamp_format: "%Y/%m/%d"
+#       timestamp_format: "%Y-%m-%d %H:%M:%S"
         logfile: 'barnyard2.log'
-        warn_is_fatal: 1
-        error_is_fatal: 1
+#       warn_is_fatal: 1
+#       error_is_fatal: 1

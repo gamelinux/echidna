@@ -1,5 +1,5 @@
 # Node Configuration
-node: 
+node:
     nodename: SNORT
     netgroup: NETGROUP
     secret: 9b3b290ed38462494e886667de1093a77e48045f539fd2a18ca49f8fe60b5929
@@ -16,4 +16,5 @@ settings:
     sidmsg: '/etc/snort/sid-msg.map'
     archivedir: '/var/log/barnyard2/'
 
-
+    snort_bin: '/usr/local/bin/snort'
+    snort_config_dir: '/etc/snort'
