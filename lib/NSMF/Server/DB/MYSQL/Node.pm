@@ -141,7 +141,7 @@ sub search {
             "name" => $node_name,
             "description" => $node_description,
             "type" => $node_type,
-            "type" => $node_network,
+            "network" => $node_network,
             "status_state" => $node_state,
             "status_timestamp" => $node_timestamp,
         });
@@ -153,7 +153,20 @@ sub search {
 sub update {
     my ($self, $data, $filter) = @_;
 
-#    $logger->warn('Base insert method needs to be overridden.');
+    my $sql = 'UPDATE node SET ';
+
+    my @fields = ('updated=NOW()');
+
+    while ( my ($key, $value) = each(%{ $data }) ) {
+        $value = "'$value'" if ( $value =~ m/[^\d]/ );
+        push(@fields, $key . '=' . $value);
+    }
+
+    $sql .= join(',', @fields) . ' ' . $self->create_filter($filter);
+
+    $logger->debug("SQL: $sql");
+
+    $self->{__handle}->do($sql);
 }
 
 sub delete {
