@@ -29,16 +29,15 @@ use v5.10;
 use base qw(NSMF::Server::DB::MYSQL::Base);
 
 #
+# PERL INCLUDES
+#
+use Carp;
+use Digest::SHA qw(sha256_hex);
+
+#
 # NSMF INCLUDES
 #
 use NSMF::Common::Registry;
-
-#
-# PERL CONSTANTS
-#
-use Data::Dumper;
-use Carp;
-use Digest::SHA qw(sha256_hex);
 
 #
 # CONSTANTS

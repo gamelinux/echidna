@@ -85,7 +85,9 @@ sub states {
         'get',
 
         'client_registered',
-        'client_unregistered'
+        'client_unregistered',
+
+        'client_broadcast'
     ];
 }
 
@@ -95,8 +97,12 @@ sub client_registered {
     my $clients = NSMF::Server->instance()->clients();
 
     $clients->{$session->ID()} = {
-        details => $heap->{details}
+        id => $heap->{details}{id},
+        name => $heap->{details}{name},
+        description => $heap->{details}{description} // '',
     };
+
+    # update DB
 }
 
 sub client_unregistered {
@@ -107,6 +113,10 @@ sub client_unregistered {
     delete $clients->{$session->ID()};
 }
 
+sub client_broadcast {
+    my ($kernel, $session, $heap, $module, $args) = @_[KERNEL, SESSION, HEAP, ARG0, ARG1];
+
+}
 
 sub dispatcher {
     my ($kernel, $heap, $request) = @_[KERNEL, HEAP, ARG0];

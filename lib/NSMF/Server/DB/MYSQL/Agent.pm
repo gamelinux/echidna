@@ -29,15 +29,15 @@ use v5.10;
 use base qw(NSMF::Server::DB::MYSQL::Base);
 
 #
+# PERL INCLUDES
+#
+use Carp;
+use Digest::SHA qw(sha256_hex);
+
+#
 # NSMF INCLUDES
 #
 use NSMF::Common::Registry;
-
-#
-# PERL CONSTANTS
-#
-use Data::Dumper;
-use Carp;
 
 #
 # CONSTANTS
@@ -180,7 +180,7 @@ CREATE TABLE agent (
 
     $self->insert({
         name => 'KERBEROS',
-        password => 'fb6ef95e28842ccff7ef9a0c6b3a9f63',
+        password => sha256_hex('fb6ef95e28842ccff7ef9a0c6b3a9f63'),
         ip => 'INET_PTON("127.0.0.1")'
     });
 

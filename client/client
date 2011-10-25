@@ -300,6 +300,13 @@ sub init
                     function => \&show_clients
                 }
             ],
+            nodes_connected => [
+                {
+                    command => "show nodes",
+                    help => "Show all nodes currently connected to Echidna.\n",
+                    function => \&show_nodes
+                }
+            ],
             server_uptime => [
                 {
                     command => "server uptime",

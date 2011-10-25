@@ -111,7 +111,7 @@ sub insert {
             $data->{revision},
             $data->{description},
             $data->{rule},
-            "SHA2(" . $self->{__handle}->quote($data->{rule}) . ", 256)",
+            "SHA2(" . $self->{__handle}->quote($data->{rule}) . ",256)",
             $data->{priority},
             $data->{category},
             'NOW()',

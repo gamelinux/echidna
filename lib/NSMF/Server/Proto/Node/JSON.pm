@@ -96,20 +96,20 @@ sub states {
 sub node_registered {
     my ($kernel, $session, $heap) = @_[KERNEL, SESSION, HEAP];
 
-    my $nodes = NSMF::Server->instance()->nodes();
-
-    $nodes->{$session->ID()} = {
-        agent_details => $heap->{agent_details},
-        node_details => $heap->{module_details}
-    };
+    # update node status once the ID has been resolved
+    if ( defined($heap->{module_details}{id}) ) {
+        my $db = NSMF::Server->database();
+        $db->update({ node => { state => 1 } }, { id => $heap->{module_details}{id} });
+    }
 }
 
 sub node_unregistered {
     my ($kernel, $session, $heap) = @_[KERNEL, SESSION, HEAP];
 
-    my $nodes = NSMF::Server->instance()->nodes();
-
-    delete $nodes->{$session->ID()};
+    if ( defined($heap->{module_details}{id}) ) {
+        my $db = NSMF::Server->database();
+        $db->update({ node => { state => 0 } }, { id => $heap->{module_details}{id} });
+    }
 }
 
 
@@ -411,6 +411,9 @@ sub post {
     if ( $response ne '' ) {
         $heap->{client}->put($response);
     }
+
+    # broadcast to registered clients
+    $kernel->call('broadcast', $module, $json);
 }
 
 sub get {
