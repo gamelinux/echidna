@@ -51,8 +51,8 @@ protocol: json
 #
 database:
     type: mysql
-    name: nsmf
-    user: nsmf
+    name: echidna
+    user: echidna
     pass: passw0rd.
     host: localhost
     port: 3306

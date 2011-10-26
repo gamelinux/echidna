@@ -69,9 +69,9 @@ my $reg    = NSMF::Common::Registry->new;
 $reg->set( 'log'    => $logger );
 $reg->set( 'config' => $config );
 
-my $nsmf          = NSMF::Server->new();
-my $proto_nodes   = $nsmf->proto('node');
-my $proto_clients = $nsmf->proto('client');
+my $echidna       = NSMF::Server->new();
+my $proto_nodes   = $echidna->proto('node');
+my $proto_clients = $echidna->proto('client');
 
 # service node connections
 my $nodes = POE::Component::Server::TCP->new(

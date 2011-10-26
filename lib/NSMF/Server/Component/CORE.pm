@@ -45,8 +45,8 @@ use NSMF::Common::Registry;
 # GLOBALS
 #
 
-my $nsmf    = NSMF::Server->instance();
-my $config  = $nsmf->config;
+my $echidna = NSMF::Server->instance();
+my $config  = $echidna->config;
 my $modules =["core", @{ $config->modules() }];
 my $logger = NSMF::Common::Registry->get('log') 
     // carp 'Got an empty config object from Registry';
@@ -430,7 +430,7 @@ sub node_unsubscribe {
 sub get_server_version {
     my ($self, $params, $callback) = @_;
 
-    my $version = $nsmf->{__version};
+    my $version = $echidna->{__version};
 
     $callback->($version);
 }
@@ -438,7 +438,7 @@ sub get_server_version {
 sub get_server_uptime {
     my ($self, $params, $callback) = @_;
 
-    my $uptime = time() - $nsmf->{__started};
+    my $uptime = time() - $echidna->{__started};
 
     $callback->($uptime);
 }
@@ -536,7 +536,7 @@ sub get_plugin_info {
 sub get_clients_connected {
     my ($self, $params, $callback) = @_;
 
-    my $clients = $nsmf->clients();
+    my $clients = $echidna->clients();
 
     $callback->($clients);
 }

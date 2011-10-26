@@ -31,8 +31,8 @@ ok( $config->name eq 'NSMF Server', 'Server Name Check' );
 is_deeply( $config->modules,  ['cxtracker', 'barnyard2'], 'Modules compare');
 is_deeply( $config->database, { 
     pass => 'passw0rd.', 
-    user => 'nsmf', 
-    name => 'nsmf',
+    user => 'echidna', 
+    name => 'echidna',
     type => 'mysql',
     port => '3306',
     host => 'localhost',

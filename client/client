@@ -73,8 +73,8 @@ my $reg    = NSMF::Common::Registry->new;
 $reg->set( 'log'    => $logger );
 $reg->set( 'config' => $config );
 
-my $nsmf    = NSMF::Client->new();
-my $proto   = $nsmf->proto();
+my $echidna = NSMF::Client->new();
+my $proto   = $echidna->proto();
 
 my ($self) = @_;
 

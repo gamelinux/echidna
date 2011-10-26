@@ -73,7 +73,7 @@ sub run {
     #$self->put("PING " .time(). " NSMF/1.0");
 
     # We should start a "loop" that look for requests from the
-    # nsmf-server requesting that we carve out sessions from pcap files
+    # echidna-server requesting that we carve out sessions from pcap files
     # if we do, we should execute something like:
     #  /usr/sbin/tcpdump -r /nsm_data/*hostname*/dailylogs/2011-03-13/pcap.1299974402
     #   -w /nsm_data/tmp/213.166.161.154:48103_209.85.149.139:80-6.raw 

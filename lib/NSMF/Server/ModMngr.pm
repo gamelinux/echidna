@@ -41,8 +41,8 @@ sub load {
     my ($self, $module_name, $acl) = @_;
 
     my $module_path;
-    my $nsmf    = NSMF::Server->new();
-    my $config  = $nsmf->config;
+    my $echidna = NSMF::Server->new();
+    my $config  = $echidna->config;
     my $modules = ["core", @{ $config->modules() } ];
 
     if( lc($module_name) ~~ @{ $modules } ) {
