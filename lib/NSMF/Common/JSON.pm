@@ -31,14 +31,14 @@ use base qw(Exporter);
 #
 # PERL INCLUDES
 #
-use Carp qw(croak);
+use Carp;
 use JSON;
 
 #
 # NSMF INCLUDES
 #
 use NSMF::Common::Util;
-use NSMF::Common::Logger;
+use NSMF::Common::Registry;
 
 #
 # CONSTANTS
@@ -148,7 +148,6 @@ our @EXPORT = qw(
 );
 
 my $method_map = {};
-
 #
 # JSON ENCODE/DECODE WRAPPERS
 #
@@ -156,20 +155,21 @@ my $method_map = {};
 sub json_decode {
     my $ref = shift;
 
-#    $logger->debug(substr($ref, 0, 1024) . "...");
+    my $logger = NSMF::Common::Registry->get('log');
+    $logger->debug('DEC: ' . substr($ref, 0, 1024) . ( length($ref) > 1024 ? '...' : '' ) );
 
     my $decoded = decode_json($ref);
 
     return $decoded;
 }
 
-
 sub json_encode {
     my $ref = shift;
 
     my $encoded = encode_json($ref);
 
-#    $logger->debug(substr($encoded, 0, 1024) . "...");
+    my $logger = NSMF::Common::Registry->get('log');
+    $logger->debug('ENC: ' . substr($encoded, 0, 1024) . ( length($ref) > 1024 ? '...' : '' ) );
 
     return $encoded;
 }
