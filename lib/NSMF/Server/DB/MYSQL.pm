@@ -128,11 +128,16 @@ sub connect {
     my $user = $settings->{user} // $logger->fatal('No database user provided.');
     my $pass = $settings->{pass} // $logger->fatal('No database password provided.');
 
+    # TODO trap all errors so we can handle it cleanly
     $self->{__handle} = DBI->connect($self->{__connection}, $user, $pass, { RaiseError => 0, PrintError => 1});
 
     if ( ! $self->{__handle} ) {
         $logger->fatal('Unable to connect to the database.');
     }
+
+    # let's turn on auto_reconnect to handle long periods of idle
+    $self->{__handle}{mysql_auto_reconnect} = 1;
+
 }
 
 
@@ -185,13 +190,7 @@ sub insert {
         };
 
         if ( $@ ) {
-            $logger->warn('DB ERROR: ' . $DBI::err);
-
-            # database has disappeared, let's reconnect
-            if( $DBI::err == 2006 ) {
-                $self->connect();
-                redo;
-            }
+            $logger->error('DB ERROR: ' . $DBI::err);
         }
     }
 
@@ -224,16 +223,7 @@ sub search {
         };
 
         if ( $@ ) {
-            $logger->warn('DB ERROR: ' . $DBI::err);
-
-            # database has disappeared, let's reconnect
-            if( $DBI::err == 2006 ) {
-                $self->connect();
-
-                eval {
-                    $ret = $type_map->{$type}->search($filter);
-                };
-            }
+            $logger->error('DB ERROR: ' . $DBI::err);
         }
 
         return $ret;
@@ -293,13 +283,7 @@ sub update {
         };
 
         if ( $@ ) {
-            $logger->warn('DB ERROR: ' . $DBI::err);
-
-            # database has disappeared, let's reconnect
-            if( $DBI::err == 2006 ) {
-                $self->connect();
-                redo;
-            }
+            $logger->error('DB ERROR: ' . $DBI::err);
         }
     }
 
@@ -332,16 +316,7 @@ sub delete {
         };
 
         if ( $@ ) {
-            $logger->warn('DB ERROR: ' . $DBI::err);
-
-            # database has disappeared, let's reconnect
-            if( $DBI::err == 2006 ) {
-                $self->connect();
-
-                eval {
-                    $ret = $type_map->{$type}->delete($filter);
-                };
-            }
+            $logger->error('DB ERROR: ' . $DBI::err);
         }
 
         return $ret;
