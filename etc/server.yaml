@@ -20,7 +20,7 @@ log:
     default:
         level: info
         timestamp: 1
-        logfile: 'server.log'
+        logfile: stdout
         warn_is_fatal: 1
     debug:
         level: debug
