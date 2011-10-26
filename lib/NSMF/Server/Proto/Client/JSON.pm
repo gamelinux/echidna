@@ -372,7 +372,6 @@ sub get {
             if ($@) {
                 $logger->error('Could not load module type: ' . $module_type);
                 $logger->debug($@);
-
                 $heap->{client}->put(json_error_create($json, JSONRPC_NSMF_GET_UNSUPPORTED));
                 return;
             }
@@ -384,25 +383,28 @@ sub get {
             my $ret = undef;
 
             eval {
-                $ret = $heap->{module}{$module_type}->get( $json->{params}{data} );
-            };
+                $ret = $heap->{module}{$module_type}->get( $json->{params}{data}, sub { 
+                    my $ret = shift;
+                    my $response = json_result_create($json, $ret);
 
-            my $response = '';
+                    # don't reply with empty strings
+                    if ( $response ne '' ) {
+                        $heap->{client}->put($response);
+                    }
+                });
+            };
 
             if ( $@ ) {
                 $logger->error($@);
-                $response = json_error_create($json, {
+                my $response = json_error_create($json, {
                     message => $@->{message},
                     code => $@->{code}
                 });
-            }
-            else {
-                $response = json_result_create($json, $ret);
-            }
 
-            # don't reply with empty strings
-            if ( $response ne '' ) {
-                $heap->{client}->put($response);
+                # don't reply with empty strings
+                if ( $response ne '' ) {
+                    $heap->{client}->put($response);
+                }
             }
         }
     }

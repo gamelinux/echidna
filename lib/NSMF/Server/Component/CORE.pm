@@ -31,8 +31,9 @@ use base qw(NSMF::Server::Component);
 #
 # PERL INCLUDES
 #
-use Module::Pluggable require => 1;
 use Carp;
+use Module::Pluggable require => 1;
+use POE;
 
 #
 # NSMF INCLUDES
@@ -62,142 +63,153 @@ sub init {
 
     $self->command_get_add({
         "modules_available" => {
-          "help" => "Returns the available modules.",
+          # returns the available modules
           "exec" => \&get_modules_available,
           "acl" => 0,
         },
 
         "register_agent" => {
-          "help" => "Register an agent to the Echidna framework.",
+          # register an agent to the Echidna framework
           "exec" => \&agent_register,
           "acl" => 128,
         },
         "unregister_agent" => {
-          "help" => "Unregister an agent, and all subordinate nodes, from the Echidna framework.",
+          # unregister an agent, and all subordinate nodes, from the Echidna framework
           "exec" => \&agent_unregister,
           "acl" => 128,
         },
         "update_agent" => {
-          "help" => "Update an agent's details on the Echidna framework.",
+          # update an agent's details on the Echidna framework
           "exec" => \&agent_update,
           "acl" => 128,
         },
         "register_node" => {
-          "help" => "Register a node to the Echidna framework.",
+          # register a node to the Echidna framework
           "exec" => \&node_register,
           "acl" => 128,
         },
         "unregister_node" => {
-          "help" => "Unregister a node from the Echidna framework.",
+          # unregister a node from the Echidna framework
           "exec" => \&node_unregister,
           "acl" => 128,
         },
         "update_node" => {
-          "help" => "Update a node's details on the Echidna framework.",
+          # update a node's details on the Echidna framework
           "exec" => \&node_update,
           "acl" => 128,
         },
         "register_client" => {
-          "help" => "Register a client to the Echidna framework.",
+          # register a client to the Echidna framework
           "exec" => \&client_register,
           "acl" => 127,
         },
         "unregister_client" => {
-          "help" => "Unregister a client from the Echidna framework.",
+          # unregister a client from the Echidna framework
           "exec" => \&client_unregister,
           "acl" => 127,
         },
         "update_client" => {
-          "help" => "Update a client's details on the Echidna framework.",
+          # update a client's details on the Echidna framework
           "exec" => \&client_update,
           "acl" => 127,
         },
 
         "subscribe_agent" => {
-          "help" => "Subscribe to an agent's, and all subordinate nodes', broadcasts.",
+          # subscribe to an agent's, and all subordinate nodes', broadcasts
           "exec" => sub{ },
           "acl" => 127,
         },
         "unsubscribe_agent" => {
-          "help" => "Unsubscribe from an agent's, and all subordinate nodes', broadcasts.",
+          # unsubscribe from an agent's, and all subordinate nodes', broadcasts
           "exec" => sub{ },
           "acl" => 127,
         },
         "subscribe_node" => {
-          "help" => "Subscribe to a node's broadcasts.",
+          # subscribe to a node's broadcasts
           "exec" => sub{ },
           "acl" => 127,
         },
         "unsubscribe_node" => {
-          "help" => "Unsubscribe from a node's broadcasts.",
+          # Unsubscribe from a node's broadcasts
           "exec" => sub{ },
           "acl" => 127,
         },
 
         "server_version" => {
-          "help" => "Returns the Version and revision of the Echidna server.",
+          # returns the Version and revision of the Echidna server
           "exec" => \&get_server_version,
           "acl" => 127,
         },
         "server_uptime" => {
-          "help" => "Returns the current uptime, in seconds, of the Echidna server.",
+          # returns the current uptime, in seconds, of the Echidna server
           "exec" => \&get_server_uptime,
           "acl" => 127,
         },
 
 
         "nodes_connected" => {
-            "help" => "Return all nodes connected.",
+            # return all nodes connected
             "exec" => \&get_nodes_connected,
             "acl" => 127,
         },
         "node_info" => {
-            "help" => "Return node info.",
+            # return node info
             "exec" => \&get_node_info,
             "acl" => 127,
         },
 
         "clients_connected" => {
-            "help" => "Return all clients connected.",
+            # return all clients connected
             "exec" => \&get_clients_connected,
             "acl" => 127,
         },
         "client_info" => {
-            "help" => "Return client info.",
+            # return client info
             "exec" => \&get_client_info,
             "acl" => 127,
         },
 
 
+        "node_version" => {
+          # returns the Version and revision of the specified Echidna node
+          "exec" => \&get_node_version,
+          "acl" => 127,
+        },
+        "node_uptime" => {
+          # returns the current uptime, in seconds, of the specified Echidna node
+          "exec" => \&get_node_uptime,
+          "acl" => 127,
+        },
+
 
 
         "search_agent" => {
-            "help" => "Search for agents.",
+            # search for agents
             "exec" => \&get_event_details,
             "acl" => 255,
         },
         "search_node" => {
-            "help" => "Search for nodes.",
+            # search for nodes
             "exec" => \&get_event_details,
             "acl" => 255,
         },
         "search_client" => {
-            "help" => "Search for clients.",
+            # search for clients
             "exec" => \&get_event_details,
             "acl" => 255,
         },
         "search_event" => {
-            "help" => "Search for events.",
+            # search for events
             "exec" => \&get_event_details,
             "acl" => 0,
         },
         "search_session" => {
-            "help" => "Search for sessions.",
+            # search for sessions
             "exec" => \&get_session_details,
             "acl" => 0,
         },
         "search_data" => {
-            "help" => "Search for full-content data.",
+            # search for full-content data
             "exec" => \&get_data_details,
             "acl" => 0,
         },
@@ -218,20 +230,14 @@ sub hello {
 
 
 
-#
-# COMMAND
-#
-# syntax: [help_]command
-#
-
-
-
 
 sub get_modules_available
 {
-    my ($self) = @_;
+    my ($self, $params, $callback) = @_;
 
-    return $modules;
+    return if( ref($callback) ne 'CODE' );
+
+    $callback->($modules);
 }
 
 
@@ -240,7 +246,9 @@ sub get_modules_available
 #
 
 sub agent_register {
-    my ($self, $params) = @_;
+    my ($self, $params, $callback) = @_;
+
+    return if( ref($callback) ne 'CODE' );
 
     my $db = NSMF::Server->database();
 
@@ -250,17 +258,17 @@ sub agent_register {
         agent => $params
     });
 
-    return $ret;
+    $callback->($ret);
 }
 
 sub agent_unregister {
-    my ($self, $params) = @_;
+    my ($self, $params, $callback) = @_;
 
     my $db = NSMF::Server->database();
 
     # TODO: validate params
     if ( ! defined_args($params->{id}) ) {
-        return 1;
+        $callback->(1);
     }
 
     # remove the agent and subordinate nodes
@@ -270,11 +278,11 @@ sub agent_unregister {
         }
     });
 
-    return $ret;
+    $callback->($ret);
 }
 
 sub agent_update {
-    my ($self, $params) = @_;
+    my ($self, $params, $callback) = @_;
 
     # require node id
     my $db = NSMF::Server->database();
@@ -288,11 +296,11 @@ sub agent_update {
         id => $params->{id}
     });
 
-    return $ret;
+    $callback->($ret);
 }
 
 sub node_register {
-    my ($self, $params) = @_;
+    my ($self, $params, $callback) = @_;
 
     my $db = NSMF::Server->database();
 
@@ -302,11 +310,11 @@ sub node_register {
         node => $params
     });
 
-    return $ret;
+    $callback->($ret);
 }
 
 sub node_unregister {
-    my ($self, $params) = @_;
+    my ($self, $params, $callback) = @_;
 
     my $db = NSMF::Server->database();
 
@@ -319,11 +327,11 @@ sub node_unregister {
         }
     });
 
-    return $ret;
+    $callback->($ret);
 }
 
 sub node_update {
-    my ($self, $params) = @_;
+    my ($self, $params, $callback) = @_;
 
     # require node id
     my $db = NSMF::Server->database();
@@ -337,11 +345,11 @@ sub node_update {
         id => $params->{id}
     });
 
-    return $ret;
+    $callback->($ret);
 }
 
 sub client_register {
-    my ($self, $params) = @_;
+    my ($self, $params, $callback) = @_;
 
     my $db = NSMF::Server->database();
 
@@ -351,11 +359,11 @@ sub client_register {
         client => $params
     });
 
-    return $ret;
+    $callback->($ret);
 }
 
 sub client_unregister {
-    my ($self, $params) = @_;
+    my ($self, $params, $callback) = @_;
 
     # require node id
     my $db = NSMF::Server->database();
@@ -368,11 +376,11 @@ sub client_unregister {
         }
     });
 
-    return $ret;
+    $callback->($ret);
 }
 
 sub client_update {
-    my ($self, $params) = @_;
+    my ($self, $params, $callback) = @_;
 
     # require node id
     my $db = NSMF::Server->database();
@@ -386,7 +394,7 @@ sub client_update {
         id => $params->{id}
     });
 
-    return $ret;
+    $callback->($ret);
 }
 
 
@@ -395,22 +403,22 @@ sub client_update {
 #
 
 sub agent_subscribe {
-    my ($self, $params) = @_;
+    my ($self, $params, $callback) = @_;
 
 }
 
 sub agent_unsubscribe {
-    my ($self, $params) = @_;
+    my ($self, $params, $callback) = @_;
 
 }
 
 sub node_subscribe {
-    my ($self, $params) = @_;
+    my ($self, $params, $callback) = @_;
 
 }
 
 sub node_unsubscribe {
-    my ($self, $params) = @_;
+    my ($self, $params, $callback) = @_;
 
 }
 
@@ -420,80 +428,127 @@ sub node_unsubscribe {
 #
 
 sub get_server_version {
-    my ($self, $params) = @_;
+    my ($self, $params, $callback) = @_;
 
     my $version = $nsmf->{__version};
 
-    return $version;
+    $callback->($version);
 }
 
 sub get_server_uptime {
-    my ($self, $params) = @_;
+    my ($self, $params, $callback) = @_;
 
     my $uptime = time() - $nsmf->{__started};
 
-    return $uptime;;
+    $callback->($uptime);
 }
 
 sub get_server_queue {
-    my ($self, $params) = @_;
+    my ($self, $params, $callback) = @_;
 
 }
 
 sub get_server_status {
-    my ($self, $params) = @_;
+    my ($self, $params, $callback) = @_;
 
 }
 
-
 sub get_node_version {
-    my ($self, $params) = @_;
-    return 'ALPHA';
+    my ($self, $params, $callback) = @_;
+
+    $logger->debug($params);
+
+    $params->{id} //= -1;
+
+    if ( $params->{id} <= 0 ) {
+        $callback->('Invalid node ID specified.');
+    }
+
+    my $nodes = NSMF::Server->nodes();
+
+    if( ! defined($nodes->{$params->{id}}) ) {
+        $callback->('Specified node ID is not connected.');
+    }
+
+    my $ret = POE::Kernel->call($nodes->{$params->{id}}, 'get', 'get_node_version', sub {
+        my ($s, $k, $h, $j) = @_;
+
+        my $r = $j->{result} // $j->{error};
+        $callback->($r);
+    });
+
+    if ( $ret ) {
+        $logger->error("Possible error: " . $ret)
+    }
 }
 
 sub get_node_uptime {
-    my ($self, $params) = @_;
+    my ($self, $params, $callback) = @_;
 
+    $logger->debug($params);
+
+    $params->{id} //= -1;
+
+    if ( $params->{id} <= 0 ) {
+        $callback->('Invalid node ID specified.');
+    }
+
+    my $nodes = NSMF::Server->nodes();
+
+    if( ! defined($nodes->{$params->{id}}) ) {
+        $callback->('Specified node ID is not connected.');
+    }
+
+    my $ret = POE::Kernel->call($nodes->{$params->{id}}, 'get', 'get_node_uptime', sub {
+        my ($s, $k, $h, $j) = @_;
+
+        my $r = $j->{result} // $j->{error};
+        $callback->($r);
+    });
+
+    if ( $ret ) {
+        $logger->error("Possible error: " . $ret)
+    }
 }
 
 sub get_node_queue {
-    my ($self, $params) = @_;
+    my ($self, $params, $callback) = @_;
 
 }
 
 sub get_node_status {
-    my ($self, $params) = @_;
+    my ($self, $params, $callback) = @_;
 
 }
 
 
 sub get_plugins_loaded {
-    my ($self, $params) = @_;
+    my ($self, $params, $callback) = @_;
 
 }
 
 sub get_plugin_info {
-    my ($self, $params) = @_;
+    my ($self, $params, $callback) = @_;
 
 }
 
 
 sub get_clients_connected {
-    my ($self, $params) = @_;
+    my ($self, $params, $callback) = @_;
 
     my $clients = $nsmf->clients();
 
-    return $clients;
+    $callback->($clients);
 }
 
 sub get_client_info {
-    my ($self, $params) = @_;
+    my ($self, $params, $callback) = @_;
 
 }
 
 
 sub get_nodes_connected {
-    my ($self, $params) = @_;
+    my ($self, $params, $callback) = @_;
 
     my $db = NSMF::Server->database();
 
@@ -518,11 +573,11 @@ sub get_nodes_connected {
         }
     }
 
-    return $nodes;
+    $callback->($nodes);
 }
 
 sub get_node_info {
-    my ($self, $params) = @_;
+    my ($self, $params, $callback) = @_;
 
 }
 
@@ -533,7 +588,7 @@ sub get_node_info {
 #
 
 sub get_agent_details {
-    my ($self, $params) = @_;
+    my ($self, $params, $callback) = @_;
 
     my $db = NSMF::Server->database();
 
@@ -543,39 +598,39 @@ sub get_agent_details {
         agent => $params
     });
 
-    return $ret;
+    $callback->($ret);
 }
 
 sub get_node_details {
-    my ($self, $params) = @_;
+    my ($self, $params, $callback) = @_;
 
     my $db = NSMF::Server->database();
 
     # TODO: validate params
 
     my $ret = $db->search({
-        agent => $params
+        node => $params
     });
 
-    return $ret;
+    $callback->($ret);
 }
 
 sub get_client_details {
-    my ($self, $params) = @_;
+    my ($self, $params, $callback) = @_;
 
     my $db = NSMF::Server->database();
 
     # TODO: validate params
 
     my $ret = $db->search({
-        agent => $params
+        client => $params
     });
 
-    return $ret;
+    $callback->($ret);
 }
 
 sub get_event_details {
-    my ($self, $params) = @_;
+    my ($self, $params, $callback) = @_;
 
     my $db = NSMF::Server->database();
 
@@ -585,11 +640,11 @@ sub get_event_details {
         event => $params
     });
 
-    return $ret;
+    $callback->($ret);
 }
 
 sub get_session_details {
-    my ($self, $params) = @_;
+    my ($self, $params, $callback) = @_;
 
     my $db = NSMF::Server->database();
 
@@ -599,19 +654,19 @@ sub get_session_details {
         session => $params
     });
 
-    return $ret;
+    $callback->($ret);
 }
 
 sub get_data_details {
-    my ($self, $params) = @_;
+    my ($self, $params, $callback) = @_;
 
     my $db = NSMF::Server->database();
 
     $logger->debug($params);
 
-    # TODO validate, process the params and return the result
+    # TODO validate, process the params and $callback->(the result
 
-    return "TODO: implement me";
+    $callback->("TODO: implement me");
 }
 
 1;

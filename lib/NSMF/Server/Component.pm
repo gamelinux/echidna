@@ -64,7 +64,6 @@ sub init {
 
     $self->command_get_add({
         "commands_available" => {
-          "help" => "List all available commands for this module.",
           "exec" => \&get_commands_available,
           "acl" => 0,
         },
@@ -95,7 +94,6 @@ sub command_get_add
         my $command = $commands->{$c};
 
         # ensure sane defaults
-        $command->{help}  //= 'TODO: write help description';
         $command->{acl}   //= 127;
         $command->{exec}  //= sub {};
 
@@ -121,7 +119,7 @@ sub process {
 # GET
 #
 sub get {
-    my ($self, $data) = @_;
+    my ($self, $data, $callback) = @_;
 
     my $command = undef;
     my $params = undef;
@@ -139,19 +137,7 @@ sub get {
     given( $command ) {
         when( $self->{_commands_allowed} ) {
             # we pass $self due to exec being an function pointer
-            return $self->{_commands_all}{$command}{exec}->($self, $params);
-        }
-        when( /^help/ ) {
-            # prefixed command with "help_"
-            if ( length($command) > 5 ) {
-                $command = substr($command, 5);
-
-                if ( $command ~~ $self->{_commands_allowed} ) {
-                    return $self->get_format_help($self->{_commands_all}{$command}{help});
-                }
-            }
-
-            return "Commands available: " . join(", ", @{ $self->get_commands_available() })
+            return $self->{_commands_all}{$command}{exec}->($self, $params, $callback);
         }
         default {
             $logger->debug($self->{_commands_available});
@@ -166,24 +152,17 @@ sub get {
 }
 
 
-sub get_format_help
-{
-    my ($self, $help_markdown) = @_;
-
-    return $help_markdown;
-}
-
-
-
 sub get_commands_available
 {
-    my ($self) = @_;
+    my ($self, $params, $callback) = @_;
 
-    return $self->{_commands_allowed};
+    if( ref($callback) eq 'CODE' ) {
+        $callback->($self->{_commands_allowed});
+    }
 }
 
 sub logger {
-    return NSMF::Common::Registry->get('log');   
+    return NSMF::Common::Registry->get('log');
 }
 
 1;

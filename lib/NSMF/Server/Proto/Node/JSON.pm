@@ -100,6 +100,10 @@ sub node_registered {
     if ( defined($heap->{module_details}{id}) ) {
         my $db = NSMF::Server->database();
         $db->update({ node => { state => 1 } }, { id => $heap->{module_details}{id} });
+
+        # add session->ID() to node ID map
+        my $nodes = NSMF::Server->instance()->nodes();
+        $nodes->{ $heap->{module_details}{id} } = $session->ID();
     }
 }
 
@@ -109,6 +113,10 @@ sub node_unregistered {
     if ( defined($heap->{module_details}{id}) ) {
         my $db = NSMF::Server->database();
         $db->update({ node => { state => 0 } }, { id => $heap->{module_details}{id} });
+
+        # remove session->ID() to node ID map
+        my $nodes = NSMF::Server->instance()->nodes();
+        $nodes->{ $heap->{module_details}{id} } = $session->ID();
     }
 }
 
@@ -384,7 +392,7 @@ sub post {
       return;
     }
 
-    $logger->debug('This is a POST for ' . $heap->{name});
+    $logger->debug('This is a POST to ' . $heap->{name});
 
     my $module = $heap->{module};
 
@@ -416,81 +424,27 @@ sub post {
     $kernel->call('broadcast', $module, $json);
 }
 
+#
+# REQUEST INFORMATION FROM CONNECTED NODE
+#
 sub get {
-    my ($kernel, $heap, $json) = @_[KERNEL, HEAP, ARG0];
+    my ($kernel, $heap, $json, $callback) = @_[KERNEL, HEAP, ARG0, ARG1, ARG2];
     my $self = shift;
 
     if ( $heap->{status} ne 'EST' || ! $heap->{session_key}) {
-        $heap->{client}->put(json_result_create($json, 'Bad request'));
-        return;
+        return -1;
     }
 
-    eval {
-        my ($ret, $response) = json_validate($json, ['$type', '$jobid', '%data']);
-    };
+    $logger->debug('This is a GET to ' . $heap->{name});
 
-    if ( ref($@) ) {
-      $logger->error('Incomplete GET request. ' . $@->{message});
-      $heap->{client}->put($@->{object});
-      return;
-    }
+    my $ret = undef;
 
-    my $module_type = $json->{params}{type};
+    my $response = '';
 
-    $logger->debug('This is a GET for ' . $module_type);
+    my $payload = json_message_create('get', $json, $callback);
 
-    my $modules_allowed = @{ $modules };
-
-    if ( $module_type ~~ @{ $modules_allowed } ) {
-        # dyamically load module as required
-        if ( ! defined($heap->{module}{$module_type}) ) {
-            $logger->debug("-> " .uc($module_type). " supported!");
-
-            eval {
-                $heap->{module}{$module_type} = NSMF::Server::ModMngr->load(uc($module_type), $heap->{acl});
-            };
-
-            if ($@) {
-                $logger->error('Could not load module type: ' . $module_type);
-                $logger->debug($@);
-
-                $heap->{client}->put(json_error_create($json, JSONRPC_NSMF_GET_UNSUPPORTED));
-                return;
-            }
-        }
-
-        if ( defined($heap->{module}{$module_type}) ) {
-            $logger->debug("Module Called");
-
-            my $ret = undef;
-
-            eval {
-                $ret = $heap->{module}{$module_type}->get( $json->{params} );
-            };
-
-            my $response = '';
-
-            if ( $@ ) {
-                $logger->error($@);
-                $response = json_error_create($json, {
-                    message => $@->{message},
-                    code => $@->{code}
-                });
-            }
-            else {
-                $response = json_result_create($json, $ret);
-            }
-
-            # don't reply with empty strings
-            if ( $response ne '' ) {
-                $heap->{client}->put($response);
-            }
-        }
-    }
-    # module is not supported
-    else {
-        $heap->{client}->put(json_error_create($json, JSONRPC_NSMF_GET_UNSUPPORTED));
-    }
+    # don't reply with empty strings
+    $heap->{client}->put(json_encode($payload));
 }
 
 sub _is_authenticated {
