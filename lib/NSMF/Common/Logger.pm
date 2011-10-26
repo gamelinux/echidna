@@ -10,6 +10,8 @@ use Log::Dispatch::File;
 use Log::Dispatch::Screen;
 use Data::Dumper;
 
+use NSMF::Common::Util;
+
 our $LOG_DIR;
 
 my $instance;
@@ -60,7 +62,7 @@ sub _setup {
             Log::Dispatch::Screen->new(
                 name      => 'screen',
                 min_level => $level,
-                newline   => 1,
+                #newline   => 1,
             ),
         );
     }
@@ -71,7 +73,7 @@ sub _setup {
                 min_level => $level,
                 filename  => $logdir. '/' . $logfile,
                 mode      => 'append',
-                newline   => 1,
+                #newline   => 1,
             ),
         );
 
@@ -110,17 +112,27 @@ sub load {
     $self;
 }
 
+# private sub call for public log methods 
+sub _log_call {
+    my ($handler, $level, $prefix, $msgs) = @_;
+
+    croak 'Invalid parameters on internal log call'
+        unless defined_args($handler, $level, $prefix, $msgs);
+
+    for my $output (@$handler) {
+        for my $msg (@$msgs) {
+            $msg = Dumper($msg) if ref $msg;
+            $output->log(level => $level, message => $prefix . $msg ."\n");
+        }
+    }
+}
+
 sub debug {
     my ($self, @msgs) = @_;
 
     return unless ref $self eq __PACKAGE__;
 
-    for my $handler (@{ $self->{__handler} }) {
-        for my $msg (@msgs) {
-            $msg = Dumper($msg) if (ref $msg);
-            $handler->log(level => 'debug', message => '[D] '. $msg);
-        }
-    };
+    _log_call($self->{__handler}, 'debug', '[D] ', \@msgs);
 }
 
 sub info {
@@ -128,12 +140,7 @@ sub info {
 
     return unless ref $self eq __PACKAGE__;
 
-    for my $handler (@{ $self->{__handler} }) {
-        for my $msg (@msgs) {
-            $msg = Dumper($msg) if (ref $msg);
-            $handler->log(level => 'info', message => '[I] '. $msg);
-        }
-    }
+    _log_call($self->{__handler}, 'info', '[I] ', \@msgs);
 }
 
 sub warn {
@@ -141,12 +148,7 @@ sub warn {
 
     return unless ref $self eq __PACKAGE__;
 
-    for my $handler (@{ $self->{__handler} }) {
-        for my $msg (@msgs) {
-            $msg = Dumper($msg) if (ref $msg);
-            $handler->log(level => 'warning', message => '[W] '. $msg);
-        }
-    }
+    _log_call($self->{__handler}, 'warning', '[W] ', \@msgs);
     exit if ( $self->{_warn_is_fatal} );
 }
 
@@ -155,12 +157,8 @@ sub error {
     my ($self, @msgs) = @_;
 
     return unless ref $self eq __PACKAGE__;
-    for my $handler (@{ $self->{__handler} }) {
-        for my $msg (@msgs) {
-            $msg = Dumper($msg) if (ref $msg);
-            $handler->log(level => 'error', message => '[E] '. $msg);
-        }
-    }
+
+    _log_call($self->{__handler}, 'error', '[E] ', \@msgs);
     exit if ( $self->{_error_is_fatal} );
 }
 
@@ -169,12 +167,7 @@ sub fatal {
 
     return unless ref $self eq __PACKAGE__;
 
-    for my $handler (@{ $self->{__handler} }) {
-        for my $msg (@msgs) {
-            $msg = Dumper($msg) if (ref $msg);
-            $handler->log(level => 'emergency', message => '[F] '. $msg);
-        }
-    }
+    _log_call($self->{__handler}, 'emergency', '[F] ', \@msgs);
     exit;
 }
 
