@@ -67,7 +67,7 @@ our $VERSION = {
 sub new {
     my $class = shift;
 
-    bless {
+    my $obj = bless {
         __config_path   => undef,
         __config        => undef, 
         __proto         => undef,
@@ -81,7 +81,32 @@ sub new {
             _log        => undef,
         },
         __client        => undef,
+        __id            => -1,
+        _commands_all     => {},
+        _commands_allowed => [],
     }, $class;
+
+    return $obj->init(@_);
+}
+
+sub init {
+    my ($self) = @_;
+
+    $self->command_get_add({
+        "get_node_uptime" => {
+          "exec" => \&get_node_uptime,
+        },
+        "get_node_version" => {
+          "exec" => \&get_node_version,
+        },
+        "get_node_id" => {
+          "exec" => \&get_node_id,
+        },
+    });
+
+    $self->{_commands_allowed} = [ keys( %{ $self->{_commands_all} } ) ];
+
+    return $self;
 }
 
 # Public Interface to load config as pair of names and values
@@ -175,7 +200,7 @@ sub sync {
         },
         ObjectStates => [
             $proto => $proto->states(),
-            $self => [ 'run', 'ident_node_get' ]
+            $self => [ 'run', 'get' ]
         ],
         Started => sub {
             my ($kernel, $heap) = @_[KERNEL, HEAP];
@@ -192,11 +217,79 @@ sub run {
     $logger->fatal('Base run call needs to be overridden.');
 }
 
-sub ident_node_get {
-    my ($kernel, $heap) = @_[KERNEL, HEAP];
+sub command_get_add
+{
+    my ( $self, $commands ) = @_;
+
+    # ensure we have a command hash
+    if ( ref($commands) ne 'HASH' ) {
+        $logger->error('Command(s) not a HASH description.');
+        return;
+    }
+
+    # add all contained keys
+    foreach my $c ( keys ( %{ $commands } ) ) {
+        if ( defined($self->{_commands_all}{$c} ) ) {
+            $logger->warn('Ignoring duplicate command definition: ' . $c);
+            continue;
+        }
+
+        my $command = $commands->{$c};
+
+        # ensure sane defaults
+        $command->{exec}  //= sub {};
+
+        # add the command to the stack
+        $self->{_commands_all}{$c} = $command;
+    }
+}
+
+sub get {
+    my ($kernel, $heap, $data) = @_[KERNEL, HEAP, ARG0];
     my $self = shift;
 
-    return $heap->{node_id} // -1;
+    my $command = undef;
+    my $params = undef;
+
+    # TODO: apply some structure here
+    if( ref($data) ne 'HASH' ) {
+        $command = $data;
+    }
+    else {
+      my @c = keys(%{ $data });
+      $command = $c[0];
+      $params = $data->{$command};
+    }
+
+    given( $command ) {
+        when( $self->{_commands_allowed} ) {
+            # we pass $self due to exec being an function pointer
+            return $self->{_commands_all}{$command}{exec}->($self, $kernel, $heap, $params);
+        }
+        default {
+            $logger->error($self->{_commands_available});
+        }
+    }
+
+    return 0;
+}
+
+sub get_node_id {
+    my ($self, $kernel, $heap, $data) = @_;
+
+    return $heap->{node_id};
+}
+
+sub get_node_uptime {
+    my ($self, $kernel, $heap, $data) = @_;
+
+    return time() - $self->{__started};
+}
+
+sub get_node_version {
+    my ($self, $kernel, $heap, $data) = @_;
+
+    return $self->{__version};
 }
 
 sub logger {

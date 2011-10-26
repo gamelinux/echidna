@@ -64,7 +64,7 @@ sub sync {
     my $port = $settings->{barnyard2}{port} // 7060;
     #my $self->logger = NSMF::Common::Registry->get('log') 
     #    // 'Fetching logger object for Barnyard Sync';
-    
+
     $self->{__barnyard2} = new POE::Component::Server::TCP(
         Alias         => 'by2',
         Address       => $host,
@@ -75,7 +75,7 @@ sub sync {
             $self->logger->debug('Barnyard2 instance connected: ' . $heap->{remote_ip});
 
             # collect the node ID and max event ID if possible
-            $heap->{node_id} = $kernel->call('node', 'ident_node_get');
+            $heap->{node_id} = $kernel->call('node', 'get', 'get_node_id');
             $heap->{eid_max} = -1;
             $kernel->yield('barnyard2_eid_max_get');
         },
@@ -115,7 +115,7 @@ sub barnyard2_dispatcher
 
     my $logger = NSMF::Common::Registry->get('log')
         // carp 'Got an empty logger object in barnyard2_dispatcher';
-    
+
     # there is no point processing if we're not connected to the server
     # NOTE:
     # the benefit of not processing is that barnyard2 will block on input
@@ -140,6 +140,8 @@ sub barnyard2_dispatcher
 
     $logger->debug("Received from barnyard2: " . $data . " (" . @data_tabs . ")");
 
+    $heap->{node_id} //= -1;
+
     given($data_tabs[0]) {
         # agent sensor/event id request
         when("BY2_SEID_REQ") {
@@ -153,7 +155,7 @@ sub barnyard2_dispatcher
             {
                 # collect the node id as appropriate
                 if ( $heap->{node_id} == -1 ) {
-                  $heap->{node_id} = $kernel->call('node', 'ident_node_get');
+                  $heap->{node_id} = $kernel->call('node', 'get', 'get_node_id') // -1;
                 }
 
                 $kernel->yield('barnyard2_eid_max_get');
@@ -190,6 +192,8 @@ sub barnyard2_eid_max_get
 {
     my ($kernel, $heap) = @_[KERNEL, HEAP];
     my $self = shift;
+
+    $heap->{node_id} //= -1;
 
     # on-forward the node id if we have it
     if ( $heap->{node_id} != -1 ) {

@@ -105,11 +105,10 @@ sub _process {
     }
 
     # we need a valid node_id to mark identify all our communications
-    my $node_id = $heap->{node_id} // -1;
+    $heap->{node_id} //= -1;
 
-    if ( $node_id < 0 ) {
-        $heap->{node_id} = $kernel->post('node', 'ident_node_get');
-
+    if ( $heap->{node_id} < 0 ) {
+        $heap->{node_id} = $kernel->call('node', 'get', 'get_node_id');
         return;
     }
 

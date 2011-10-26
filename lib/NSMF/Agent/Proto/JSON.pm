@@ -78,6 +78,7 @@ sub states {
         # -> From Server
         'got_ping',
         'got_pong',
+        'got_get',
         'has_pcap',
     ];
 }
@@ -134,6 +135,9 @@ sub dispatcher {
             given($action->{method}) {
                 when(/^ping/i) {
                     $kernel->yield('got_ping');
+                }
+                when(/^get/i) {
+                    $kernel->yield('got_get' => $json);
                 }
                 when(/^has_pcap/i) {
                     $kernel->yield('has_pcap' => $json);
@@ -233,7 +237,7 @@ sub send_ping {
 
     my $ping_sent = time();
 
-    my $payload = json_method_create("ping", {
+    my $payload = json_message_create("ping", {
         "timestamp" => $ping_sent
     }, sub {
         my ($self, $kernel, $heap, $json) = @_;
@@ -288,6 +292,63 @@ sub got_pong {
 }
 
 ################ END KEEP ALIVE ###################
+
+#
+# received a get from server
+sub got_get {
+    my ($kernel, $heap, $json) = @_[KERNEL, HEAP, ARG0];
+    my $self = shift;
+
+    return if $heap->{shutdown};
+
+    # verify established connection
+    return if ( $heap->{stage} ne 'EST' );
+
+    $logger->debug('-> Got GET...');
+
+    # TODO: validate type croak on fail
+    #if ( ref($type) ) {
+    #   my %hash = %$data;
+    #   $type = keys %hash;
+    #   $data = $hash{$type};
+    #}
+
+    eval {
+        json_validate($json, ['$type', '$jobid', '%data']);
+    };
+
+    if ( ref($@) ) {
+      $logger->error('Incomplete GET request. ' . $@->{message});
+      $heap->{client}->put($@->{object});
+      return;
+    }
+
+    $logger->debug($json);
+
+    my $response;
+    my $ret;
+
+    eval {
+        $ret = $kernel->call('node', 'get', $json->{params});
+    };
+
+
+    if ( $@ ) {
+        $logger->error($@);
+        $response = json_error_create($json, {
+            message => $@->{message},
+            code => $@->{code}
+        });
+    }
+    else {
+        $response = json_result_create($json, $ret);
+    }
+
+    # don't reply with empty strings
+    if ( $response ne '' ) {
+        $heap->{server}->put($response);
+    }
+}
 
 sub post {
     my ($kernel, $heap, $data, $callback) = @_[KERNEL, HEAP, ARG0, ARG1];
