@@ -54,11 +54,11 @@ use NSMF::Server::ModMngr;
 # GLOBALS
 #
 my $instance;
-my $logger = NSMF::Common::Registry->get('log') 
+my $logger = NSMF::Common::Registry->get('log')
     // carp 'Got an empty config object from Registry';
 
-my $config = NSMF::Common::Registry->get('config') 
-    // carp 'Got an empty config object from Registry'; 
+my $config = NSMF::Common::Registry->get('config')
+    // carp 'Got an empty config object from Registry';
 
 my $modules = $config->modules() // [];
 
@@ -196,7 +196,7 @@ sub authenticate {
     };
 
     if ($@) {
-        $logger->error('Client authentication unsupported: ', $@);
+        $logger->debug('Client authentication request unsupported: ', $@);
         $heap->{client}->put(json_error_create($json, JSONRPC_NSMF_AUTH_UNSUPPORTED));
         return;
     }
