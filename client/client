@@ -307,6 +307,20 @@ sub init
                     function => \&show_nodes
                 }
             ],
+            node_uptime => [
+                {
+                    command => "node uptime",
+                    help => "Show how long the specified Echidna node has been up.\n",
+                    function => \&show_node_uptime
+                }
+            ],
+            node_version => [
+                {
+                    command => "node version",
+                    help => "Show the version and build information for the specified Echidna node.",
+                    function => \&show_node_version
+                }
+            ],
             server_uptime => [
                 {
                     command => "server uptime",
@@ -486,7 +500,7 @@ sub register_agent {
                     $sql->{description} = $1;
                 }
                 default {
-                    $logger->debug('Unsupported parameter: ' . $k);
+                    say('Unsupported parameter: ' . $k);
                     return 0;
                 }
             }
@@ -544,7 +558,7 @@ sub update_agent {
                     $sql->{description} = $1;
                 }
                 default {
-                    $logger->debug('Unsupported parameter: ' . $k);
+                    say('Unsupported parameter: ' . $k);
                     return 0;
                 }
             }
@@ -592,7 +606,7 @@ sub unregister_agent {
                     $sql->{id} = $1;
                 }
                 default {
-                    $logger->debug('Unsupported parameter: ' . $k);
+                    say('Unsupported parameter: ' . $k);
                     return 0;
                 }
             }
@@ -623,10 +637,15 @@ sub unregister_agent {
 sub register_client {
     my ($kernel, $data) = @_;
 
-    if( $data =~ /^register\sclient\s(.*)/) {
+    if( $data =~ /^register\sclient(.*)/) {
         my $sql = {};
 
         my @search_args = split(/[ ]/, $1);
+
+        if( @search_args == 0 ) {
+            say("I need arguments.");
+            return 0;
+        }
 
         foreach my $k ( @search_args ) {
             given( $k ) {
@@ -643,7 +662,7 @@ sub register_client {
                     $sql->{description} = $1;
                 }
                 default {
-                    $logger->debug('Unsupported parameter: ' . $k);
+                    say('Unsupported parameter: ' . $k);
                     return 0;
                 }
             }
@@ -705,7 +724,7 @@ sub update_client {
                     $sql->{description} = $1;
                 }
                 default {
-                    $logger->debug('Unsupported parameter: ' . $k);
+                    say('Unsupported parameter: ' . $k);
                     return 0;
                 }
             }
@@ -753,7 +772,7 @@ sub unregister_client {
                     $sql->{id} = $1;
                 }
                 default {
-                    $logger->debug('Unsupported parameter: ' . $k);
+                    say('Unsupported parameter: ' . $k);
                     return 0;
                 }
             }
@@ -804,7 +823,7 @@ sub register_node {
                     $sql->{description} = $1;
                 }
                 default {
-                    $logger->debug('Unsupported parameter: ' . $k);
+                    say('Unsupported parameter: ' . $k);
                     return 0;
                 }
             }
@@ -866,7 +885,7 @@ sub update_node {
                     $sql->{description} = $1;
                 }
                 default {
-                    $logger->debug('Unsupported parameter: ' . $k);
+                    say('Unsupported parameter: ' . $k);
                     return 0;
                 }
             }
@@ -914,7 +933,7 @@ sub unregister_node {
                     $sql->{id} = $1;
                 }
                 default {
-                    $logger->debug('Unsupported parameter: ' . $k);
+                    say('Unsupported parameter: ' . $k);
                     return 0;
                 }
             }
@@ -1007,6 +1026,93 @@ sub show_nodes {
 }
 
 
+sub show_node_uptime {
+    my ($kernel, $data) = @_;
+
+    if( $data =~ /^node\suptime\s?(.*)$/) {
+
+        my $sql = {};
+        my @search_args = split(/[ ]/, $1);
+
+        foreach my $k ( @search_args ) {
+            given( $k ) {
+                when(/^--id=([^ ]*)/) {
+                    $sql->{id} = $1;
+                }
+                default {
+                    say('Unsupported parameter: ' . $k);
+                    return 0;
+                }
+            }
+        }
+
+        $kernel->yield('get', {
+            type => "core",
+            data => {
+                "node_uptime" => $sql
+            }
+        }, sub {
+            my ($s, $k, $h, $json) = @_;
+
+            my $result = $json->{result};
+
+            say('Echidna node has been up for ' . $result . ' seconds');
+            prompt_print();
+        });
+
+        return 0;
+    }
+
+    return 1;
+}
+
+sub show_node_version {
+    my ($kernel, $data) = @_;
+
+    if( $data =~ /^node\sversion\s?(.*)$/) {
+        my $sql = {};
+        my @search_args = split(/[ ]/, $1);
+
+        foreach my $k ( @search_args ) {
+            given( $k ) {
+                when(/^--id=([^ ]*)/) {
+                    $sql->{id} = $1;
+                }
+                default {
+                    say('Unsupported parameter: ' . $k);
+                    return 0;
+                }
+            }
+        }
+
+        $kernel->yield('get', {
+            type => "core",
+            data => {
+                "node_version" => $sql
+            }
+        }, sub {
+            my ($s, $k, $h, $json) = @_;
+
+            my $result = $json->{result};
+
+            if( ref($result) eq 'HASH' ) {
+                my $literal = 'Echidna Node Version: v' . join('.', $result->{major}, $result->{minor}, $result->{revision}) . ' (b' . $result->{build} . ')';
+                say($literal);
+                prompt_print();
+            }
+            else {
+                # TODO post process result with client aware components
+                say( "Unknown");
+                prompt_print();
+            }
+        });
+
+        return 0;
+    }
+
+    return 1;
+}
+
 sub show_server_uptime {
     my ($kernel, $data) = @_;
 
@@ -1063,7 +1169,7 @@ sub show_server_version {
 sub search_session {
     my ($kernel, $data) = @_;
 
-    if( $data =~ /^search\ssession\s(.*)/) {
+    if( $data =~ /^search\ssession\s?(.*)/) {
         my $sql = {};
 
         my @search_args = split(/[ ]/, $1);
@@ -1086,7 +1192,7 @@ sub search_session {
                     $sql->{agent_id} = $1;
                 }
                 when(/^--node-id=([^ ]*)/) {
-                    $sql->{id} = $1;
+                    $sql->{node_id} = $1;
                 }
                 when(/^--src-ip=([^ ]*)/) {
                     $sql->{net_src_ip} = $1;
@@ -1137,7 +1243,7 @@ sub search_session {
                     $sql->{net_version} = $1;
                 }
                 default {
-                    $logger->debug('Unsupported parameter: ' . $k);
+                    say('Unsupported parameter: ' . $k);
                     return 0;
                 }
             }
@@ -1170,7 +1276,7 @@ sub search_session {
 sub search_event {
     my ($kernel, $data) = @_;
 
-    if( $data =~ /^search\sevent\s(.*)/) {
+    if( $data =~ /^search\sevent(.*)/) {
         my $sql = {};
 
         my @search_args = split(/[ ]/, $1);
@@ -1232,7 +1338,7 @@ sub search_event {
                     $sql->{sig_category} = $1;
                 }
                 default {
-                    $logger->debug('Unsupported parameter: ' . $k);
+                    say('Unsupported parameter: ' . $k);
                     return 0;
                 }
             }
