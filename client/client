@@ -557,7 +557,7 @@ sub register_agent {
                     $sql->{description} = $1;
                 }
                 default {
-                    say('Unsupported parameter: ' . $k);
+                    prompt_return('Unsupported parameter: ' . $k);
                     return 0;
                 }
             }
@@ -565,8 +565,7 @@ sub register_agent {
 
         if( ! defined_args( $sql->{name},
                             $sql->{password} ) ) {
-            say("Mandatory arguments are missing.");
-            prompt_print();
+            prompt_return("Mandatory arguments are missing.");
             return 0;
         }
 
@@ -582,8 +581,7 @@ sub register_agent {
 
             # TODO post process result with client aware components
 
-            say(Dumper($result));
-            prompt_print();
+            prompt_return(Dumper($result));
         });
 
         return 0;
@@ -615,15 +613,14 @@ sub update_agent {
                     $sql->{description} = $1;
                 }
                 default {
-                    say('Unsupported parameter: ' . $k);
+                    prompt_return('Unsupported parameter: ' . $k);
                     return 0;
                 }
             }
         }
 
         if( ! defined_args( $sql->{id} )  ){
-            say("Mandatory arguments are missing.");
-            prompt_print();
+            prompt_return("Mandatory arguments are missing.");
             return 0;
         }
 
@@ -639,8 +636,7 @@ sub update_agent {
 
             # TODO post process result with client aware components
 
-            say(Dumper($result));
-            prompt_print();
+            prompt_return(Dumper($result));
         });
 
         return 0;
@@ -663,7 +659,7 @@ sub unregister_agent {
                     $sql->{id} = $1;
                 }
                 default {
-                    say('Unsupported parameter: ' . $k);
+                    prompt_return('Unsupported parameter: ' . $k);
                     return 0;
                 }
             }
@@ -681,8 +677,7 @@ sub unregister_agent {
 
             # TODO post process result with client aware components
 
-            say(Dumper($result));
-            prompt_print();
+            prompt_return(Dumper($result));
         });
 
         return 0;
@@ -700,7 +695,7 @@ sub register_client {
         my @search_args = split(/[ ]/, $1);
 
         if( @search_args == 0 ) {
-            say("I need arguments.");
+            prompt_return("I need arguments.");
             return 0;
         }
 
@@ -719,7 +714,7 @@ sub register_client {
                     $sql->{description} = $1;
                 }
                 default {
-                    say('Unsupported parameter: ' . $k);
+                    prompt_return('Unsupported parameter: ' . $k);
                     return 0;
                 }
             }
@@ -728,8 +723,7 @@ sub register_client {
         if( ! defined_args( $sql->{name},
                             $sql->{level},
                             $sql->{password} ) ) {
-            say("Mandatory arguments are missing.");
-            prompt_print();
+            prompt_return("Mandatory arguments are missing.");
             return 0;
         }
 
@@ -745,8 +739,7 @@ sub register_client {
 
             # TODO post process result with client aware components
 
-            say(Dumper($result));
-            prompt_print();
+            prompt_return(Dumper($result));
         });
 
         return 0;
@@ -781,15 +774,14 @@ sub update_client {
                     $sql->{description} = $1;
                 }
                 default {
-                    say('Unsupported parameter: ' . $k);
+                    prompt_return('Unsupported parameter: ' . $k);
                     return 0;
                 }
             }
         }
 
         if( ! defined_args( $sql->{id} )  ){
-            say("Mandatory arguments are missing.");
-            prompt_print();
+            prompt_return("Mandatory arguments are missing.");
             return 0;
         }
 
@@ -805,8 +797,7 @@ sub update_client {
 
             # TODO post process result with client aware components
 
-            say(Dumper($result));
-            prompt_print();
+            prompt_return(Dumper($result));
         });
 
         return 0;
@@ -829,7 +820,7 @@ sub unregister_client {
                     $sql->{id} = $1;
                 }
                 default {
-                    say('Unsupported parameter: ' . $k);
+                    prompt_return('Unsupported parameter: ' . $k);
                     return 0;
                 }
             }
@@ -847,8 +838,7 @@ sub unregister_client {
 
             # TODO post process result with client aware components
 
-            say(Dumper($result));
-            prompt_print();
+            prompt_return(Dumper($result));
         });
 
         return 0;
@@ -880,7 +870,7 @@ sub register_node {
                     $sql->{description} = $1;
                 }
                 default {
-                    say('Unsupported parameter: ' . $k);
+                    prompt_return('Unsupported parameter: ' . $k);
                     return 0;
                 }
             }
@@ -889,8 +879,7 @@ sub register_node {
         if( ! defined_args( $sql->{name},
                             $sql->{agent_id},
                             $sql->{password} ) ) {
-            say("Mandatory arguments are missing.");
-            prompt_print();
+            prompt_return("Mandatory arguments are missing.");
             return 0;
         }
 
@@ -906,8 +895,7 @@ sub register_node {
 
             # TODO post process result with client aware components
 
-            say(Dumper($result));
-            prompt_print();
+            prompt_return(Dumper($result));
         });
 
         return 0;
@@ -942,15 +930,14 @@ sub update_node {
                     $sql->{description} = $1;
                 }
                 default {
-                    say('Unsupported parameter: ' . $k);
+                    prompt_return('Unsupported parameter: ' . $k);
                     return 0;
                 }
             }
         }
 
         if( ! defined_args( $sql->{id} )  ){
-            say("Mandatory arguments are missing.");
-            prompt_print();
+            prompt_return("Mandatory arguments are missing.");
             return 0;
         }
 
@@ -966,8 +953,7 @@ sub update_node {
 
             # TODO post process result with client aware components
 
-            say(Dumper($result));
-            prompt_print();
+            prompt_return(Dumper($result));
         });
 
         return 0;
@@ -990,7 +976,7 @@ sub unregister_node {
                     $sql->{id} = $1;
                 }
                 default {
-                    say('Unsupported parameter: ' . $k);
+                    prompt_return('Unsupported parameter: ' . $k);
                     return 0;
                 }
             }
@@ -1008,8 +994,7 @@ sub unregister_node {
 
             # TODO post process result with client aware components
 
-            say(Dumper($result));
-            prompt_print();
+            prompt_return(Dumper($result));
         });
 
         return 0;
@@ -1031,13 +1016,11 @@ sub show_clients {
             my $result = $json->{result};
 
             if( ref($result) eq 'HASH' ) {
-                say Dumper($result);
-                prompt_print();
+                prompt_return(Dumper($result));
             }
             else {
                 # TODO post process result with client aware components
-                say( "Unknown!");
-                prompt_print();
+                prompt_return( "Unknown!");
             }
         });
 
@@ -1062,17 +1045,16 @@ sub show_nodes {
             if( ref($result) eq 'ARRAY' ) {
 
                 my $total_nodes = @{ $result };
-                say($total_nodes . ' node(s) ' . ( $total_nodes == 1 ? 'is' : 'are' ) . ' connected.');
+                output_print($total_nodes . ' node(s) ' . ( $total_nodes == 1 ? 'is' : 'are' ) . ' connected.');
 
                 foreach my $n ( @{ $result } ) {
-                    say($n->{id} . ': ' . $n->{name} . ' (' . $n->{type}. ') - ' . $n->{description});
+                    output_print($n->{id} . ': ' . $n->{name} . ' (' . $n->{type}. ') - ' . $n->{description});
                 }
-                prompt_print();
+                prompt_return();
             }
             else {
                 # TODO post process result with client aware components
-                say( "Unknown!");
-                prompt_print();
+                prompt_return( "Unknown!");
             }
         });
 
@@ -1097,15 +1079,14 @@ sub show_node_uptime {
                     $id = $1;
                 }
                 default {
-                    say('Unsupported parameter: ' . $k);
+                    prompt_return('Unsupported parameter: ' . $k);
                     return 0;
                 }
             }
         }
 
         if ( $id <= 0 ) {
-            say('Invalid ID specified.');
-            prompt_print();
+            prompt_return('Invalid ID specified.');
             return 0;
         }
 
@@ -1121,8 +1102,7 @@ sub show_node_uptime {
 
             my $result = $json->{result};
 
-            say('Echidna Node ' . $id . ' has been up for ' . time_seconds_to_human_readable($result) . '.');
-            prompt_print();
+            prompt_return('Echidna Node ' . $id . ' has been up for ' . time_seconds_to_human_readable($result) . '.');
         });
 
         return 0;
@@ -1144,15 +1124,14 @@ sub show_node_version {
                     $id = $1;
                 }
                 default {
-                    say('Unsupported parameter: ' . $k);
+                    prompt_return('Unsupported parameter: ' . $k);
                     return 0;
                 }
             }
         }
 
         if ( $id <= 0 ) {
-            say('Invalid ID specified.');
-            prompt_print();
+            prompt_return('Invalid ID specified.');
             return 0;
         }
 
@@ -1170,13 +1149,11 @@ sub show_node_version {
 
             if( ref($result) eq 'HASH' ) {
                 my $literal = 'Echidna Node ' . $id .  ' version: v' . join('.', $result->{major}, $result->{minor}, $result->{revision}) . ' (b' . $result->{build} . ')';
-                say($literal);
-                prompt_print();
+                prompt_return($literal);
             }
             else {
                 # TODO post process result with client aware components
-                say( "Unknown");
-                prompt_print();
+                prompt_return("Unknown");
             }
         });
 
@@ -1198,8 +1175,7 @@ sub show_server_uptime {
 
             my $result = $json->{result};
 
-            say('Echidna Server has been up for ' . time_seconds_to_human_readable($result) . '.');
-            prompt_print();
+            prompt_return('Echidna Server has been up for ' . time_seconds_to_human_readable($result) . '.');
         });
 
         return 0;
@@ -1222,13 +1198,11 @@ sub show_server_version {
 
             if( ref($result) eq 'HASH' ) {
                 my $literal = 'Echidna Server version: v' . join('.', $result->{major}, $result->{minor}, $result->{revision}) . ' (b' . $result->{build} . ')';
-                say($literal);
-                prompt_print();
+                prompt_return($literal);
             }
             else {
                 # TODO post process result with client aware components
-                say( "Unknown");
-                prompt_print();
+                prompt_return("Unknown");
             }
         });
 
@@ -1331,7 +1305,7 @@ sub search_session {
                     $sql->{net_version} = $1;
                 }
                 default {
-                    say('Unsupported parameter: ' . $k);
+                    prompt_return('Unsupported parameter: ' . $k);
                     return 0;
                 }
             }
@@ -1349,8 +1323,7 @@ sub search_session {
 
             # TODO post process result with client aware components
 
-            say( "Total records: " . @{ $result });
-            prompt_print();
+            prompt_return( "Total records: " . @{ $result });
         });
 
         return 0;
@@ -1426,7 +1399,7 @@ sub search_event {
                     $sql->{sig_category} = $1;
                 }
                 default {
-                    say('Unsupported parameter: ' . $k);
+                    prompt_return('Unsupported parameter: ' . $k);
                     return 0;
                 }
             }
@@ -1444,8 +1417,7 @@ sub search_event {
 
             # TODO post process result with client aware components
 
-            say( "Total records: " . @{ $result });
-            prompt_print();
+            prompt_return( "Total records: " . @{ $result });
         });
 
         return 0;
