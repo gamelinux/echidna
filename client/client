@@ -1259,7 +1259,22 @@ sub search_session {
                     $sql->{time_end} = $1;
                 }
                 when(/^--time-duration=([^ ]*)/) {
-                    $sql->{time_duration} = $1;
+                    my $value = $1;
+                    if ($value =~ /(\d+)-(\d+)/) {
+                        $sql->{"\$and"} = [
+                          { time_duration => { "time_duration >" => $1 } },
+                          { time_duration => { "time_duration <" => $2 } }
+                        ];
+                    } elsif ($value =~ /(\d+)(,\d+)+/) {
+                        my @values = split(/,/, $value);
+                        my $aoh = [];
+                        foreach my $key (@values) {
+                             push @$aoh, { 'time_duration' => $key };
+                        }
+                        $sql->{"\$or"} = $aoh;
+                    } else {
+                        $sql->{time_duration} = $value;
+                    }
                 }
                 when(/^--agent-id=([^ ]*)/) {
                     $sql->{agent_id} = $1;
