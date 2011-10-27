@@ -38,19 +38,21 @@ use Digest::SHA qw(sha256_hex);
 use POE;
 use POE::Component::Client::TCP;
 use POE::Filter::Line;
+use POE::Filter::Stream;
 use POE::Wheel::ReadWrite;
 use POSIX;
+use Term::ReadKey;
 
 #
 # NSMF INCLUDES
 #
-use NSMF::Common::JSON;
-use NSMF::Common::Util;
-use NSMF::Common::Logger;
-use NSMF::Common::Registry;
-
 use NSMF::Client;
 use NSMF::Client::ConfigMngr;
+
+use NSMF::Common::JSON;
+use NSMF::Common::Logger;
+use NSMF::Common::Registry;
+use NSMF::Common::Util;
 
 #
 # GLOBALS
@@ -87,6 +89,7 @@ my $api_commands = {};
 my $ncommands = {};
 my $acommands = [];
 
+my $command = "";
 
 if ( ! defined_args($host, $port) ) {
     die('Either host or port have NOT been defined.');
@@ -129,6 +132,7 @@ POE::Component::Client::TCP->new(
         'login' => \&login,
         'prompt' => \&prompt,
         'load_session' => \&load_session,
+        'close' => \&close,
     }
 );
 
@@ -383,11 +387,14 @@ sub load_session
         }
     });
 
+    ReadMode "ultra-raw";
+
     # build up
     $heap->{console} = POE::Wheel::ReadWrite->new(
         InputHandle => \*STDIN,
         OutputHandle => \*STDOUT,
-        InputEvent => "prompt"
+        InputEvent => "prompt",
+        Filter => POE::Filter::Stream->new()
     );
 
     # show we are ready to recieve user prompt
@@ -413,43 +420,81 @@ sub prompt
 {
     my ($kernel, $heap, $data) = @_[KERNEL, HEAP, ARG0];
 
+    my $data_raw = unpack("c*", $data );
+
+#    say("GOT: $data_raw");
+
+    if( $data_raw == 13 ) {
+      print( "\n" );
+    }
+    elsif ( $data_raw == 127 ) {
+        if( length($command) ) {
+          print( "\b\e[K" );
+          chop($command);
+        }
+
+        return;
+    }
+    else {
+        print $data;
+        $command .= $data;
+        return;
+    }
+
+
     # loop through all available commands
     foreach my $c ( @{ $acommands } ) {
-        return if( ! $c->{function}($kernel, $data) );
+        return if( ! $c->{function}($kernel, $command) );
     }
 
     # no commands seen
-    if( $data =~ /^(help|h|\?)\s?(.*)$/ ) {
+    if( $command =~ /^(help|h|\?)\s?(.*)$/ ) {
         my $extra = $2;
 
         if( length($extra) ) {
             for my $c (@{ $acommands }) {
                 if ( $c->{command} eq $extra ) {
-                    say("\n" . $c->{help} . "\n");
-                    prompt_print();
-                    return;
+                    return prompt_return("\n" . $c->{help} . "\n");
                 }
             }
 
-            say('Sorry DAVE, I don\'t understand that: ' . $extra);
+            output_print('Sorry DAVE, I don\'t understand that: ' . $extra . "\n");
         }
         else {
-            say("Available commands:");
+            output_print("Available commands:\n");
 
             for my $c (@{ $acommands }) {
-                say('  ' . $c->{command});
+                output_print('  ' . $c->{command} . "\n");
             }
         }
     }
-    elsif( $data =~ /^(quit|exit|q|x)$/ ) {
+    elsif( $command =~ /^(quit|exit|q|x)$/ ) {
         # TODO: close cleanly
-        exit 0;
+        $kernel->call('client', 'close');
     }
-    elsif( $data =~ /^[^\s]+/ ) {
-        say('Sorry DAVE, I don\'t understand that: ' . $data);
+    elsif( $command =~ /^[^\s]+/ ) {
+        output_print('Sorry DAVE, I don\'t understand that: ' . $command . "\n");
     }
 
-    prompt_print();
+    prompt_return();
+}
+
+sub prompt_return {
+    my $message = shift // '';
+
+    output_print($message);
+
+    print("\e[G" . 'echidna> ');
+
+    $command = "";
+}
+
+sub output_print {
+    my $message = shift // '';
+
+    foreach my $m ( split(/\n/, $message) ) {
+        print "\e[G" . $m . "\n";
+    }
 }
 
 sub prompt_print
@@ -460,6 +505,8 @@ sub prompt_print
     else {
         print($module_active . '> ');
     }
+
+    $command = "";
 }
 
 
@@ -475,6 +522,16 @@ sub input_get {
 
     return $input;
 }
+
+sub close {
+    my ( $kernel, $heap ) = @_[KERNEL, HEAP];
+
+
+    delete($heap->{console});
+    $kernel->yield("shutdown");
+}
+
+
 
 #
 # COMMAND TESTING AND PROCESSING
@@ -1031,13 +1088,13 @@ sub show_node_uptime {
 
     if( $data =~ /^node\suptime\s?(.*)$/) {
 
-        my $sql = {};
+        my $id = -1;
         my @search_args = split(/[ ]/, $1);
 
         foreach my $k ( @search_args ) {
             given( $k ) {
                 when(/^--id=([^ ]*)/) {
-                    $sql->{id} = $1;
+                    $id = $1;
                 }
                 default {
                     say('Unsupported parameter: ' . $k);
@@ -1046,17 +1103,25 @@ sub show_node_uptime {
             }
         }
 
+        if ( $id <= 0 ) {
+            say('Invalid ID specified.');
+            prompt_print();
+            return 0;
+        }
+
         $kernel->yield('get', {
             type => "core",
             data => {
-                "node_uptime" => $sql
+                node_uptime => {
+                    id => $id
+                }
             }
         }, sub {
             my ($s, $k, $h, $json) = @_;
 
             my $result = $json->{result};
 
-            say('Echidna node has been up for ' . $result . ' seconds');
+            say('Echidna Node ' . $id . ' has been up for ' . time_seconds_to_human_readable($result) . '.');
             prompt_print();
         });
 
@@ -1070,13 +1135,13 @@ sub show_node_version {
     my ($kernel, $data) = @_;
 
     if( $data =~ /^node\sversion\s?(.*)$/) {
-        my $sql = {};
+        my $id = -1;
         my @search_args = split(/[ ]/, $1);
 
         foreach my $k ( @search_args ) {
             given( $k ) {
                 when(/^--id=([^ ]*)/) {
-                    $sql->{id} = $1;
+                    $id = $1;
                 }
                 default {
                     say('Unsupported parameter: ' . $k);
@@ -1085,10 +1150,18 @@ sub show_node_version {
             }
         }
 
+        if ( $id <= 0 ) {
+            say('Invalid ID specified.');
+            prompt_print();
+            return 0;
+        }
+
         $kernel->yield('get', {
             type => "core",
             data => {
-                "node_version" => $sql
+                node_version => {
+                    id => $id
+                }
             }
         }, sub {
             my ($s, $k, $h, $json) = @_;
@@ -1096,7 +1169,7 @@ sub show_node_version {
             my $result = $json->{result};
 
             if( ref($result) eq 'HASH' ) {
-                my $literal = 'Echidna Node Version: v' . join('.', $result->{major}, $result->{minor}, $result->{revision}) . ' (b' . $result->{build} . ')';
+                my $literal = 'Echidna Node ' . $id .  ' version: v' . join('.', $result->{major}, $result->{minor}, $result->{revision}) . ' (b' . $result->{build} . ')';
                 say($literal);
                 prompt_print();
             }
@@ -1125,7 +1198,7 @@ sub show_server_uptime {
 
             my $result = $json->{result};
 
-            say('Echidna Server has been up for ' . $result . ' seconds');
+            say('Echidna Server has been up for ' . time_seconds_to_human_readable($result) . '.');
             prompt_print();
         });
 
@@ -1148,7 +1221,7 @@ sub show_server_version {
             my $result = $json->{result};
 
             if( ref($result) eq 'HASH' ) {
-                my $literal = 'Echidna Server Version: v' . join('.', $result->{major}, $result->{minor}, $result->{revision}) . ' (b' . $result->{build} . ')';
+                my $literal = 'Echidna Server version: v' . join('.', $result->{major}, $result->{minor}, $result->{revision}) . ' (b' . $result->{build} . ')';
                 say($literal);
                 prompt_print();
             }
@@ -1368,5 +1441,7 @@ sub search_event {
 
 
 POE::Kernel->run();
+
+ReadMode "restore";
 
 exit(0);
