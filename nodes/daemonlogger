@@ -37,13 +37,64 @@ use NSMF::Agent::Component::DAEMONLOGGER;
 $NSMF::Agent::BASE_PATH = File::Spec->catdir($Bin, "..");
 
 # Creating new DAEMONLOGGER Node
-my $cxt = NSMF::Agent::Component::DAEMONLOGGER->new();
+my $daemonlogger = NSMF::Agent::Component::DAEMONLOGGER->new();
 
 # Loading configuration variables
 my $config_file = File::Spec->catfile($NSMF::Agent::BASE_PATH, "etc", "daemonlogger.yaml");
-$cxt->load_config($config_file);
+$daemonlogger->load_config($config_file);
 
 # Connect and Authenticate
-$cxt->sync;
-$cxt->start;
+$daemonlogger->sync;
+$daemonlogger->start;
+
+# Wait for command from the server too extract a pcap
+# Expect to get a BPF filter and a DATE (minimum start date)
+# Example_
+# Start Date,   End Date,   BPF
+# 2011-10-10 14:32:33, 2011-10-10 14:34:53, 'proto 6 and host 10.10.10.1 and port 34563 and host 34.22.192.2 and port 80'
+
+
+# When we receive a command, start digging into our pcaps
+# First we need to build a list of possible pcaps to search through
+# If the pcaps are stored in DIRs, we would need to find the dir for "2011-10-10"
+# Say /echidna/<sensor>/pcap/2011-10-10/
+# then we need to `stat` all the files, and find out when the file where created.
+# say we have 4 files for that day:
+# pcap1 - Modify: 2011-10-10 00:00:01.018338791
+# pcap2 - Modify: 2011-10-10 08:38:03.343553111
+# pcap3 - Modify: 2011-10-10 16:12:57.618355722
+# pcap3 - Modify: 2011-10-10 23:59:59.998335567
+#
+# From the dates we got from the server, we see that the session starts in pcap2 and ends in pcap2.
+# If the session ended, say 2011-10-10 17:34:53, we would need to search pcap2 and pcap3 for data.
+#
+# IF we use daemonlogger in ringbuffer, and have daemonlogger controll its disk usage, we dont
+# need to search through diffrent `date` DIRs... all pcaps will be in one DIR!
+# I vote for this right now :)
+
+# Now that we have a list of all possible pcap files to search in, we can start processing them:
+# First we make a tmp DIR: /tmp/host_10.10.10.1_port_34563_host_34.22.192.2_port_80_proto_6/
+# Then, foreach pcap file we run tcpdump on it like:
+# tcpdump -r /echidna/<sensor>/pcap/pcap2 -w /tmp/host_10.10.10.1_port_34563_host_34.22.192.2_port_80_proto_6/from_pcap2.pcap 'proto 6 and host 10.10.10.1 and port 34563 and host 34.22.192.2 and port 80'
+# tcpdump -r /echidna/<sensor>/pcap/pcap3 -w /tmp/host_10.10.10.1_port_34563_host_34.22.192.2_port_80_proto_6/from_pcap3.pcap 'proto 6 and host 10.10.10.1 and port 34563 and host 34.22.192.2 and port 80'
+# .... for as many as you have too :)
+
+# Now we use mergecap (part of tshark / wireshark)
+# mergecap - Merges two or more capture files into one
+# mergecap -w $outfile file1 file2...
+# mergecap -w /tmp/host_10.10.10.1_port_34563_host_34.22.192.2_port_80_proto_6.pcap  /tmp/host_10.10.10.1_port_34563_host_34.22.192.2_port_80_proto_6/*.pcap
+
+# Now we should have a possible pcap file with the session we are looking for :)
+# get md5 and size of the pcap /tmp/host_10.10.10.1_port_34563_host_34.22.192.2_port_80_proto_6.pcap to send to the server.
+# if size is over 24 (then we have something to send)
+# Tell the server we have a pcap, and get a new channel to send it on!
+# After the server comfirms that it got it, and the md5 is the same, close the connection, delete the all dirs and pcaps used in this operation.
+
+### Advanced...
+# if someone does a search without Start and End date...  then we have a hard scan :/
+# This should might be possible in the future, but not now!
+# Use cxtracker too search for whole session of interest, then pass that data to the search for pcap!
+#
+# Also, you can get much of the relevant metadata from an Event (snort/suricata at least!)
+# Say if you have an event, you will have enough data to fetch the whole pcap of that session :)
 
