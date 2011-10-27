@@ -1212,6 +1212,17 @@ sub show_server_version {
     return 1;
 }
 
+# Splits a string of values into an array of hashes to be used in a sql OR
+sub split2aoh {
+    my ($field,$value) = @_;
+    my @values = split(/,/, $value);
+    my $aoh = [];
+    foreach my $key (@values) {
+        push @$aoh, { "$field" => $key };
+    }
+    return $aoh;
+}
+
 
 sub search_session {
     my ($kernel, $data) = @_;
@@ -1240,12 +1251,7 @@ sub search_session {
                           { time_duration => { "\$lte" => $2 } },
                         ];
                     } elsif ($value =~ /(\d+)(,\d+)+/) {
-                        my @values = split(/,/, $value);
-                        my $aoh = [];
-                        foreach my $key (@values) {
-                             push @$aoh, { 'time_duration' => $key };
-                        }
-                        $sql->{"\$or"} = $aoh;
+                        $sql->{"\$or"} = split2aoh('time_duration',$value);
                     } else {
                         $sql->{time_duration} = $value;
                     }
@@ -1257,31 +1263,111 @@ sub search_session {
                     $sql->{node_id} = $1;
                 }
                 when(/^--src-ip=([^ ]*)/) {
-                    $sql->{net_src_ip} = $1;
+                    my $value = $1;
+                    if ($value =~ /(\d+)-(\d+)/) {
+                        $sql->{"\$and"} = [
+                          { net_src_ip => { "\$gte" => $1 } },
+                          { net_src_ip => { "\$lte" => $2 } },
+                        ];
+                    } elsif ($value =~ /(\d+)(,\d+)+/) {
+                       $sql->{"\$or"} = split2aoh('net_src_ip',$value);
+                    } else {
+                        $sql->{net_src_ip} = $1;
+                    }
                 }
                 when(/^--src-port=([^ ]*)/) {
-                    $sql->{net_src_port} = $1;
+                    my $value = $1;
+                    if ($value =~ /(\d+)-(\d+)/) {
+                        $sql->{"\$and"} = [
+                          { net_src_port => { "\$gte" => $1 } },
+                          { net_src_port => { "\$lte" => $2 } },
+                        ];
+                    } elsif ($value =~ /(\d+)(,\d+)+/) {
+                       $sql->{"\$or"} = split2aoh('net_src_port',$value);
+                    } else {
+                        $sql->{net_src_port} = $1;
+                    }
                 }
                 when(/^--src-total-bytes=([^ ]*)/) {
-                    $sql->{net_src_total_bytes} = $1;
+                    my $value = $1;
+                    if ($value =~ /(\d+)-(\d+)/) {
+                        $sql->{"\$and"} = [
+                          { net_src_total_bytes => { "\$gte" => $1 } },
+                          { net_src_total_bytes => { "\$lte" => $2 } },
+                        ];
+                    } elsif ($value =~ /(\d+)(,\d+)+/) {
+                       $sql->{"\$or"} = split2aoh('net_src_total_bytes',$value);
+                    } else {
+                        $sql->{net_src_total_bytes} = $1;
+                    }
                 }
                 when(/^--src-total-packets=([^ ]*)/) {
-                    $sql->{net_src_total_packets} = $1;
+                    my $value = $1;
+                    if ($value =~ /(\d+)-(\d+)/) {
+                        $sql->{"\$and"} = [
+                          { net_src_total_packets => { "\$gte" => $1 } },
+                          { net_src_total_packets => { "\$lte" => $2 } },
+                        ];
+                    } elsif ($value =~ /(\d+)(,\d+)+/) {
+                       $sql->{"\$or"} = split2aoh('net_src_total_packets',$value);
+                    } else {
+                        $sql->{net_src_total_packets} = $1;
+                    }
                 }
                 when(/^--src-flagss=([^ ]*)/) {
                     $sql->{net_src_flags} = $1;
                 }
                 when(/^--dst-ip=([^ ]*)/) {
-                    $sql->{net_dst_ip} = $1;
+                    my $value = $1;
+                    if ($value =~ /(\d+)-(\d+)/) {
+                        $sql->{"\$and"} = [
+                          { net_dst_ip => { "\$gte" => $1 } },
+                          { net_dst_ip => { "\$lte" => $2 } },
+                        ];
+                    } elsif ($value =~ /(\d+)(,\d+)+/) {
+                       $sql->{"\$or"} = split2aoh('net_dst_ip',$value);
+                    } else {
+                        $sql->{net_dst_ip} = $1;
+                    }
                 }
-                when(/^--dst-port=([^ ]* )/) {
-                    $sql->{net_dst_port} = $1;
+                when(/^--dst-port=([^ ]*)/) {
+                    my $value = $1;
+                    if ($value =~ /(\d+)-(\d+)/) {
+                        $sql->{"\$and"} = [
+                          { net_dst_port => { "\$gte" => $1 } },
+                          { net_dst_port => { "\$lte" => $2 } },
+                        ];
+                    } elsif ($value =~ /(\d+)(,\d+)+/) {
+                       $sql->{"\$or"} = split2aoh('net_dst_port',$value);
+                    } else {
+                        $sql->{net_dst_port} = $1;
+                    }
                 }
                 when(/^--dst-total-bytes=([^ ]*)/) {
-                    $sql->{net_dst_total_bytes} = $1;
+                    my $value = $1;
+                    if ($value =~ /(\d+)-(\d+)/) {
+                        $sql->{"\$and"} = [
+                          { net_dst_total_bytes => { "\$gte" => $1 } },
+                          { net_dst_total_bytes => { "\$lte" => $2 } },
+                        ];
+                    } elsif ($value =~ /(\d+)(,\d+)+/) {
+                       $sql->{"\$or"} = split2aoh('net_dst_total_bytes',$value);
+                    } else {
+                        $sql->{net_dst_total_bytes} = $1;
+                    }
                 }
-                when(/^--dst-total-packets=([^ ]*)/) {
-                    $sql->{net_dst_total_packets} = $1;
+               when(/^--dst-total-packets=([^ ]*)/) {
+                    my $value = $1;
+                    if ($value =~ /(\d+)-(\d+)/) {
+                        $sql->{"\$and"} = [
+                          { net_dst_total_packets => { "\$gte" => $1 } },
+                          { net_dst_total_packets => { "\$lte" => $2 } },
+                        ];
+                    } elsif ($value =~ /(\d+)(,\d+)+/) {
+                       $sql->{"\$or"} = split2aoh('net_dst_total_packets',$value);
+                    } else {
+                        $sql->{net_dst_total_packets} = $1;
+                    }
                 }
                 when(/^--dst-flagss=([^ ]*)/) {
                     $sql->{net_dst_flags} = $1;
@@ -1299,7 +1385,17 @@ sub search_session {
                     ];
                 }
                 when(/^--protocol=([^ ]*)/) {
-                    $sql->{net_protocol} = $1;
+                    my $value = $1;
+                    if ($value =~ /(\d+)-(\d+)/) {
+                        $sql->{"\$and"} = [
+                          { net_protocol => { "\$gte" => $1 } },
+                          { net_protocol => { "\$lte" => $2 } },
+                        ];
+                    } elsif ($value =~ /(\d+)(,\d+)+/) {
+                       $sql->{"\$or"} = split2aoh('net_protocol',$value);
+                    } else {
+                        $sql->{net_protocol} = $1;
+                    }
                 }
                 when(/^--version=([^ ]*)/) {
                     $sql->{net_version} = $1;
