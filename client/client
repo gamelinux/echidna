@@ -1236,8 +1236,8 @@ sub search_session {
                     my $value = $1;
                     if ($value =~ /(\d+)-(\d+)/) {
                         $sql->{"\$and"} = [
-                          { time_duration => { "time_duration >" => $1 } },
-                          { time_duration => { "time_duration <" => $2 } }
+                          { time_duration => { "\$gte" => $1 } },
+                          { time_duration => { "\$lte" => $2 } },
                         ];
                     } elsif ($value =~ /(\d+)(,\d+)+/) {
                         my @values = split(/,/, $value);
