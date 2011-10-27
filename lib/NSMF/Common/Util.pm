@@ -39,7 +39,8 @@ use Carp qw(croak);
 #
 our @EXPORT = qw(
     trim
-    defined_args 
+    defined_args
+    time_seconds_to_human_readable
 );
 
 our $VERSION = '0.1';
@@ -62,6 +63,27 @@ sub defined_args {
 
     return 1;
 }
+
+#
+# TIME CONVERSIONS
+#
+
+sub time_seconds_to_human_readable {
+    my ($seconds) = @_;
+
+    return "unknown" if ( ! $seconds =~ /\d+/ );
+
+    my $d = int($seconds / 86400);    # days
+    my $h = ($seconds / 3600) % 24;   # hours
+    my $m = ($seconds / 60) % 60;     # minutes
+    my $s = $seconds % 60;            # seconds
+
+    return ($d ? $d . ' day' . ( $d == 1 ? '' : 's' ) .  ', ' : '') .
+           ($h ? $h . ' hour' . ( $h == 1 ? '' : 's' ) . ', ' : '') .
+           ($m ? $m . ' min' . ( $m == 1 ? '' : 's' ) . ', and ' : '') .
+           ($s . ' sec' . ( $s == 1 ? '' : 's' ));
+}
+
 
 #
 # DEPRECATED
