@@ -193,10 +193,10 @@ sub create_filter_from_hash {
         {
             when(/\$eq/) { $conditional = '='; }
             when(/\$ne/) { $conditional = '!='; }
-            when(/\$lt/) { $conditional = '<'; }
             when(/\$lte/) { $conditional = '<='; }
-            when(/\$gt/) { $conditional = '>'; }
+            when(/\$lt/) { $conditional = '<'; }
             when(/\$gte/) { $conditional = '>='; }
+            when(/\$gt/) { $conditional = '>'; }
         }
 
         if ( ref($value->{$f}) eq 'ARRAY' )
