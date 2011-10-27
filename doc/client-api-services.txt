@@ -9,11 +9,12 @@
 * Echidna runtime (how long since the server started)
 * Echidna server version
 * Echidna plugins loaded/supported
-* System status (simple)
-  - avg CPU usage
-  - Memory usage
-  - Load
-  - Disk and DB usage
+* System (server) status (simple)
+  - avg CPU usage (20% / 400%) ?
+  - Memory usage (5985404    5839024     146380) (like free)
+  - Load (0.10, 0.18, 0.17) (like uptime)
+  - Disk and DB usage (df and df /var/lib/mysql/ etc)
+  - Date (Wed Oct 26 12:22:04 CEST 2011)
 
 # Event
 * Get event status
@@ -42,6 +43,10 @@
     - Get all reviewed and unreviewed events from all sensors that has src_ip "123.123.123.1"
     - Get all unreviewed events from all sensors that has snort ID (sid) "31337"
     - Get all events from sensor X, Y , Z, for the last 24 hours and with src_network "123.123.123.0/24"
+  - Rages
+    - Get all unreviewed events that has dst_port 80,443 and 8080
+    - Get all unreviewed events that has dst_port 0-1000
+    - Get all reviewed events that has IP n.n.n.n-n.n.y.y
 ** Expect full data set back? client displays what it wants
 
 # Session
