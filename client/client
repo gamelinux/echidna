@@ -1433,7 +1433,7 @@ sub search_session {
 sub search_event {
     my ($kernel, $data) = @_;
 
-    if( $data =~ /^search\sevent(.*)/) {
+    if( $data =~ /^search\sevent\s?(.*)/) {
         my $sql = {};
 
         my @search_args = split(/[ ]/, $1);
