@@ -37,9 +37,7 @@ use Data::Dumper;
 use Digest::SHA qw(sha256_hex);
 use POE;
 use POE::Component::Client::TCP;
-use POE::Filter::Line;
-use POE::Filter::Stream;
-use POE::Wheel::ReadWrite;
+use POE::Wheel::ReadLine;
 use POSIX;
 use Term::ReadKey;
 
@@ -58,6 +56,209 @@ use NSMF::Common::Util;
 # GLOBALS
 #
 our $VERSION = '0.1';
+my $prompt = 'echidna';
+
+#
+# CONSTANTS
+#
+my $commands_all = [
+    {
+        command => "exit",
+        help => "Exit the Echidna client.\n\n" .
+                "Usage: exit | x | quit | q",
+        function => "client_exit",
+    },
+    {
+        command => "connect",
+        help => "Connect to the specified Echidna server.\n\n" .
+                "Usage: connect [options] --host=ip --user=name\n\n" .
+                "Options:\n" .
+                "  --host=ip    IP address of the Echidna server to connect to.\n" .
+                "  --user=name  Client name to connect with.",
+        function => "server_connect",
+    },
+    {
+        command => "disconnect",
+        help => "Disconnect from the Echidna server.\n\n" .
+                "Usage: disconnect",
+        function => "server_disconnect",
+    },
+    {
+        command => "register client",
+        help => "Register a client to the Echidna framework.\n\n" .
+                "Usage: register client [options] --name=name --password=password --acl=level\n\n" .
+                "Options:\n" .
+                "  --name=name          Unique name.\n" .
+                "  --password=password  Defines the password for the new client.\n" .
+                "  --acl=level          Level of access applied to the new client. [0-255] \n" .
+                "  --description=blah   A description of the new client.",
+        function => "register_client",
+        api => { core => [ "register_client" ] }
+    },
+    {
+        command => "unregister client",
+        help => "Unregister a client from the Echidna frameworkn\n\n" .
+                "Usage: unregister client --id=client\n\n" .
+                "Options:\n" .
+                "  --id=client  Unique client id.",
+        function => "unregister_client",
+        api => { core => [ "unregister_client" ] }
+    },
+    {
+        command => "update client",
+        help => "Update a registered client's details on the Echidna framework.\n\n" .
+                "Usage: update client [options] --id=client --password=password --acl=level\n\n" .
+                "Options:\n" .
+                "  --id=client          Registered id for client.\n" .
+                "  --name=name          Unique name.\n" .
+                "  --password=password  Defines the password for the new client.\n" .
+                "  --acl=level          Level of access applied to the new client. [0-255] \n" .
+                "  --description=blah   A description of the new client.",
+        function => "update_client",
+        api => { core => [ "update_client" ] }
+    },
+    {
+        command => "register node",
+        help => "Register a node to the Echidna framework.\n\n" .
+                "Usage: register node [options] --name=name --agent=agent --password=password\n\n" .
+                "Options:\n" .
+                "  --name=name          Unique name.\n" .
+                "  --agent=agent        Regsitered id of the parent agent.\n" .
+                "  --password=password  Defines the password for the new node.\n" .
+                "  --description=blah   A description of the new node.",
+        function => "register_node",
+        api => { core => [ "register_node" ] }
+    },
+    {
+        command => "unregister node",
+        help => "Unregister a node from the Echidna frameworkn\n\n" .
+                "Usage: unregister node --id=agent\n\n" .
+                "Options:\n" .
+                "  --id=agent  Unique agent id.",
+        function => "unregister_node",
+        api => { core => [ "unregister_node" ] }
+    },
+    {
+        command => "update node",
+        help => "--id",
+        function => "update_node",
+        api => { core => [ "update_client" ] }
+    },
+    {
+        command => "register agent",
+        help => "Register an agent to the Echidna framework.\n\n" .
+                "Usage: register node [options] --name=name --password=password\n\n" .
+                "Options:\n" .
+                "  --name=name          Unique name.\n" .
+                "  --password=password  Defines the password for the new agent.\n" .
+                "  --description=blah   A description of the new agent.",
+        function => "register_agent",
+        api => { core => [ "register_agent" ] }
+    },
+    {
+        command => "unregister agent",
+        help => "Unregister an agent from the Echidna frameworkn\n\n" .
+                "Usage: unregister agent --id=agent\n\n" .
+                "Options:\n" .
+                "  --id=agent  Unique agent id.",
+        function => "unregister_agent",
+        api => { core => [ "unregister_agent" ] }
+    },
+    {
+        command => "update agent",
+        help => "--id",
+        function => "update_agent",
+        api => { core => [ "update_agent" ] }
+    },
+    {
+        command => "search event",
+        help => "Search through the all captured events.\n\n" .
+                "Usage: search event [options]\n\n" .
+                "Options:\n" .
+                "  --timestamp=timestamp    Filter on timestamp recorded.\n\n" .
+#               "  --agent-id=id            Filter on events specific to the agent's id\n" .
+                "  --node-id=id             Filter on events specific to the node's id\n\n" .
+                "  --src-ip=ip              Filter on source ip.\n" .
+                "  --src-port=port          Filter on source port.\n\n" .
+                "  --dst-ip=ip              Filter on destination ip.\n" .
+                "  --dst-port=port          Filter on destination port.\n" .
+                "  --ip=ip                  Filter on either source or destination ip.\n" .
+                "  --port=port              Filter on either source or destination port.\n\n" .
+                "  --protocol=protocol      Filter on TCP/IP protocol.\n" .
+                "  --version=version        Filter on IP version. (eg. 4 or 6).\n\n" .
+                "  --sig-id=id              Filter on signature id).\n" .
+                "  --sig-revision=revision  Filter on signature revision.\n" .
+                "  --sig-priority=priority  Filter on signature priority.\n" .
+                "  --sig-message=message    Filter on signature message.\n" .
+                "  --sig-category=category  Filter on signature category.\n" ,
+        function => "search_event",
+        api => { core => [ "search_event" ] }
+    },
+    {
+        command => "search session",
+        help => "Usage: search session [options]\n\n" .
+                "Options:\n" .
+                "  --time-start=timestamp  Filter on timestamp of first packet.\n" .
+                "  --time-end=timestamp    Filter on timestamp of last packet.\n" .
+                "  --time-duration=n       Filter on n seconds of duration.\n\n" .
+#               "  --agent-id=id           Filter on sessions specific to the agent's id\n" .
+                "  --node-id=id            Filter on sessions specific to the node's id\n\n" .
+                "  --src-ip=ip             Filter on source ip.\n" .
+                "  --src-port=port         Filter on source port.\n" .
+                "  --src-total-bytes=n     Filter on total n bytes sent from source.\n" .
+                "  --src-total-packets=n   Filter on total n packets sent from source.\n" .
+                "  --src-flags             Filter on total flags (bitwise-or'd) of packets sent from source.\n\n" .
+
+                "  --dst-ip=ip             Filter on destination ip.\n" .
+                "  --dst-port=port         Filter on destination port.\n" .
+                "  --dst-total-bytes=n     Filter on total n bytes sent from destination.\n" .
+                "  --dst-total-packets=n   Filter on total n packets sent from destination.\n" .
+                "  --dst-flags             Filter on total flags (bitwise-or'd) of packets sent from destination.\n\n" .
+                "  --ip=ip                 Filter on either source or destination ip.\n" .
+                "  --port=port             Filter on either source or destination port.\n\n" .
+                "  --protocol=protocol     Filter on TCP/IP protocol.\n" .
+                "  --version=version       Filter on IP version. (eg. 4 or 6).\n",
+        function => "search_session",
+        api => { core => [ "search_session" ] }
+    },
+    {
+        command => "show clients",
+        help => "Show all clients currently connected to Echidna.\n",
+        function => "show_clients",
+        api => { core => [ "clients_connected" ] }
+    },
+    {
+        command => "show nodes",
+        help => "Show all nodes currently connected to Echidna.\n",
+        function => "show_nodes",
+        api => { core => [ "nodes_connected" ] }
+    },
+    {
+        command => "node uptime",
+        help => "Show how long the specified Echidna node has been up.\n",
+        function => "show_node_uptime",
+        api => { core => [ "node_uptime" ] }
+    },
+    {
+        command => "node version",
+        help => "Show the version and build information for the specified Echidna node.",
+        function => "show_node_version",
+        api => { core => [ "node_version" ] }
+    },
+    {
+        command => "server uptime",
+        help => "Show how long the Echidna server has been up.\n",
+        function => "show_server_uptime",
+        api => { core => [ "server_uptime" ] }
+    },
+    {
+        command => "server version",
+        help => "Show the version and build information for the Echidna server.",
+        function => "show_server_version",
+        api => { core => [ "server_version" ] }
+    }
+];
+
 
 # set base path on server singleton
 $NSMF::Client::BASE_PATH = File::Spec->catdir($Bin, '../');
@@ -80,294 +281,118 @@ my $proto   = $echidna->proto();
 
 my ($self) = @_;
 
-my $host = $config->host();
-my $port = $config->port();
+my $host = undef;
+my $port = undef;
+my $user = undef;
+my $pass = undef;
 
 my $module_active = 'core';
 my $modules = [];
 my $api_commands = {};
-my $ncommands = {};
-my $acommands = [];
+my $commands_available = [];
 
-my $command = "";
+# session flags
+my $exiting = 0;     # is the client exiting
+my $connected = 0;   # is the client connected to a server
+my $connecting = 0;  # is the client connected to a server
 
-if ( ! defined_args($host, $port) ) {
-    die('Either host or port have NOT been defined.');
-}
 
-POE::Component::Client::TCP->new(
-    Alias         => 'client',
-    RemoteAddress => $host,
-    RemotePort    => $port,
-    Filter        => "POE::Filter::Line",
-    Connected => sub {
-        my ($kernel, $heap) = @_[KERNEL, HEAP];
-        $logger->info("[+] Connected to server ($host:$port) ...");
+# perform a check now to validate our command list
 
-        $heap->{name}   = undef; #$config->name();
-        $heap->{secret} = undef; #$config->secret();
+POE::Session->create(
+    inline_states => {
+        _start => sub {
+            my ($kernel, $heap) = @_[KERNEL, HEAP];
 
-        $kernel->yield('init');
-        $kernel->yield('login');
-    },
-    ConnectError => sub {
-        $logger->warn("Could not connect to server ($host:$port) ...");
-    },
-    ServerInput => sub {
-        my ($kernel, $response) = @_[KERNEL, ARG0];
+            $kernel->alias_set('console');
 
-        $kernel->yield(dispatcher => $response);
-    },
-    ServerError => sub {
-        my ($kernel, $heap) = @_[KERNEL, HEAP];
-        $logger->warn("Lost connection to server...");
-        $logger->info("Going Down.");
-        exit;
-    },
-    ObjectStates => [
-        $proto => $proto->states(),
-    ],
-    InlineStates => {
-        'init' => \&init,
-        'login' => \&login,
-        'prompt' => \&prompt,
-        'load_session' => \&load_session,
-        'close' => \&close,
+            # build up
+            $heap->{console} = POE::Wheel::ReadLine->new(
+                InputEvent => "got_input",
+                PutMode => "immediate",
+            );
+
+            $kernel->call("console", "check_available_commands");
+
+            # show we are ready to recieve user prompt
+            $heap->{console}->get( get_prompt() );
+        },
+        _stop => sub {
+            my ($kernel, $heap) = @_[KERNEL, HEAP];
+
+            $kernel->alias_remove('console');
+
+            delete $heap->{console};
+
+            if ( $connected ) {
+                $kernel->post("client", "shutdown");
+            }
+        },
+
+        load_session => \&load_session,
+        check_available_commands => \&check_available_commands,
+
+        #
+        # CLIENT INTERNAL FUNCTIONS
+        #
+        got_input => \&got_input,
+        put_output => \&put_output,
+
+        #
+        # CLIENT CLI COMMAND FUNCTIONS
+        #
+
+        client_exit => \&client_exit,
+
+        register_client => \&register_client,
+        unregister_client => \&unregister_client,
+        update_client => \&update_client,
+
+        register_node => \&register_node,
+        unregister_node => \&unregister_node,
+        update_node => \&update_node,
+
+        register_agent => \&register_agent,
+        unregister_agent => \&unregister_agent,
+        update_agent => \&update_agent,
+
+        search_event => \&search_event,
+        search_session => \&search_session,
+
+        show_clients => \&show_clients,
+        show_nodes => \&show_nodes,
+
+        show_server_uptime => \&show_server_uptime,
+        show_server_version => \&show_server_version,
+
+        show_node_uptime => \&show_node_uptime,
+        show_node_version => \&show_node_version,
+
+        server_connect => \&server_connect,
+        server_disconnect => \&server_disconnect,
     }
 );
 
-$logger->info('Client Initialized ...');
+POE::Kernel->run();
 
-sub init
-{
-#    $commands
-#        "modules_available" => {
-#          "help" => "Returns the available modules.",
-#          "exec" => \&get_modules_available,
-#        },
-
-    $ncommands = {
-        core => {
-            register_client => [
-                {
-                    command => "register client",
-                    help => "Register a client to the Echidna framework.\n\n" .
-                            "Usage: register client [options] --name=name --password=password --acl=level\n\n" .
-                            "Options:\n" .
-                            "  --name=name          Unique name.\n" .
-                            "  --password=password  Defines the password for the new client.\n" .
-                            "  --acl=level          Level of access applied to the new client. [0-255] \n" .
-                            "  --description=blah   A description of the new client.",
-                    function => \&register_client,
-                }
-            ],
-            unregister_client => [
-                {
-                    command => "unregister client",
-                    help => "Unregister a client from the Echidna frameworkn\n\n" .
-                            "Usage: unregister client --id=client\n\n" .
-                            "Options:\n" .
-                            "  --id=client  Unique client id.",
-                    function => \&unregister_client,
-                }
-            ],
-            update_client => [
-                {
-                    command => "update client",
-                    help => "Update a registered client's details on the Echidna framework.\n\n" .
-                            "Usage: update client [options] --id=client --password=password --acl=level\n\n" .
-                            "Options:\n" .
-                            "  --id=client          Registered id for client.\n" .
-                            "  --name=name          Unique name.\n" .
-                            "  --password=password  Defines the password for the new client.\n" .
-                            "  --acl=level          Level of access applied to the new client. [0-255] \n" .
-                            "  --description=blah   A description of the new client.",
-                    function => \&update_client,
-                }
-            ],
-            register_node => [
-                {
-                    command => "register node",
-                    help => "Register a node to the Echidna framework.\n\n" .
-                            "Usage: register node [options] --name=name --agent=agent --password=password\n\n" .
-                            "Options:\n" .
-                            "  --name=name          Unique name.\n" .
-                            "  --agent=agent        Regsitered id of the parent agent.\n" .
-                            "  --password=password  Defines the password for the new node.\n" .
-                            "  --description=blah   A description of the new node.",
-                    function => \&register_node,
-                }
-            ],
-            unregister_node => [
-                {
-                    command => "unregister node",
-                    help => "Unregister a node from the Echidna frameworkn\n\n" .
-                            "Usage: unregister node --id=agent\n\n" .
-                            "Options:\n" .
-                            "  --id=agent  Unique agent id.",
-                    function => \&unregister_node,
-                }
-            ],
-            update_node => [
-                {
-                    command => "update node",
-                    help => "--id",
-                    function => \&update_node,
-                }
-            ],
-            register_agent => [
-                {
-                    command => "register agent",
-                    help => "Register an agent to the Echidna framework.\n\n" .
-                            "Usage: register node [options] --name=name --password=password\n\n" .
-                            "Options:\n" .
-                            "  --name=name          Unique name.\n" .
-                            "  --password=password  Defines the password for the new agent.\n" .
-                            "  --description=blah   A description of the new agent.",
-                    function => \&register_agent,
-                }
-            ],
-            unregister_agent => [
-                {
-                    command => "unregister agent",
-                    help => "Unregister an agent from the Echidna frameworkn\n\n" .
-                            "Usage: unregister agent --id=agent\n\n" .
-                            "Options:\n" .
-                            "  --id=agent  Unique agent id.",
-                    function => \&unregister_agent,
-                }
-            ],
-            update_agent => [
-                {
-                    command => "update agent",
-                    help => "--id",
-                    function => \&update_agent,
-                }
-            ],
-            search_event => [
-                {
-                    command => "search event",
-                    help => "Search through the all captured events.\n\n" .
-                            "Usage: search event [options]\n\n" .
-                            "Options:\n" .
-                            "  --timestamp=timestamp    Filter on timestamp recorded.\n\n" .
-#                           "  --agent-id=id            Filter on events specific to the agent's id\n" .
-                            "  --node-id=id             Filter on events specific to the node's id\n\n" .
-                            "  --src-ip=ip              Filter on source ip.\n" .
-                            "  --src-port=port          Filter on source port.\n\n" .
-                            "  --dst-ip=ip              Filter on destination ip.\n" .
-                            "  --dst-port=port          Filter on destination port.\n" .
-                            "  --ip=ip                  Filter on either source or destination ip.\n" .
-                            "  --port=port              Filter on either source or destination port.\n\n" .
-                            "  --protocol=protocol      Filter on TCP/IP protocol.\n" .
-                            "  --version=version        Filter on IP version. (eg. 4 or 6).\n\n" .
-                            "  --sig-id=id              Filter on signature id).\n" .
-                            "  --sig-revision=revision  Filter on signature revision.\n" .
-                            "  --sig-priority=priority  Filter on signature priority.\n" .
-                            "  --sig-message=message    Filter on signature message.\n" .
-                            "  --sig-category=category  Filter on signature category.\n" ,
-                    function => \&search_event,
-                }
-            ],
-            search_session => [
-                {
-                    command => "search session",
-                    help => "Usage: search session [options]\n\n" .
-                            "Options:\n" .
-                            "  --time-start=timestamp  Filter on timestamp of first packet.\n" .
-                            "  --time-end=timestamp    Filter on timestamp of last packet.\n" .
-                            "  --time-duration=n       Filter on n seconds of duration.\n\n" .
-#                            "  --agent-id=id           Filter on sessions specific to the agent's id\n" .
-                            "  --node-id=id            Filter on sessions specific to the node's id\n\n" .
-                            "  --src-ip=ip             Filter on source ip.\n" .
-                            "  --src-port=port         Filter on source port.\n" .
-                            "  --src-total-bytes=n     Filter on total n bytes sent from source.\n" .
-                            "  --src-total-packets=n   Filter on total n packets sent from source.\n" .
-                            "  --src-flags             Filter on total flags (bitwise-or'd) of packets sent from source.\n\n" .
-
-                            "  --dst-ip=ip             Filter on destination ip.\n" .
-                            "  --dst-port=port         Filter on destination port.\n" .
-                            "  --dst-total-bytes=n     Filter on total n bytes sent from destination.\n" .
-                            "  --dst-total-packets=n   Filter on total n packets sent from destination.\n" .
-                            "  --dst-flags             Filter on total flags (bitwise-or'd) of packets sent from destination.\n\n" .
-                            "  --ip=ip                 Filter on either source or destination ip.\n" .
-                            "  --port=port             Filter on either source or destination port.\n\n" .
-                            "  --protocol=protocol     Filter on TCP/IP protocol.\n" .
-                            "  --version=version       Filter on IP version. (eg. 4 or 6).\n",
-                    function => \&search_session,
-                }
-            ],
-            clients_connected => [
-                {
-                    command => "show clients",
-                    help => "Show all clients currently connected to Echidna.\n",
-                    function => \&show_clients
-                }
-            ],
-            nodes_connected => [
-                {
-                    command => "show nodes",
-                    help => "Show all nodes currently connected to Echidna.\n",
-                    function => \&show_nodes
-                }
-            ],
-            node_uptime => [
-                {
-                    command => "node uptime",
-                    help => "Show how long the specified Echidna node has been up.\n",
-                    function => \&show_node_uptime
-                }
-            ],
-            node_version => [
-                {
-                    command => "node version",
-                    help => "Show the version and build information for the specified Echidna node.",
-                    function => \&show_node_version
-                }
-            ],
-            server_uptime => [
-                {
-                    command => "server uptime",
-                    help => "Show how long the Echidna server has been up.\n",
-                    function => \&show_server_uptime
-                }
-            ],
-            server_version => [
-                {
-                    command => "server version",
-                    help => "Show the version and build information for the Echidna server.",
-                    function => \&show_server_version
-                }
-            ],
-        }
-    }
-}
+exit(0);
 
 
-sub login
-{
-    my ($kernel, $heap) = @_[KERNEL, HEAP];
-
-    if( ! defined($heap->{name}) ) {
-        $heap->{name} = input_get('Username: ');
-    }
-
-    if( ! defined($heap->{secret}) ) {
-        $heap->{secret} = sha256_hex(input_get('Password: '));
-    }
-
-    $kernel->yield('authenticate');
-}
+#
+# FUNCTIONS
+#
 
 sub load_session
 {
     my ($kernel, $heap) = @_[KERNEL, HEAP];
 
     # clear existing known commands
-    $acommands = [];
+    $commands_available = [];
+
+    $kernel->call("console", "check_available_commands");
 
     # start the query process
-    $kernel->yield('get', {
+    $kernel->post('client', 'get', {
         type => 'core',
         data => 'modules_available'
     }, sub {
@@ -376,171 +401,288 @@ sub load_session
         my $modules = $json->{result} // [];
 
         foreach my $m ( @{ $modules } ) {
-            $kernel->yield('get', {
+            $api_commands->{$m} = undef;
+
+            $k->post('client', 'get', {
                 type => $m,
                 data => 'commands_available'
             }, sub {
                 my ($s, $k, $h, $json) = @_;
 
-                check_available_commands($m, $json->{result} // []);
+                my $commands = $json->{result} // [];
+
+                $api_commands->{$m} = $commands;
+                $k->post("console", "check_available_commands");
             });
         }
     });
-
-    ReadMode "ultra-raw";
-
-    # build up
-    $heap->{console} = POE::Wheel::ReadWrite->new(
-        InputHandle => \*STDIN,
-        OutputHandle => \*STDOUT,
-        InputEvent => "prompt",
-        Filter => POE::Filter::Stream->new()
-    );
-
-    # show we are ready to recieve user prompt
-    prompt_print();
 }
 
 sub check_available_commands {
-    my ($m, $r) = @_;
+    my ($kernel, $heap) = @_[KERNEL, HEAP];
 
-    if( defined( $ncommands->{$m} ) ) {
-        foreach my $c ( @{ $r } ) {
-            if( defined( $ncommands->{$m}{$c} ) ) {
-                foreach my $n ( @{ $ncommands->{$m}{$c} } ) {
-                    push( @{ $acommands }, $n );
+    # loop through each command possible
+    foreach my $c ( @{ $commands_all } ) {
+
+        # determine if the "api" requirements are met
+        my $api = $c->{api} // {};
+
+        # we should have a HASH reference with keys defining the api modules required
+        if( ref($api) ne 'HASH' ) {
+            say("ERROR: Command list is tainted.");
+            exit 1;
+        }
+
+        # assume supported unless proven otherwise
+        my $supported = 1;
+
+        # loop through each api module required
+        foreach my $m ( keys( %{ $api } ) ) {
+
+            # we should have the values as ARRAY reference describing all required
+            # api module commands required
+            if( ref($api->{$m}) ne 'ARRAY' ) {
+                say("ERROR: Command list is tainted.");
+                exit 1;
+            }
+
+            # check the api module exists first
+            if( defined($api_commands->{$m}) &&
+                ref($api_commands->{$m}) eq 'ARRAY' ) {
+
+                # loop through all require api module commands
+                foreach my $mc ( @{ $api->{$m} } ) {
+
+                    # check if the api module command is available
+                    if ( ! grep { $_ eq $mc } @{ $api_commands->{$m} } ) {
+                        $supported = 0;
+                        last;
+                    }
                 }
             }
+            else {
+                $supported = 0;
+                last;
+            }
+        }
+
+        if ( $supported &&
+             ! grep { $_->{command} eq $c->{command} } @{ $commands_available } ) {
+            push( @{ $commands_available }, $c );
         }
     }
 }
 
+sub put_output {
+    my ($heap, $data) = @_[HEAP, ARG0];
 
-sub prompt
+    $heap->{console}->put($data);
+}
+
+
+sub got_input
 {
-    my ($kernel, $heap, $data) = @_[KERNEL, HEAP, ARG0];
+    my ($kernel, $heap, $data, $exception) = @_[KERNEL, HEAP, ARG0, ARG1];
 
-    my $data_raw = unpack("c*", $data );
+    # ignore all input if we are exiting
+    return if ( $exiting );
 
-#    say("GOT: $data_raw");
+    if ( defined($data) ) {
+        my $processed = 0;
 
-    if( $data_raw == 13 ) {
-      print( "\n" );
-    }
-    elsif ( $data_raw == 127 ) {
-        if( length($command) ) {
-          print( "\b\e[K" );
-          chop($command);
-        }
+        if ( length($data) ) {
 
-        return;
-    }
-    else {
-        print $data;
-        $command .= $data;
-        return;
-    }
+            # loop through all available commands
+            foreach my $c ( @{ $commands_available } ) {
+                $processed |= $kernel->call('console', $c->{function}, $data);
+                last if ( $processed );
+            }
 
+            if( ! $processed ) {
+                # no commands seen
+                if( $data =~ /^(help|h|\?)\s?(.*)$/ ) {
+                    my $extra = $2;
 
-    # loop through all available commands
-    foreach my $c ( @{ $acommands } ) {
-        return if( ! $c->{function}($kernel, $command) );
-    }
+                    if( length($extra) ) {
+                        for my $c (@{ $commands_available }) {
+                            if ( $c->{command} eq $extra ) {
+                                $kernel->call('console', 'put_output', "\n" . $c->{help} . "\n");
+                                last;
+                            }
+                        }
+                    }
+                    else {
+                        my $help = "\nAvailable commands:\n";
 
-    # no commands seen
-    if( $command =~ /^(help|h|\?)\s?(.*)$/ ) {
-        my $extra = $2;
+                        for my $c (@{ $commands_available }) {
+                            $help .= '  ' . $c->{command} . "\n";
+                        }
 
-        if( length($extra) ) {
-            for my $c (@{ $acommands }) {
-                if ( $c->{command} eq $extra ) {
-                    return prompt_return("\n" . $c->{help} . "\n");
+                        $kernel->call('console', 'put_output', $help);
+                    }
+
+                    # we've displayed some form of help
+                    $processed = 1;
                 }
             }
 
-            output_print('Sorry DAVE, I don\'t understand that: ' . $extra . "\n");
-        }
-        else {
-            output_print("Available commands:\n");
-
-            for my $c (@{ $acommands }) {
-                output_print('  ' . $c->{command} . "\n");
+            if ( ! $processed ) {
+                $kernel->call('console', 'put_output', "\n" . 'Command not supported: ' . $data . "\n");
+            }
+            else {
+                $heap->{console}->add_history($data);
             }
         }
     }
-    elsif( $command =~ /^(quit|exit|q|x)$/ ) {
-        # TODO: close cleanly
-        $kernel->call('client', 'close');
-    }
-    elsif( $command =~ /^[^\s]+/ ) {
-        output_print('Sorry DAVE, I don\'t understand that: ' . $command . "\n");
+    elsif( $exception eq 'interrupt' ) {
+
     }
 
-    prompt_return();
-}
-
-sub prompt_return {
-    my $message = shift // '';
-
-    output_print($message);
-
-    print("\e[G" . 'echidna> ');
-
-    $command = "";
-}
-
-sub output_print {
-    my $message = shift // '';
-
-    foreach my $m ( split(/\n/, $message) ) {
-        print "\e[G" . $m . "\n";
+    # show we are ready to receive input if we're not exiting
+    if ( ! $exiting ) {
+        $heap->{console}->get( get_prompt() );
     }
 }
 
-sub prompt_print
-{
-    if ( $module_active eq 'core' ) {
-        print('echidna> ');
-    }
-    else {
-        print($module_active . '> ');
-    }
 
-    $command = "";
+sub get_prompt {
+    return $prompt . '> ';
 }
-
-
-sub input_get {
-    my ( $message ) = @_;
-
-    $message //= '';
-
-    print( 'echidna> ' . $message );
-
-    my $input = <STDIN>;
-    chomp($input);
-
-    return $input;
-}
-
-sub close {
-    my ( $kernel, $heap ) = @_[KERNEL, HEAP];
-
-
-    delete($heap->{console});
-    $kernel->yield("shutdown");
-}
-
 
 
 #
 # COMMAND TESTING AND PROCESSING
 #
 
-sub register_agent {
-    my ($kernel, $data) = @_;
+sub client_exit {
+    my ( $kernel, $heap, $data) = @_[KERNEL, HEAP, ARG0];
 
-    if( $data =~ /^register\sagent\s(.*)/) {
+    if( $data =~ /^(quit|exit|q|x)$/ ) {
+        $exiting = 1;
+
+        $kernel->yield("_stop");
+
+        return 1;
+    }
+
+    return 0;
+}
+
+sub server_connect {
+    my ( $kernel, $heap, $data) = @_[KERNEL, HEAP, ARG0];
+
+    if( $data =~ /^connect\s?(.*)/) {
+
+        $host = $config->host() // 'localhost';
+        $port = $config->port() // 10101;
+        $user = undef;
+        $pass = undef;
+
+        my @search_args = split(/[ ]/, $1);
+
+        foreach my $k ( @search_args ) {
+            given( $k ) {
+                when(/^--user=([^ ]*)/) {
+                    $user = $1;
+                }
+                when(/^--password=([^ ]*)/) {
+                    $pass = sha256_hex($1);
+                }
+                when(/^--host=([^ ]*)/) {
+                    $host = $1;
+                }
+                when(/^--port=([^ ]*)/) {
+                    $port = $1;
+                }
+                default {
+                    $kernel->call('console', 'put_output', 'Unsupported parameter: ' . $k);
+                    return 1;
+                }
+            }
+        }
+
+        if ( ! defined($user) ) {
+            $kernel->call('console', 'put_output', 'No user specified');
+            return 1;
+        }
+
+        $connecting = 1;
+
+        $kernel->call('console', 'put_output', 'Connecting to ' . $user . '@' . $host . ':' . $port . '...');
+        print('Password:');
+        ReadMode "noecho";
+        $pass = <STDIN>;
+        chomp($pass);
+        $pass = sha256_hex($pass);
+        ReadMode "restore";
+        $kernel->call('console', 'put_output', '');
+
+        delete $heap->{client} if ( defined($heap->{client}) );
+
+        $heap->{client} = POE::Component::Client::TCP->new(
+            Alias         => 'client',
+            RemoteAddress => $host,
+            RemotePort    => $port,
+            Filter        => "POE::Filter::Line",
+            Connected => sub {
+                my ($kernel, $heap) = @_[KERNEL, HEAP];
+                $kernel->call("console", "put_output", "\nConnected.\n");
+
+                $heap->{stage}  = '';
+                $heap->{name}   = $user;
+                $heap->{secret} = $pass;
+
+                $kernel->post('console', 'init');
+                $kernel->yield('authenticate');
+
+                $connecting = 0;
+                $connected = 1;
+            },
+            ConnectError => sub {
+                my ($kernel, $heap, $error_string) = @_[KERNEL, HEAP, ARG2];
+                $kernel->call("console", "put_output", "\nUnable to connect: " . $error_string . "\n");
+            },
+            ServerInput => sub {
+                my ($kernel, $response) = @_[KERNEL, ARG0];
+
+                $kernel->yield(dispatcher => $response);
+            },
+            ServerError => sub {
+                my ($kernel, $heap) = @_[KERNEL, HEAP];
+                $kernel->call("console", "put_output", "\nLost connection to server...\n");
+            },
+            Disconnected => sub {
+                $kernel->call("console", "put_output", "\nDisconnected\n");
+            },
+            ObjectStates => [
+                $proto => $proto->states(),
+            ],
+        );
+
+        return 1;
+    }
+
+    return 0;
+}
+
+sub server_disconnect {
+    my ( $kernel, $heap, $data) = @_[KERNEL, HEAP, ARG0];
+
+    if( $data =~ /^disconnect(.*)/) {
+
+        $kernel->post("client", "shutdown");
+
+        return 1;
+    }
+
+    return 0;
+}
+
+
+sub register_agent {
+    my ($kernel, $heap, $data) = @_[KERNEL, HEAP, ARG0];
+
+    if( $data =~ /^register\sagent\s?(.*)/) {
         my $sql = {};
 
         my @search_args = split(/[ ]/, $1);
@@ -557,19 +699,19 @@ sub register_agent {
                     $sql->{description} = $1;
                 }
                 default {
-                    prompt_return('Unsupported parameter: ' . $k);
-                    return 0;
+                    $kernel->call('console', 'put_output', 'Unsupported parameter: ' . $k);
+                    return 1;
                 }
             }
         }
 
         if( ! defined_args( $sql->{name},
                             $sql->{password} ) ) {
-            prompt_return("Mandatory arguments are missing.");
-            return 0;
+            $kernel->call('console', 'put_output', "Mandatory arguments are missing.");
+            return 1;
         }
 
-        $kernel->yield('get', {
+        $kernel->post('client', 'get', {
             type => "core",
             data => {
               "register_agent" => $sql
@@ -581,19 +723,19 @@ sub register_agent {
 
             # TODO post process result with client aware components
 
-            prompt_return(Dumper($result));
+            $kernel->call('console', 'put_output', Dumper($result));
         });
 
-        return 0;
+        return 1;
     }
 
-    return 1;
+    return 0;
 }
 
 sub update_agent {
-    my ($kernel, $data) = @_;
+    my ($kernel, $heap, $data) = @_[KERNEL, HEAP, ARG0];
 
-    if( $data =~ /^update\sagent\s(.*)/) {
+    if( $data =~ /^update\sagent\s?(.*)/) {
         my $sql = {};
 
         my @search_args = split(/[ ]/, $1);
@@ -613,18 +755,18 @@ sub update_agent {
                     $sql->{description} = $1;
                 }
                 default {
-                    prompt_return('Unsupported parameter: ' . $k);
-                    return 0;
+                    $kernel->call('console', 'put_output', 'Unsupported parameter: ' . $k);
+                    return 1;
                 }
             }
         }
 
         if( ! defined_args( $sql->{id} )  ){
-            prompt_return("Mandatory arguments are missing.");
-            return 0;
+            $kernel->call('console', 'put_output', "Mandatory arguments are missing.");
+            return 1;
         }
 
-        $kernel->yield('get', {
+        $kernel->post('client', 'get', {
             type => "core",
             data => {
               "update_agent" => $sql
@@ -636,19 +778,19 @@ sub update_agent {
 
             # TODO post process result with client aware components
 
-            prompt_return(Dumper($result));
+            $kernel->call('console', 'put_output', Dumper($result));
         });
 
-        return 0;
+        return 1;
     }
 
-    return 1;
+    return 0;
 }
 
 sub unregister_agent {
-    my ($kernel, $data) = @_;
+    my ($kernel, $heap, $data) = @_[KERNEL, HEAP, ARG0];
 
-    if( $data =~ /^unregister\sagent\s(.*)/) {
+    if( $data =~ /^unregister\sagent\s?(.*)/) {
         my $sql = {};
 
         my @search_args = split(/[ ]/, $1);
@@ -659,13 +801,13 @@ sub unregister_agent {
                     $sql->{id} = $1;
                 }
                 default {
-                    prompt_return('Unsupported parameter: ' . $k);
-                    return 0;
+                    $kernel->call('console', 'put_output', 'Unsupported parameter: ' . $k);
+                    return 1;
                 }
             }
         }
 
-        $kernel->yield('get', {
+        $kernel->post('client', 'get', {
             type => "core",
             data => {
               "unregister_agent" => $sql
@@ -677,25 +819,25 @@ sub unregister_agent {
 
             # TODO post process result with client aware components
 
-            prompt_return(Dumper($result));
+            $kernel->call('console', 'put_output', Dumper($result));
         });
 
-        return 0;
+        return 1;
     }
 
-    return 1;
+    return 0;
 }
 
 sub register_client {
-    my ($kernel, $data) = @_;
+    my ($kernel, $heap, $data) = @_[KERNEL, HEAP, ARG0];
 
-    if( $data =~ /^register\sclient(.*)/) {
+    if( $data =~ /^register\sclient?(.*)/) {
         my $sql = {};
 
         my @search_args = split(/[ ]/, $1);
 
         if( @search_args == 0 ) {
-            prompt_return("I need arguments.");
+            $kernel->call('console', 'put_output', "I need arguments.");
             return 0;
         }
 
@@ -714,8 +856,8 @@ sub register_client {
                     $sql->{description} = $1;
                 }
                 default {
-                    prompt_return('Unsupported parameter: ' . $k);
-                    return 0;
+                    $kernel->call('console', 'put_output', 'Unsupported parameter: ' . $k);
+                    return 1;
                 }
             }
         }
@@ -723,11 +865,11 @@ sub register_client {
         if( ! defined_args( $sql->{name},
                             $sql->{level},
                             $sql->{password} ) ) {
-            prompt_return("Mandatory arguments are missing.");
-            return 0;
+            $kernel->call('console', 'put_output', "Mandatory arguments are missing.");
+            return 1;
         }
 
-        $kernel->yield('get', {
+        $kernel->post('client', 'get', {
             type => "core",
             data => {
               "register_client" => $sql
@@ -739,19 +881,19 @@ sub register_client {
 
             # TODO post process result with client aware components
 
-            prompt_return(Dumper($result));
+            $kernel->call('console', 'put_output', Dumper($result));
         });
 
-        return 0;
+        return 1;
     }
 
-    return 1;
+    return 0;
 }
 
 sub update_client {
-    my ($kernel, $data) = @_;
+    my ($kernel, $heap, $data) = @_[KERNEL, HEAP, ARG0];
 
-    if( $data =~ /^update\sclient\s(.*)/) {
+    if( $data =~ /^update\sclient\s?(.*)/) {
         my $sql = {};
 
         my @search_args = split(/[ ]/, $1);
@@ -774,18 +916,18 @@ sub update_client {
                     $sql->{description} = $1;
                 }
                 default {
-                    prompt_return('Unsupported parameter: ' . $k);
-                    return 0;
+                    $kernel->call('console', 'put_output', 'Unsupported parameter: ' . $k);
+                    return 1;
                 }
             }
         }
 
         if( ! defined_args( $sql->{id} )  ){
-            prompt_return("Mandatory arguments are missing.");
-            return 0;
+            $kernel->call('console', 'put_output', "Mandatory arguments are missing.");
+            return 1;
         }
 
-        $kernel->yield('get', {
+        $kernel->post('client', 'get', {
             type => "core",
             data => {
               "update_client" => $sql
@@ -797,19 +939,19 @@ sub update_client {
 
             # TODO post process result with client aware components
 
-            prompt_return(Dumper($result));
+            $kernel->call('console', 'put_output', Dumper($result));
         });
 
-        return 0;
+        return 1;
     }
 
-    return 1;
+    return 0;
 }
 
 sub unregister_client {
-    my ($kernel, $data) = @_;
+    my ($kernel, $heap, $data) = @_[KERNEL, HEAP, ARG0];
 
-    if( $data =~ /^unregister\sclient\s(.*)/) {
+    if( $data =~ /^unregister\sclient\s?(.*)/) {
         my $sql = {};
 
         my @search_args = split(/[ ]/, $1);
@@ -820,13 +962,13 @@ sub unregister_client {
                     $sql->{id} = $1;
                 }
                 default {
-                    prompt_return('Unsupported parameter: ' . $k);
-                    return 0;
+                    $kernel->call('console', 'put_output', 'Unsupported parameter: ' . $k);
+                    return 1;
                 }
             }
         }
 
-        $kernel->yield('get', {
+        $kernel->post('client', 'get', {
             type => "core",
             data => {
               "unregister_client" => $sql
@@ -838,19 +980,19 @@ sub unregister_client {
 
             # TODO post process result with client aware components
 
-            prompt_return(Dumper($result));
+            $kernel->call('console', 'put_output', Dumper($result));
         });
 
-        return 0;
+        return 1;
     }
 
-    return 1;
+    return 0;
 }
 
 sub register_node {
-    my ($kernel, $data) = @_;
+    my ($kernel, $heap, $data) = @_[KERNEL, HEAP, ARG0];
 
-    if( $data =~ /^register\snode\s(.*)/) {
+    if( $data =~ /^register\snode\s?(.*)/) {
         my $sql = {};
 
         my @search_args = split(/[ ]/, $1);
@@ -870,8 +1012,8 @@ sub register_node {
                     $sql->{description} = $1;
                 }
                 default {
-                    prompt_return('Unsupported parameter: ' . $k);
-                    return 0;
+                    $kernel->call('console', 'put_output', 'Unsupported parameter: ' . $k);
+                    return 1;
                 }
             }
         }
@@ -879,11 +1021,11 @@ sub register_node {
         if( ! defined_args( $sql->{name},
                             $sql->{agent_id},
                             $sql->{password} ) ) {
-            prompt_return("Mandatory arguments are missing.");
-            return 0;
+            $kernel->call('console', 'put_output', "Mandatory arguments are missing.");
+            return 1;
         }
 
-        $kernel->yield('get', {
+        $kernel->post('client', 'get', {
             type => "core",
             data => {
               "register_node" => $sql
@@ -895,19 +1037,19 @@ sub register_node {
 
             # TODO post process result with client aware components
 
-            prompt_return(Dumper($result));
+            $kernel->call('console', 'put_output', Dumper($result));
         });
 
-        return 0;
+        return 1;
     }
 
-    return 1;
+    return 0;
 }
 
 sub update_node {
-    my ($kernel, $data) = @_;
+    my ($kernel, $heap, $data) = @_[KERNEL, HEAP, ARG0];
 
-    if( $data =~ /^update\snode\s(.*)/) {
+    if( $data =~ /^update\snode\s?(.*)/) {
         my $sql = {};
 
         my @search_args = split(/[ ]/, $1);
@@ -930,18 +1072,18 @@ sub update_node {
                     $sql->{description} = $1;
                 }
                 default {
-                    prompt_return('Unsupported parameter: ' . $k);
-                    return 0;
+                    $kernel->call('console', 'put_output', 'Unsupported parameter: ' . $k);
+                    return 1;
                 }
             }
         }
 
         if( ! defined_args( $sql->{id} )  ){
-            prompt_return("Mandatory arguments are missing.");
-            return 0;
+            $kernel->call('console', 'put_output', "Mandatory arguments are missing.");
+            return 1;
         }
 
-        $kernel->yield('get', {
+        $kernel->post('client', 'get', {
             type => "core",
             data => {
               "update_node" => $sql
@@ -953,19 +1095,19 @@ sub update_node {
 
             # TODO post process result with client aware components
 
-            prompt_return(Dumper($result));
+            $kernel->call('console', 'put_output', Dumper($result));
         });
 
-        return 0;
+        return 1;
     }
 
-    return 1;
+    return 0;
 }
 
 sub unregister_node {
-    my ($kernel, $data) = @_;
+    my ($kernel, $heap, $data) = @_[KERNEL, HEAP, ARG0];
 
-    if( $data =~ /^unregister\snode\s(.*)/) {
+    if( $data =~ /^unregister\snode\s?(.*)/) {
         my $sql = {};
 
         my @search_args = split(/[ ]/, $1);
@@ -976,13 +1118,13 @@ sub unregister_node {
                     $sql->{id} = $1;
                 }
                 default {
-                    prompt_return('Unsupported parameter: ' . $k);
-                    return 0;
+                    $kernel->call('console', 'put_output', 'Unsupported parameter: ' . $k);
+                    return 1;
                 }
             }
         }
 
-        $kernel->yield('get', {
+        $kernel->post('client', 'get', {
             type => "core",
             data => {
               "unregister_node" => $sql
@@ -994,20 +1136,20 @@ sub unregister_node {
 
             # TODO post process result with client aware components
 
-            prompt_return(Dumper($result));
+            $kernel->call('console', 'put_output', Dumper($result));
         });
 
-        return 0;
+        return 1;
     }
 
-    return 1;
+    return 0;
 }
 
 sub show_clients {
-    my ($kernel, $data) = @_;
+    my ($kernel, $heap, $data) = @_[KERNEL, HEAP, ARG0];
 
     if( $data =~ /^show\sclients$/) {
-        $kernel->yield('get', {
+        $kernel->post('client', 'get', {
             type => "core",
             data => "clients_connected",
         }, sub {
@@ -1016,25 +1158,25 @@ sub show_clients {
             my $result = $json->{result};
 
             if( ref($result) eq 'HASH' ) {
-                prompt_return(Dumper($result));
+                $k->call('console', 'put_output', Dumper($result));
             }
             else {
                 # TODO post process result with client aware components
-                prompt_return( "Unknown!");
+                $k->call('console', 'put_output', "Unknown!");
             }
         });
 
-        return 0;
+        return 1;
     }
 
-    return 1;
+    return 0;
 }
 
 sub show_nodes {
-    my ($kernel, $data) = @_;
+    my ($kernel, $heap, $data) = @_[KERNEL, HEAP, ARG0];
 
     if( $data =~ /^show\snodes$/) {
-        $kernel->yield('get', {
+        $kernel->post('client', 'get', {
             type => "core",
             data => "nodes_connected",
         }, sub {
@@ -1045,28 +1187,27 @@ sub show_nodes {
             if( ref($result) eq 'ARRAY' ) {
 
                 my $total_nodes = @{ $result };
-                output_print($total_nodes . ' node(s) ' . ( $total_nodes == 1 ? 'is' : 'are' ) . ' connected.');
+                $k->call('console', 'put_output', $total_nodes . ' node(s) ' . ( $total_nodes == 1 ? 'is' : 'are' ) . ' connected.');
 
                 foreach my $n ( @{ $result } ) {
-                    output_print($n->{id} . ': ' . $n->{name} . ' (' . $n->{type}. ') - ' . $n->{description});
+                    $k->call('console', 'put_output', $n->{id} . ': ' . $n->{name} . ' (' . $n->{type}. ') - ' . $n->{description});
                 }
-                prompt_return();
             }
             else {
                 # TODO post process result with client aware components
-                prompt_return( "Unknown!");
+                $k->call('console', 'put_output', "Unknown!");
             }
         });
 
-        return 0;
+        return 1;
     }
 
-    return 1;
+    return 0;
 }
 
 
 sub show_node_uptime {
-    my ($kernel, $data) = @_;
+    my ($kernel, $heap, $data) = @_[KERNEL, HEAP, ARG0];
 
     if( $data =~ /^node\suptime\s?(.*)$/) {
 
@@ -1079,18 +1220,18 @@ sub show_node_uptime {
                     $id = $1;
                 }
                 default {
-                    prompt_return('Unsupported parameter: ' . $k);
-                    return 0;
+                    $kernel->call('console', 'put_output', 'Unsupported parameter: ' . $k);
+                    return 1;
                 }
             }
         }
 
         if ( $id <= 0 ) {
-            prompt_return('Invalid ID specified.');
-            return 0;
+            $kernel->call('console', 'put_output', 'Invalid ID specified.');
+            return 1;
         }
 
-        $kernel->yield('get', {
+        $kernel->post('client', 'get', {
             type => "core",
             data => {
                 node_uptime => {
@@ -1102,17 +1243,17 @@ sub show_node_uptime {
 
             my $result = $json->{result};
 
-            prompt_return('Echidna Node ' . $id . ' has been up for ' . time_seconds_to_human_readable($result) . '.');
+            $k->call('console', 'put_output', 'Echidna Node ' . $id . ' has been up for ' . time_seconds_to_human_readable($result) . '.');
         });
 
-        return 0;
+        return 1;
     }
 
-    return 1;
+    return 0;
 }
 
 sub show_node_version {
-    my ($kernel, $data) = @_;
+    my ($kernel, $heap, $data) = @_[KERNEL, HEAP, ARG0];
 
     if( $data =~ /^node\sversion\s?(.*)$/) {
         my $id = -1;
@@ -1124,18 +1265,18 @@ sub show_node_version {
                     $id = $1;
                 }
                 default {
-                    prompt_return('Unsupported parameter: ' . $k);
-                    return 0;
+                    $kernel->call('console', 'put_output', 'Unsupported parameter: ' . $k);
+                    return 1;
                 }
             }
         }
 
         if ( $id <= 0 ) {
-            prompt_return('Invalid ID specified.');
-            return 0;
+            $kernel->call('console', 'put_output', 'Invalid ID specified.');
+            return 1;
         }
 
-        $kernel->yield('get', {
+        $kernel->post('client', 'get', {
             type => "core",
             data => {
                 node_version => {
@@ -1149,25 +1290,25 @@ sub show_node_version {
 
             if( ref($result) eq 'HASH' ) {
                 my $literal = 'Echidna Node ' . $id .  ' version: v' . join('.', $result->{major}, $result->{minor}, $result->{revision}) . ' (b' . $result->{build} . ')';
-                prompt_return($literal);
+                $k->call('console', 'put_output', $literal);
             }
             else {
                 # TODO post process result with client aware components
-                prompt_return("Unknown");
+                $k->call('console', 'put_output', "Unknown");
             }
         });
 
-        return 0;
+        return 1;
     }
 
-    return 1;
+    return 0;
 }
 
 sub show_server_uptime {
-    my ($kernel, $data) = @_;
+    my ($kernel, $heap, $data) = @_[KERNEL, HEAP, ARG0];
 
     if( $data =~ /^server\suptime$/) {
-        $kernel->yield('get', {
+        $kernel->post('client', 'get', {
             type => "core",
             data => "server_uptime",
         }, sub {
@@ -1175,20 +1316,20 @@ sub show_server_uptime {
 
             my $result = $json->{result};
 
-            prompt_return('Echidna Server has been up for ' . time_seconds_to_human_readable($result) . '.');
+            $k->call('console', 'put_output', 'Echidna Server has been up for ' . time_seconds_to_human_readable($result) . '.');
         });
 
-        return 0;
+        return 1;
     }
 
-    return 1;
+    return 0;
 }
 
 sub show_server_version {
-    my ($kernel, $data) = @_;
+    my ($kernel, $heap, $data) = @_[KERNEL, HEAP, ARG0];
 
     if( $data =~ /^server\sversion$/) {
-        $kernel->yield('get', {
+        $kernel->post('client', 'get', {
             type => "core",
             data => "server_version",
         }, sub {
@@ -1198,18 +1339,18 @@ sub show_server_version {
 
             if( ref($result) eq 'HASH' ) {
                 my $literal = 'Echidna Server version: v' . join('.', $result->{major}, $result->{minor}, $result->{revision}) . ' (b' . $result->{build} . ')';
-                prompt_return($literal);
+                $k->call('console', 'put_output', $literal);
             }
             else {
                 # TODO post process result with client aware components
-                prompt_return("Unknown");
+                $k->call('console', 'put_output', "Unknown");
             }
         });
 
-        return 0;
+        return 1;
     }
 
-    return 1;
+    return 0;
 }
 
 # Splits a string of values into an array of hashes to be used in a sql OR
@@ -1225,7 +1366,7 @@ sub split2aoh {
 
 
 sub search_session {
-    my ($kernel, $data) = @_;
+    my ($kernel, $heap, $data) = @_[KERNEL, HEAP, ARG0];
 
     if( $data =~ /^search\ssession\s?(.*)/) {
         my $sql = {};
@@ -1401,13 +1542,13 @@ sub search_session {
                     $sql->{net_version} = $1;
                 }
                 default {
-                    prompt_return('Unsupported parameter: ' . $k);
-                    return 0;
+                    $kernel->call('console', 'put_output', 'Unsupported parameter: ' . $k);
+                    return 1;
                 }
             }
         }
 
-        $kernel->yield('get', {
+        $kernel->post('client', 'get', {
             type => "core",
             data => {
               "search_session" => $sql
@@ -1419,19 +1560,19 @@ sub search_session {
 
             # TODO post process result with client aware components
 
-            prompt_return( "Total records: " . @{ $result });
+            $k->call('console', 'put_output',  "Total records: " . @{ $result });
         });
 
-        return 0;
+        return 1;
     }
 
-    return 1;
+    return 0;
 }
 
 
 
 sub search_event {
-    my ($kernel, $data) = @_;
+    my ($kernel, $heap, $data) = @_[KERNEL, HEAP, ARG0];
 
     if( $data =~ /^search\sevent\s?(.*)/) {
         my $sql = {};
@@ -1495,13 +1636,13 @@ sub search_event {
                     $sql->{sig_category} = $1;
                 }
                 default {
-                    prompt_return('Unsupported parameter: ' . $k);
-                    return 0;
+                    $kernel->call('console', 'put_output', 'Unsupported parameter: ' . $k);
+                    return 1;
                 }
             }
         }
 
-        $kernel->yield('get', {
+        $kernel->post('client', 'get', {
             type => "core",
             data => {
               "search_event" => $sql
@@ -1513,18 +1654,13 @@ sub search_event {
 
             # TODO post process result with client aware components
 
-            prompt_return( "Total records: " . @{ $result });
+            $k->call('console', 'put_output',  "Total records: " . @{ $result });
         });
 
-        return 0;
+        return 1;
     }
 
-    return 1;
+    return 0;
 }
 
 
-POE::Kernel->run();
-
-ReadMode "restore";
-
-exit(0);

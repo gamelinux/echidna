@@ -50,7 +50,6 @@ sub instance {
     unless ($instance) {
         my ($class) = @_;
 
-
         return bless({}, $class);
     }
 
@@ -67,7 +66,6 @@ sub states {
 
         ## Authentication
         'authenticate',
-        'identify',
 
         # -> To Server
         'send_ping',
@@ -158,13 +156,14 @@ sub authenticate {
         if ( defined($json->{result}) ) {
             # store our unique agent ID
             $heap->{client_id} = $json->{result}{id};
-            $logger->debug('Authenticated. Client ID = ' . $heap->{client_id});
+            $kernel->call('console', 'put_output', 'Authenticated, ID: ' . $heap->{client_id});
 
             $heap->{stage} = 'EST';
-            $kernel->yield('load_session');
+            $kernel->post('console', 'load_session');
         }
         elsif ( defined($json->{error}) ) {
             $logger->debug('Authentication NOT ACCEPTED!');
+            $kernel->call('console', 'put_output', 'Authentication FAILED');
         }
         else {
             $logger->debug(Dumper($json));
@@ -174,38 +173,6 @@ sub authenticate {
 
     $heap->{server}->put(json_encode($payload));
 }
-
-# TODO: register
-sub identify {
-    my ($kernel, $heap, $response) = @_[KERNEL, HEAP, ARG0];
-    my $self = shift;
-
-    my $nodename = $heap->{nodename};
-    my $nodetype = $heap->{nodetype};
-
-    my $payload = json_method_create("identify", {
-        "module" => $nodename,
-        "type" => $nodetype,
-        "netgroup" => "test"
-    }, sub {
-        my ($self, $kernel, $heap, $json) = @_;
-
-        if ( defined($json->{result}) ) {
-             $heap->{node_id} = $json->{result}{id};
-        }
-        else {
-            $logger->debug('Synchronisation UNSUPPORTED');
-        }
-    });
-
-    $logger->debug('-> Identifying ' . $nodename);
-
-    $logger->fatal('Nodename, Secret not defined on Identification Stage') if ( ! defined_args($nodename) );
-
-    $heap->{stage} = 'SYN';
-    $heap->{server}->put(json_encode($payload));
-}
-
 ################ END AUTHENTICATE ##################
 
 ################ KEEP ALIVE ###################
