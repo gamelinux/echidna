@@ -69,7 +69,7 @@ sub file_catcher {
                         $logger->debug("PCAP Transferred Successfully");
                     }
                     when(/2304/) {
-                        $logger->debug("PCAP Listener timed out!");
+                        $logger->debug("PCAP Listener Transfer Failed!");
                     }
                     default {
                         $logger->debug("Listener pid $pid exited with status $status.");
@@ -91,10 +91,11 @@ sub file_catcher {
 
                 $logger->debug("Spawning Listener..");
 
+                say $NSMF::Server::BASE_PATH .'/script/listener.pl';
                 # get unique job id
                 my $child  = POE::Wheel::Run->new(
                     Program => [
-                        "/home/larsx/transfer/server.pl",
+                        $NSMF::Server::BASE_PATH . '/scripts/listener.pl'
                         #$checksum,
                     ],
                     StdoutEvent => sub {
