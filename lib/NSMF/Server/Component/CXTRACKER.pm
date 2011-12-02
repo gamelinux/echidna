@@ -43,13 +43,83 @@ use NSMF::Common::Registry;
 #
 # GLOBALS
 #
-my $logger = NSMF::Common::Registry->get('log') 
+my $logger = NSMF::Common::Registry->get('log')
     // carp 'Got an empty config object from Registry';
 
-sub hello {
-    $logger->debug("Hello World from CXTRACKER Module!!");
-    my $self = shift;
-    $_->hello for $self->plugins;
+sub get_registered_methods {
+    my ($self) = @_;
+
+    return [
+        {
+            method => 'cxtracker.save',
+            acl    => 0,
+            func   => sub{ $self->save(@_); }
+        }
+    ];
+}
+
+sub save {
+    my ($self, $node, $json) = @_;
+
+    my $sessions = $json->{params};
+
+    return -1 if ( ! ref($sessions) eq 'ARRAY' );
+
+    my $saved = [];
+
+    for my $s ( @{ $sessions } ) {
+
+        my @session = split(/\|/, $s);
+
+        # validation the event data received
+        my $validation = $self->validate( \@session );
+
+        my $session_id = $session[0]+0;
+
+        return 0 if ($validation == 0);
+        return $session_id if ($validation == 2);
+
+        my $db = NSMF::Server->database();
+
+#2011-09-01 20:11:40 [D] {"params":{"parameters":["1","376631","21","2011-09-01 22:07:30.308857","1","30100000","1","Snort Alert [1:30100000:0]","3","not-suspicious","4","85.19.221.250","8","8.8.4.4","0","1","4","5","0","84","0","2","0","64","64399","","","","","","","","","","","","","","02E65F4E4FB6040008090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F202122232425262728292A2B2C2D2E2F3031323334353637"],"action":"event_alert"},"jsonrpc":"2.0","id":"33612","method":"post"}
+
+        my $ret = $db->insert({
+            session => {
+                id => $session[0],
+                timestamp => 0,
+                time_start => $session[1],
+                time_end   => $session[2],
+                time_duration => $session[3],
+                node_id => $node->{details}{id},
+                net_version => 4,
+                net_protocol => $session[4],
+                net_src_ip   => $session[5],
+                net_src_port => $session[6],
+                net_src_total_packets => $session[9],
+                net_src_total_bytes => $session[10],
+                net_src_flags => $session[13],
+                net_dst_ip   => $session[7],
+                net_dst_port => $session[8],
+                net_dst_total_packets => $session[11],
+                net_dst_total_bytes => $session[12],
+                net_dst_flags => $session[14],
+                data_filename_start => $session[15],
+                data_offset_start => $session[16],
+                data_filename_end => $session[17],
+                data_offset_end => $session[18],
+                meta_cxt_id => $session[0],
+            }
+        });
+
+        # TODO: deal with batches better
+        # should we bail on single error, or report only id's that failed
+        if( $ret )
+        {
+            push( @{ $saved }, $session_id );
+        }
+    };
+
+    return $saved;
 }
 
 sub validate {
@@ -57,37 +127,29 @@ sub validate {
 
     my $db = NSMF::Server->database();
 
-    return 1;
-    # validate session object
-
     # verify number of elements
+    my $session_fields = @{ $session };
+
+    if ( @{ $session } < 19 )
+    {
+        $logger->debug('Insufficient fields in SESSION line. Got ' . $session_fields . ' and expected 19.');
+        return 0;
+    }
 
     # verify duplicate in db
     my $dup = $db->search({
         session => {
-            session_id => $session->{session}{id},
+            id => $session->[0],
         }
     });
 
     if ( @{ $dup } ) {
-        die { status => 'error', message => 'Duplicated Session' };
+        $logger->debug('Session already stored.');
+        return 2;
     }
 
     return 1;
 }
 
-sub process {
-    my ($self, $session) = @_;
-
-    # validation
-    $self->validate( $session );
-
-#
-
-
-    my $db = NSMF::Server->database();
-
-    return $db->insert( { session => $session } );
-}
 
 1;

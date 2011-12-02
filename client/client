@@ -388,14 +388,12 @@ sub load_session
 
     # clear existing known commands
     $commands_available = [];
-
     $kernel->call("console", "check_available_commands");
 
+    $logger->debug("ABOUT TO POST");
+
     # start the query process
-    $kernel->post('client', 'get', {
-        type => 'core',
-        data => 'modules_available'
-    }, sub {
+    $kernel->post('client', 'post', 'get_available_components', undef, sub {
         my ($s, $k, $h, $json) = @_;
 
         my $modules = $json->{result} // [];
@@ -403,11 +401,10 @@ sub load_session
         foreach my $m ( @{ $modules } ) {
             $api_commands->{$m} = undef;
 
-            $k->post('client', 'get', {
-                type => $m,
-                data => 'commands_available'
-            }, sub {
+            $k->post('client', 'post', $m . '.get_available_methods', undef, sub {
                 my ($s, $k, $h, $json) = @_;
+
+                $logger->debug($json);
 
                 my $commands = $json->{result} // [];
 

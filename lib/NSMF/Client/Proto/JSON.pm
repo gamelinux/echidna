@@ -246,7 +246,7 @@ sub got_pong {
 ################ END KEEP ALIVE ###################
 
 sub post {
-    my ($kernel, $heap, $data, $callback) = @_[KERNEL, HEAP, ARG0, ARG1];
+    my ($kernel, $heap, $method, $data, $callback) = @_[KERNEL, HEAP, ARG0, ARG1, ARG2];
     my $self = shift;
 
     return if $heap->{shutdown};
@@ -263,7 +263,7 @@ sub post {
     #   $data = $hash{$type};
     #}
 
-    my $payload = json_encode(json_message_create('post', $data, $callback));
+    my $payload = json_encode(json_message_create($method, $data, $callback));
 
     $heap->{server}->put($payload);
 

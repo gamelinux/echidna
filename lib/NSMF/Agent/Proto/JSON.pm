@@ -29,11 +29,12 @@ use v5.10;
 #
 # PERL INCLUDES
 #
+use AnyEvent;
 use Compress::Zlib;
 use Data::Dumper;
 use MIME::Base64;
 use Carp;
-use POE;
+use JSON;
 
 #
 # NSMF INCLUDES
@@ -58,40 +59,57 @@ sub instance {
     return $instance;
 }
 
-sub states {
+sub new {
+    my $class = shift;
+    my $parent = shift;
+
+    return bless {
+        __parent  => $parent,
+        __handle  => undef,
+        __handler => {
+            run           => undef,
+            set_identity  => undef,
+        },
+        __stage   => 'REQ',
+    }, $class;
+}
+
+sub set_parent {
+    my ($self, $parent) = @_;
+
+    $self->{__parent} = $parent;
+}
+
+sub set_handle {
+    my ($self, $handle) = @_;
+
+    $self->{__handle} = $handle;
+}
+
+sub read {
     my ($self) = @_;
 
-    return if (ref($self) ne __PACKAGE__ );
+    return if ( ! defined($self->{__handle}) );
 
-    return [
-        'dispatcher',
+    $self->{__handle}->push_read( json => sub { $self->dispatcher($_[1]); } );
+}
 
-        ## Authentication
-        'authenticate',
-        'identify',
+sub write {
+    my ($self, $data) = @_;
 
-        # -> To Server
-        'send_ping',
-        'send_pong',
-        'post',
+    return if ( ! defined($self->{__handle}) );
+    return if ( ref($data) ne 'HASH' );
 
-        # -> From Server
-        'got_ping',
-        'got_pong',
-        'got_get',
-        'has_pcap',
-    ];
+    $self->{__handle}->push_write( json => $data );
+    $self->{__handle}->push_write( "\012" );
 }
 
 sub dispatcher {
-    my ($kernel, $heap, $request) = @_[KERNEL, HEAP, ARG0];
-    my $self = shift;
+    my ($self, $json) = @_;
 
-    my $json = {};
     my $action = undef;
 
     eval {
-        $json = json_decode($request);
         $action = json_action_get($json);
     };
 
@@ -101,7 +119,7 @@ sub dispatcher {
         return;
     }
 
-    # check if we should responsd first
+    # check if we should respond first
 
     if( defined($action->{callback}) )
     {
@@ -110,15 +128,15 @@ sub dispatcher {
         #   2. POE kernel
         #   3. POE connection heap
         #   4. JSON response
-        return $action->{callback}($self, $kernel, $heap, $json);
+        return $action->{callback}($json);
     }
 
     # deal with notifications and method invocations
-    given($heap->{stage}) {
+    given($self->{__stage}) {
         when(/REQ/) {
             given($action->{method}) {
                 default: {
-                    $logger->debug("UNKNOWN: $request");
+                    $logger->debug("UNKNOWN:", $json);
                     return;
                 }
             }
@@ -126,7 +144,7 @@ sub dispatcher {
         when(/SYN/i) {
             given($action->{method}) {
                 default: {
-                    $logger->debug("UNKNOWN: $request");
+                    $logger->debug("UNKNOWN:", $json);
                     return;
                 }
             }
@@ -134,16 +152,16 @@ sub dispatcher {
         when(/EST/i) {
             given($action->{method}) {
                 when(/^ping/i) {
-                    $kernel->yield('got_ping');
+                    $self->got_ping();
                 }
                 when(/^get/i) {
-                    $kernel->yield('got_get' => $json);
+                    $self->got_get($json);
                 }
                 when(/^has_pcap/i) {
-                    $kernel->yield('has_pcap' => $json);
+                    $self->has_pcap($json);
                 }
                 default: {
-                    $logger->debug(" UNKNOWN RESPONSE: $request");
+                    $logger->debug(" UNKNOWN:", $json);
                     return;
                 }
             }
@@ -151,144 +169,124 @@ sub dispatcher {
     }
 }
 
-################ AUTHENTICATE ###################
+#
+# AUTHENTICATE
+#
 sub authenticate {
-    my ($kernel, $heap, $response) = @_[KERNEL, HEAP, ARG0];
-    my $self = shift;
+    my ($self) = @_;
 
-    $heap->{stage} = 'REQ';
-    my $agent    = $heap->{agent};
-    my $secret   = $heap->{secret};
+    $self->{__stage} = 'REQ';
 
-    my $payload = json_message_create("authenticate", {
-        "agent" => $agent,
-        "secret" => $secret
-    }, sub {
-        my ($self, $kernel, $heap, $json) = @_;
+    my $agent    = $self->{__parent}{agent};
+    my $secret   = $self->{__parent}{secret};
 
-        if ( defined($json->{result}) ) {
-            # store our unique agent ID
-            $heap->{agent_id} = $json->{result}{id};
-            $logger->debug('Authenticated. Agent ID = ' . $heap->{agent_id});
-            $kernel->yield('identify');
-        }
-        elsif ( defined($json->{error}) ) {
-            $logger->debug('Authentication NOT ACCEPTED!');
-        }
-        else {
-            $logger->debug(Dumper($json));
-            $logger->debug('UNKNOWN Authentication Response', $response);
-        }
-    });
+    my $payload = json_message_create('authenticate', {
+        agent   => $agent,
+        secret  => $secret
+    }, sub { $self->authenticate_response_handler(@_); });
 
-    $heap->{server}->put(json_encode($payload));
+    $self->write($payload);
 }
 
+sub authenticate_response_handler {
+    my ($self, $json) = @_;
+
+    if ( defined($json->{result}{id}) ) {
+
+        $self->{__parent}->set_identity({
+            agent_id => $json->{result}{id}
+        });
+
+        $logger->debug('Authenticated. Agent ID = ' . $json->{result}{id});
+
+        $self->identify();
+    }
+    elsif ( defined($json->{error}) ) {
+        $logger->debug('Authentication NOT ACCEPTED!');
+    }
+    else {
+        $logger->debug(Dumper($json));
+        $logger->debug('UNKNOWN Authentication Response', $json);
+    }
+}
+
+#
+# IDENTIFY
+#
 sub identify {
-    my ($kernel, $heap, $response) = @_[KERNEL, HEAP, ARG0];
     my $self = shift;
 
-    my $nodename = $heap->{nodename};
-    my $nodetype = $heap->{nodetype};
+    my $nodename = $self->{__parent}{nodename};
+    my $nodetype = $self->{__parent}{nodetype};
 
-    my $payload = json_method_create("identify", {
-        "module" => $nodename,
-        "type" => $nodetype,
-        "netgroup" => "test"
-    }, sub {
-        my ($self, $kernel, $heap, $json) = @_;
-
-        if ( defined($json->{result}) ) {
-             $heap->{node_id} = $json->{result}{id};
-             $heap->{stage} = 'EST';
-             $logger->debug('Synchronised. Node ID = ' . $heap->{node_id});
-             $kernel->yield('run');
-             $kernel->delay('send_ping' => 3);
-        }
-        else {
-            $logger->debug('Synchronisation UNSUPPORTED');
-        }
-    });
+    my $payload = json_method_create('identify', {
+        module    => $nodename,
+        type      => $nodetype,
+        netgroup  => 'test'
+    }, sub{ $self->identify_response_handler(@_); });
 
     $logger->debug('-> Identifying ' . $nodename);
 
     $logger->fatal('Nodename, Secret not defined on Identification Stage') if ( ! defined_args($nodename) );
 
-    $heap->{stage} = 'SYN';
-    $heap->{server}->put(json_encode($payload));
+    $self->{__stage} = 'SYN';
+    $self->write($payload);
 }
 
-################ END AUTHENTICATE ##################
+sub identify_response_handler {
+    my ($self, $json) = @_;
 
-################ KEEP ALIVE ###################
-sub send_ping {
-    my ($kernel, $heap) = @_[KERNEL, HEAP];
-    my $self = shift;
+    if ( defined($json->{result}) ) {
+        $self->{__parent}->set_identity({
+            node_id => $json->{result}{id}
+        });
 
-    if ( ( ! $heap->{connected} ) ||
-         ( $heap->{shutdown} ) ) {
-        return;
+        $self->{__stage} = 'EST';
+        $logger->debug('Identified. Node ID = ' . $json->{result}{id});
+
+#         $kernel->yield('run');
+
+#         $kernel->delay('send_ping' => 3);
     }
+    else {
+        $logger->debug('Identification UNSUPPORTED');
+    }
+}
+
+#
+# KEEP ALIVE
+#
+sub send_ping {
+    my ($self) = @_;
 
     # verify established connection
-    return if ( $heap->{stage} ne 'EST' );
+    return if ( $self->{__stage} ne 'EST' );
 
     $logger->debug('-> Sending PING..');
 
     my $ping_sent = time();
 
-    my $payload = json_message_create("ping", {
-        "timestamp" => $ping_sent
-    }, sub {
-        my ($self, $kernel, $heap, $json) = @_;
+    my $payload = json_message_create('ping', {
+        timestamp => $ping_sent
+    }, $self->got_pong);
 
-        if ( defined($json->{result}) )
-        {
-            $kernel->yield('got_pong');
-        }
-    });
-
-    $heap->{server}->put(json_encode($payload));
-    $heap->{ping_sent} = $ping_sent;
-}
-
-sub send_pong {
-    my ($kernel, $heap, $response) = @_[KERNEL, HEAP, ARG0];
-
-    # verify established connection
-    return if ( $heap->{stage} ne 'EST' );
-
-    my $ping_time = time();
-    $heap->{server}->put("PONG " .$ping_time. " NSMF/1.0\r\n");
-    $logger->debug('-> Sending PONG...');
-    $heap->{ping_sent} = $ping_time;
-}
-
-sub got_ping {
-    my ($kernel, $heap, $response) = @_[KERNEL, HEAP, ARG0];
-
-    # verify established connection
-    return if ( $heap->{stage} ne 'EST' );
-
-    $logger->debug('<- Got PING ');
-    $heap->{ping_recv} = time();
-
-    $kernel->yield('send_pong');
+    $self->write($payload);
+    $self->{ping_sent} = $ping_sent;
 }
 
 sub got_pong {
-    my ($kernel, $heap, $response) = @_[KERNEL, HEAP, ARG0];
+    my ($self, $json) = @_;
 
     # verify established connection
-    return if ( $heap->{stage} ne 'EST' );
+    return if ( $self->{__stage} ne 'EST' );
 
-    $heap->{pong_recv} = time();
+    $self->{pong_recv} = time();
 
-    my $latency = $heap->{pong_recv} - $heap->{ping_sent};
+    my $latency = $self->{pong_recv} - $self->{ping_sent};
 
     $logger->debug('<- Got PONG ' . (($latency > 3) ? ( "Latency (" .$latency. "s)" ) : ""));
 
-    $kernel->delay(send_ping => 60);
+#    $kernel->delay(send_ping => 60);
 }
 
 ################ END KEEP ALIVE ###################
@@ -296,13 +294,10 @@ sub got_pong {
 #
 # received a get from server
 sub got_get {
-    my ($kernel, $heap, $json) = @_[KERNEL, HEAP, ARG0];
-    my $self = shift;
-
-    return if $heap->{shutdown};
+    my ($self, $json) = shift;
 
     # verify established connection
-    return if ( $heap->{stage} ne 'EST' );
+    return if ( $self->{__stage} ne 'EST' );
 
     $logger->debug('-> Got GET...');
 
@@ -319,45 +314,43 @@ sub got_get {
 
     if ( ref($@) ) {
       $logger->error('Incomplete GET request. ' . $@->{message});
-      $heap->{client}->put($@->{object});
       return;
     }
 
-    $logger->debug($json);
+    $logger->debug("WOOT", $json);
 
     my $response;
     my $ret;
 
-    eval {
-        $ret = $kernel->call('node', 'get', $json->{params});
-    };
+#    eval {
+#        $ret = $kernel->call('node', 'get', $json->{params});
+#    };
 
 
-    if ( $@ ) {
-        $logger->error($@);
-        $response = json_error_create($json, {
-            message => $@->{message},
-            code => $@->{code}
-        });
-    }
-    else {
-        $response = json_result_create($json, $ret);
-    }
+#    if ( $@ ) {
+#        $logger->error($@);
+#        $response = json_error_create($json, {
+#            message => $@->{message},
+#            code => $@->{code}
+#        });
+#    }
+#    else {
+#        $response = json_result_create($json, $ret);
+#    }
 
     # don't reply with empty strings
-    if ( $response ne '' ) {
-        $heap->{server}->put($response);
-    }
+#    if ( $response ne '' ) {
+#        $heap->{server}->put($response);
+#    }
 }
 
-sub post {
-    my ($kernel, $heap, $data, $callback) = @_[KERNEL, HEAP, ARG0, ARG1];
-    my $self = shift;
+# send message to server
 
-    return if $heap->{shutdown};
+sub post {
+    my ($self, $method, $data, $callback) = @_;
 
     # verify established connection
-    return if ( $heap->{stage} ne 'EST' );
+    return if ( $self->{__stage} ne 'EST' );
 
     $logger->debug('-> Sending POST...');
 
@@ -368,15 +361,15 @@ sub post {
     #   $data = $hash{$type};
     #}
 
-    my $payload = json_encode(json_message_create('post', $data, $callback));
+    my $payload = json_message_create($method, $data, $callback);
 
-    $heap->{server}->put($payload);
+    $self->write($payload);
 
     $logger->debug('Data Size: ' . length($payload));
 }
 
 sub has_pcap {
-    my ($kernel, $heap, $json) = @_[KERNEL, HEAP, ARG0];
+    my ($self, $json) = @_;
 
     $logger->debug('  CHECKING IF THE DATA EXISTS ON THE NODE STORAGE');
 
@@ -388,13 +381,14 @@ sub has_pcap {
     };
 
     my $found = 1;
+
     if ($found) {
-        $heap->{server}->put(json_result_create($json, $result_params));
+        $self->write(json_result_create($json, $result_params));
         $logger->debug(' Meta data sent.');
     }
     # not
     else {
-        $heap->{server}->put(json_error_create($json,
+        $self->write(json_error_create($json,
             JSONRPC_NSMF_PCAP_NOT_FOUND));
     }
 }

@@ -31,9 +31,11 @@ use v5.10;
 #
 use Carp;
 use Data::Dumper;
-use POE;
-use POE::Filter::Line;
-use POE::Component::Client::TCP;
+
+use AnyEvent;
+use AnyEvent::Handle;
+use AnyEvent::Socket;
+
 
 #
 # NSMF INCLUDES
@@ -51,7 +53,7 @@ use NSMF::Common::Registry;
 #
 # The logger is going to be initialized later using the name
 # of the node for the logfile
-my $logger; 
+my $logger;
 
 #
 # CONSTANTS
@@ -68,20 +70,24 @@ sub new {
     my $class = shift;
 
     my $obj = bless {
+        __exit          => AnyEvent->condvar(),
+
         __config_path   => undef,
-        __config        => undef, 
+        __config        => undef,
         __proto         => undef,
-        __started       => time(),
-        __version       => $VERSION,
+
+        __started       => time(),      # time node started
+        __version       => $VERSION,    # version of node
+
+        __agent_id      => -1,          # agent id
+        __node_id       => -1,          # node id
+        __session_id    => -1,          # id of the active session
+        __connected     => 0,
+
         __data          => {},
-        __handlers      => {
-            _net        => undef,
-            _db         => undef,
-            _sessid     => undef,
-            _log        => undef,
-        },
+
         __client        => undef,
-        __id            => -1,
+
         _commands_all     => {},
         _commands_allowed => [],
     }, $class;
@@ -93,14 +99,11 @@ sub init {
     my ($self) = @_;
 
     $self->command_get_add({
-        "get_node_uptime" => {
-          "exec" => \&get_node_uptime,
+        get_node_uptime => {
+          exec => \&get_node_uptime,
         },
-        "get_node_version" => {
-          "exec" => \&get_node_version,
-        },
-        "get_node_id" => {
-          "exec" => \&get_node_id,
+        get_node_id => {
+          exec => \&get_node_id,
         },
     });
 
@@ -121,11 +124,12 @@ sub load_config {
     $self->{__config} = NSMF::Agent::ConfigMngr->load($path);
     $logger  = NSMF::Common::Logger->load($self->{__config}{config}{log});
 
-    NSMF::Common::Registry->set( 'log'    => $logger); 
+    NSMF::Common::Registry->set( 'log'    => $logger);
     NSMF::Common::Registry->set( 'config' => $self->{__config}{config});
 
     eval {
-        $self->{__proto}  = NSMF::Agent::ProtoMngr->create($self->{__config}->protocol());
+        $self->{__proto} = NSMF::Agent::ProtoMngr->create($self->{__config}->protocol());
+        $self->{__proto}->set_parent($self);
     };
 
     if ( $@ ) {
@@ -147,6 +151,12 @@ sub config {
 sub sync {
     my ($self) = @_;
 
+    $self->server_connect();
+}
+
+sub server_connect {
+    my ($self) = @_;
+
     my $config = $self->{__config};
     my $proto = $self->{__proto};
 
@@ -155,71 +165,106 @@ sub sync {
 
     return if ( ! defined_args($host, $port) );
 
-    $self->{__client} = POE::Component::Client::TCP->new(
-        Alias         => 'node',
-        RemoteAddress => $host,
-        RemotePort    => $port,
-        Filter        => "POE::Filter::Line",
-        Connected => sub {
-            my ($kernel, $heap) = @_[KERNEL, HEAP];
-            $logger->info("[+] Connected to server ($host:$port) ...");
-
-            $heap->{nodename} = $config->name();
-            $heap->{nodetype} = $self->type();
-            $heap->{netgroup} = $config->netgroup();
-            $heap->{secret}   = $config->secret();
-            $heap->{agent}    = $config->agent();
-
-            $kernel->yield('authenticate');
-        },
-        ConnectError => sub {
-            my ($kernel, $heap) = @_[KERNEL, HEAP];
-            $logger->warn("Could not connect to server ($host:$port)... Attempting reconnect in " . $heap->{reconnect} . 's');
-
-            # reconnect
-            $kernel->delay('connect', $heap->{reconnect});
-        },
-        ServerInput => sub {
-            my ($kernel, $response) = @_[KERNEL, ARG0];
-
-            $kernel->yield(dispatcher => $response);
-        },
-        ServerError => sub {
-            my ($kernel, $heap) = @_[KERNEL, HEAP];
-            $logger->warn('Lost connection to server... Attempting reconnect in ' . $heap->{reconnect} . 's');
-
-            # reconnect
-            $kernel->delay('connect', $heap->{reconnect});
-        },
-        InlineStates => {
-            connected => sub {
-                my ($kernel, $heap) = @_[KERNEL, HEAP];
-
-                return $heap->{connected} // 0;
-            }
-        },
-        ObjectStates => [
-            $proto => $proto->states(),
-            $self => [ 'run', 'get' ]
-        ],
-        Started => sub {
-            my ($kernel, $heap) = @_[KERNEL, HEAP];
-
-            $heap->{reconnect} = 10;
-        },
+    $self->{__handle} = AnyEvent::Handle->new(
+      connect           => [$host, $port],
+      on_connect        => sub { $self->server_on_connect(@_); },
+      on_connect_error  => sub { $self->server_connect_error(@_); },
+      on_error          => sub { $self->server_error(@_); },
+      on_read           => sub { $self->server_read(@_); },
+      on_eof            => sub { $self->server_closed(@_); },
     );
 }
 
+sub server_on_connect {
+    my ($self, $handle, $host, $port) = @_;
+
+    $self->{__proto}->set_handle($handle);
+
+    $logger->info('[+] Connected to server (' . $host . ':' . $port. ')...');
+
+    my $config = $self->{__config};
+
+    $self->{nodename} = $config->name();
+    $self->{nodetype} = $self->type();
+    $self->{netgroup} = $config->netgroup();
+    $self->{secret}   = $config->secret();
+    $self->{agent}    = $config->agent();
+
+    $self->{__proto}->authenticate();
+
+    $self->{__connected} = 1;
+}
+
+sub server_connect_error {
+    my ($self, $handle, $message) = @_;
+
+    $logger->warn('Could not connect to server (' .
+        $self->{__config}->host() . ':' .
+        $self->{__config}->port() . ')');
+    $self->server_reconnect();
+}
+
+sub server_error {
+    my ($self, $handle, $fatal, $message) = @_;
+
+    $logger->error('Connection error: ' . $message);
+
+    $self->{__connected} = 0;
+
+    $self->server_reconnect();
+}
+
+sub server_reconnect {
+    my ($self) = @_;
+
+    # initiate a reconnection
+    my $reconnect = $self->{reconnect} // 60;
+
+    $logger->info('Attempting reconnect in ' . $reconnect . 's');
+
+    # only set the reconnect timer once
+    return if ( defined($self->{_reconnect}) );
+
+    $self->{_reconnect} = AnyEvent->timer(
+        after => $reconnect,
+        cb => sub {
+            $self->server_connect();
+
+            # clear up our variable
+            undef( $self->{_reconnect} );
+        }
+    );
+}
+
+sub server_read {
+    my ($self, $handle) = @_;
+
+    $self->{__proto}->read();
+}
+
+sub server_closed {
+    my ($self, $handle, $fatal, $message) = @_;
+
+    $self->{__connected} = 0;
+
+    # TODO: initiate a shutdown
+}
+
+sub connected {
+    my ($self) = @_;
+
+    return $self->{__connected} == 1;
+}
+
 sub run {
-    my ($kernel, $heap) = @_[KERNEL, HEAP];
-    my $self = shift;
+    my ($self) = @_;
 
     $logger->fatal('Base run call needs to be overridden.');
 }
 
 sub command_get_add
 {
-    my ( $self, $commands ) = @_;
+    my ($self, $commands) = @_;
 
     # ensure we have a command hash
     if ( ref($commands) ne 'HASH' ) {
@@ -245,8 +290,7 @@ sub command_get_add
 }
 
 sub get {
-    my ($kernel, $heap, $data) = @_[KERNEL, HEAP, ARG0];
-    my $self = shift;
+    my ($self, $data) = @_;
 
     my $command = undef;
     my $params = undef;
@@ -264,7 +308,7 @@ sub get {
     given( $command ) {
         when( $self->{_commands_allowed} ) {
             # we pass $self due to exec being an function pointer
-            return $self->{_commands_all}{$command}{exec}->($self, $kernel, $heap, $params);
+            return $self->{_commands_all}{$command}{exec}->($self, $params);
         }
         default {
             $logger->error($self->{_commands_available});
@@ -275,21 +319,37 @@ sub get {
 }
 
 sub get_node_id {
-    my ($self, $kernel, $heap, $data) = @_;
-
-    return $heap->{node_id};
+    my ($self) = @_;
+    return $self->{__node_id};
 }
 
 sub get_node_uptime {
-    my ($self, $kernel, $heap, $data) = @_;
+    my ($self) = @_;
 
     return time() - $self->{__started};
 }
 
 sub get_node_version {
-    my ($self, $kernel, $heap, $data) = @_;
+    my ($self) = @_;
 
     return $self->{__version};
+}
+
+# identify
+sub set_identity {
+    my ($self, $identity) = @_;
+
+    return if ( ! ref($identity) eq 'HASH' );
+
+    $logger->debug('Setting Identity');
+
+    if( defined($identity->{node_id}) ) {
+        $self->{__node_id} = $identity->{node_id};
+    }
+
+    if( defined($identity->{agent_id}) ) {
+        $self->{__agent_id} = $identity->{agent_id};
+    }
 }
 
 sub logger {
@@ -306,11 +366,14 @@ sub session {
     my ($self) = @_;
 
     return if ( ref($self) ne __PACKAGE__ );
-    return $self->{__handlers}{_sessid};
+    return $self->{__session_id};
 }
 
 sub start {
-    POE::Kernel->run();
+    my ($self) =@_;
+
+    # start event loop, waiting for our exit condition
+    $self->{__exit}->recv();
 }
 
 1;

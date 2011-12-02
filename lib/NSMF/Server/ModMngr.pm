@@ -35,29 +35,33 @@ use Data::Dumper;
 # NSMF INCLUDES
 #
 use NSMF::Server;
+use NSMF::Server::Component::BARNYARD2;
+use NSMF::Server::Component::CXTRACKER;
 
 
 sub load {
-    my ($self, $module_name, $acl) = @_;
+    my ($self, $module_name) = @_;
 
-    my $module_path;
     my $echidna = NSMF::Server->new();
     my $config  = $echidna->config;
     my $modules = ["core", @{ $config->modules() } ];
 
     if( lc($module_name) ~~ @{ $modules } ) {
-        $module_path = 'NSMF::Server::Component::' . uc($module_name);
-        eval "use $module_path";
+        my $module = 'NSMF::Server::Component::' . uc($module_name);
+        my $instance = undef;
+
+        eval {
+            $instance = $module->new();
+        };
 
         if( $@ ) {
             die { status => 'error', message => "Failed to load module $module_name: $@" };
         }
-        else {
-            return $module_path->new($acl);
-        }
+
+        return $instance;
     }
 
-    die { status => 'error', message => 'Module Not Enabled' }; 
+    die { status => 'error', message => 'Module not enabled.' };
 }
 
 1;

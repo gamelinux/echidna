@@ -29,7 +29,7 @@ use v5.10;
 #
 # PERL INCLUDES
 #
-use POE;
+use AnyEvent;
 
 #
 # NSMF INCLUDES
@@ -47,48 +47,38 @@ sub file_watcher {
 
     $logger->fatal('Expected hash ref of parameters. Got: ', $settings) if ( ! ref($settings) );
 
-    my $dir      = $settings->{directory}     // $logger->fatal('Directory Expected');
-    my $time     = $settings->{interval}      // 3;
-    my $cb_obj   = $settings->{callback}->[0] // $logger->fatal('Callback Expected');
-    my $cb_func  = $settings->{callback}->[1] // $logger->fatal('Callback Expected');
-    my $regex    = $settings->{pattern}       // $logger->fatal('Regex Expected');
-    my $alias    = $settings->{alias}         // 'file_watcher';
+    my $dir      = $settings->{directory} // $logger->fatal('Directory Expected');
+    my $time     = $settings->{interval}  // 3;
+    my $cb       = $settings->{callback}  // $logger->fatal('Callback Expected');
+    my $regex    = $settings->{pattern}   // $logger->fatal('Regex Expected');
+    my $alias    = $settings->{alias}     // 'file_watcher';
 
-    return POE::Session->create(
-        inline_states => {
-            _start => sub {
-                $_[KERNEL]->yield('watch');
-                $_[KERNEL]->alias_set($alias);
-                $_[HEAP]->{dir} = $dir;
-                $_[HEAP]->{callback} = $cb_func;
-                $_[HEAP]->{time} = $time;
-            },
-            watch => sub {
-                my ($kernel, $heap) = @_[KERNEL, HEAP];
-                my $file_back;
+    my $w = AnyEvent->timer(
+        interval => $settings->{interval},
+        cb       => sub {
+            my $file_back;
 
-                $logger->debug('Checking dir: ' . $dir);
+            $logger->debug('Checking dir: ' . $dir);
 
-                if( opendir my $dh, $dir ) {
-                    while ( my $file = readdir($dh)) {
-                        if ( -f "$dir/$file" and $file =~ /$regex/) {
-                            $file_back = $dir . $file;
-                            last;
-                        }
+            if( opendir my $dh, $dir ) {
+                while ( my $file = readdir($dh)) {
+                    if ( -f "$dir/$file" and $file =~ /$regex/) {
+                        $file_back = $dir . $file;
+                        last;
                     }
-                    closedir($dh);
-                    $kernel->yield($heap->{callback}, $file_back);
                 }
-                else {
-                    $logger->error("Could not open $dir");
-                }
-                $kernel->delay( watch => $time );
-            },
+
+                closedir($dh);
+
+                $cb->($file_back);
+            }
+            else {
+                $logger->error("Could not open $dir");
+            }
         },
-        object_states => [
-            $cb_obj => [ $cb_func ]
-        ]
     );
+
+    return $w;
 }
 
 1;

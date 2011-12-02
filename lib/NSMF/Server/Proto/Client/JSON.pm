@@ -29,15 +29,10 @@ use v5.10;
 #
 # PERL INCLUDES
 #
+use Carp;
 use Compress::Zlib;
 use Data::Dumper;
 use Date::Format;
-use Carp;
-use POE qw(
-    Session
-    Wheel::Run
-    Filter::Reference
-);
 
 #
 # NSMF INCLUDES
@@ -62,361 +57,356 @@ my $config = NSMF::Common::Registry->get('config')
 
 my $modules = $config->modules() // [];
 
-#
-# CLIENT/NODE tracking
-#
 sub instance {
     return $instance if ( $instance );
 
     my ($class) = @_;
-    return bless({}, $class);
+
+    my $self = bless({
+        methods => {},
+    }, $class);
+
+    $self->init();
+
+    return $self;
 }
 
-sub states {
+sub init {
     my ($self) = @_;
 
-    return if ( ref($self) ne __PACKAGE__ );
-
-    return [
-        'dispatcher',
-        'authenticate',
-        'ping',
-        'post',
-        'get',
-
-        'client_registered',
-        'client_unregistered',
-
-        'client_broadcast'
-    ];
+    $self->_register_method('authenticate', 0, sub { $self->authenticate(@_); });
+    $self->_register_method('ping', 0, sub { $self->ping(@_); });
+    $self->_register_method('get_available_components', 0, sub { $self->get_available_components(@_); });
+    $self->_register_method('get_available_methods', 0, sub { $self->get_available_methods(@_); });
 }
 
-sub client_registered {
-    my ($kernel, $session, $heap) = @_[KERNEL, SESSION, HEAP];
+sub client_from_handle {
+    my ($self, $handle) = @_;
 
     my $clients = NSMF::Server->instance()->clients();
+    my $client = undef;
 
-    $clients->{$session->ID()} = {
-        id => $heap->{details}{id},
-        name => $heap->{details}{name},
-        description => $heap->{details}{description} // '',
-    };
+    if ( ref($handle) eq 'AnyEvent::Handle' ) {
+        $client = $clients->{ fileno( $handle->{fh} ) };
+    }
+    elsif ( ref($handle) eq 'AnyEvent::Socket' ) {
+      $client = $clients->{ fileno($handle) } // undef;
+    }
 
-    # update DB
+    return $client;
 }
 
-sub client_unregistered {
-    my ($kernel, $session, $heap) = @_[KERNEL, SESSION, HEAP];
+sub read {
+    my ($self, $handle) = @_;
 
-    my $clients = NSMF::Server->instance()->clients();
-
-    delete $clients->{$session->ID()};
+    $handle->push_read( json => sub { $self->dispatcher(@_); } );
 }
 
-sub client_broadcast {
-    my ($kernel, $session, $heap, $module, $args) = @_[KERNEL, SESSION, HEAP, ARG0, ARG1];
+sub write {
+    my ($self, $handle, $json) = @_;
 
+    return if ( ref($json) ne 'HASH' );
+
+    $handle->push_write( json => $json );
+    $handle->push_write( "\n" );
 }
 
 sub dispatcher {
-    my ($kernel, $heap, $request) = @_[KERNEL, HEAP, ARG0];
-    my $self = shift;
+    my ($self, $handle, $json) = @_;
 
-    my $json = {};
-    my $action = undef;
+    my $action = json_action_get($json);
 
-    eval {
-        $json = json_decode($request);
-        $action = json_action_get($json);
-    };
-
-    if ( $@ ) {
-        $logger->error('Invalid JSON request');
-        $logger->debug($request);
-        return;
-    }
+    # obtain node from handle
+    my $client = $self->client_from_handle($handle);
+    return if ( ! defined($client) );
 
     # check if we should respond first
     if ( defined($action->{callback}) ) {
-
-        # fire the callback providing
-        #   1. ourself
-        #   2. POE kernel
-        #   3. POE connection heap
-        #   4. JSON response
-
-        #if ($action->{method} eq 'has_pcap') {
-        #    $heap->{pcap} = $action->{callback}($self, $kernel, $heap, $json);
-        #    return;
-        #}
-        return $action->{callback}($self, $kernel, $heap, $json);
+        return $action->{callback}($self, $client, $json);
     }
 
     if ( exists($json->{method}) ) {
-        my $action = $json->{method};
+        my $ret;
 
-        if( $action ~~ ['authenticate', 'identify', 'get', 'ping', 'post'] ) {
-            $kernel->yield($action, $json);
+        eval {
+            $self->_execute_method($json->{method}, $client, $json);
+        };
+
+        if ( ref($@) ) {
+            $self->write($handle, json_error_create($json, $@));
         }
-        else {
-            $logger->debug(Dumper($json));
-            $heap->{client}->put(json_error_create($json, JSONRPC_NSMF_BAD_REQUEST));
-        }
+    }
+    else {
+        $self->write($handle, json_error_create($json, JSONRPC_NSMF_BAD_REQUEST));
     }
 }
 
-sub authenticate {
-    my ($kernel, $session, $heap, $json) = @_[KERNEL, SESSION, HEAP, ARG0];
-    my $self = shift;
+#
+# PRIVATE METHODS
+#
 
-    if ( $heap->{status} ne 'REQ' ) {
-        $heap->{client}->put(json_error_create($json, JSONRPC_NSMF_UNAUTHORIZED));
-        return;
+sub _register_method {
+    my ($self, $method, $acl, $func) = @_;
+
+    # check if the method is already defined
+    return 0 if ( defined($self->{methods}{$method}) );
+
+    $logger->debug('Registering client method: ' . $method);
+    $self->{methods}{ $method } = {
+        acl   => $acl,
+        func  => $func,
+    }
+}
+
+sub _register_methods {
+    my ($self, $methods) = @_;
+
+    return if ( ref($methods) ne 'ARRAY' );
+
+    # add each method definition from the array
+    foreach my $method ( @{ $methods } ) {
+        $self->_register_method($method->{method}, $method->{acl}, $method->{func});
+    }
+}
+
+sub _execute_method {
+    my ($self, $method, $client, $json) = @_;
+
+    # ensure the method is defined
+    if ( ! defined($self->{methods}{ $method }) )
+    {
+        # attempt to dynamically load the class if appropriate
+        my ($class, $class_method) = split(/\./, $method);
+
+        $logger->debug("Looking for class: $class");
+
+        if ( ! ($class ~~ @{ $modules }) ) {
+            die JSONRPC_ERR_METHOD_NOT_FOUND;
+        }
+
+        if ( ! defined($self->{module}{$class}) ) {
+            $logger->debug('-> ' . uc($class) . ' supported!');
+
+            eval {
+                $self->{module}{$class} = NSMF::Server::ModMngr->load(uc($class));
+                $self->_register_methods( $self->{module}{$class}->get_registered_methods() );
+            };
+
+            if ($@) {
+                $logger->error('Could not load module type: ' . $class);
+                $logger->debug($@);
+                die JSONRPC_NSMF_GET_UNSUPPORTED;
+            }
+
+            if ( ! defined($self->{methods}{ $method }) )
+            {
+                die JSONRPC_ERR_METHOD_NOT_FOUND;
+            }
+        }
+    };
+
+    # ensure the caller has sufficient privilege
+    if ( $self->{methods}{ $method }{acl} ) {
+        return if ( $client->{details}{acl} < $self->{methods}{$method}{acl} );
     }
 
-    $logger->debug( "  -> Authentication Request");
+    $logger->debug('Calling from client: ' . $method);
 
+    # finally call the method now
+    $self->{methods}{ $method }{func}->($client, $json, sub {
+        my $result = shift;
+
+        $self->write( $client->{handle}, json_result_create($json, $result) );
+    });
+}
+
+sub _is_authenticated {
+    my ($self, $node) = @_;
+
+    return ( ( $node->{status} eq 'EST' ) &&
+             ( $node->{session_key} ) );
+}
+
+#
+# CORE METHODS
+#
+
+sub authenticate {
+    my ($self, $client, $json, $callback) = @_;
+
+    if ( $client->{status} ne 'REQ' ) {
+        die { object => JSONRPC_NSMF_UNAUTHORIZED };
+    }
+
+    $logger->debug('Authentication Request');
+
+    # authenticate the node
     eval {
         json_validate($json, ['$client','$secret']);
     };
 
-    if ( ref $@ ) {
-      $logger->error('Incomplete JSON AUTH request. ' . $@->{message});
-      $heap->{client}->put($@->{object});
-      return;
+    if ( ref($@) ) {
+        $logger->error('Incomplete JSON AUTH request. ' . $@->{message});
+        die $@;
     }
-
-    my $client = $json->{params}{client};
-    my $secret = $json->{params}{secret};
 
     my $client_details = {};
 
     eval {
-        $client_details = NSMF::Server::AuthMngr->authenticate_client($client, $secret);
+        $client_details = NSMF::Server::AuthMngr->authenticate_client($json->{params}{client}, $json->{params}{secret});
     };
 
     if ($@) {
-        $logger->debug('Client authentication request unsupported: ', $@);
-        $heap->{client}->put(json_error_create($json, JSONRPC_NSMF_AUTH_UNSUPPORTED));
-        return;
+        $logger->error('Client authentication request unsupported: ', $@);
+        die { object => JSONRPC_NSMF_AUTH_UNSUPPORTED };
     }
 
-    $heap->{name} = $client;
-    $heap->{acl} = $client_details->{level};
-    $heap->{details} = $client_details;
-    $heap->{module} = {};
+    $client->{status} = 'EST';
+    $client->{name} = $client;
+    $client->{acl} = $client_details->{level};
+    $client->{details} = $client_details;
+    $client->{module} = {};
 
-    $logger->debug("Client authenticated: $client");
+    # generate the session key
+    my @keyspace = ('a'..'z', 'A'..'Z', 0..9);
+    $client->{session_key} = join('', map $keyspace[rand @keyspace], 0..32);
 
-    # generate the session ID
-    $heap->{session_key} = 1;
 
-    $kernel->yield('client_registered');
+    my $db = NSMF::Server->database();
+#    $db->update({ node => { state => 1 } }, { id => $node->{details}{id} });
 
-    $heap->{client}->put(json_result_create($json, $client_details));
-
-    # clients don't require an ident and are established
-    $heap->{status} = 'EST';
+    $callback->( $client_details );
 }
 
+sub get_available_components {
+    my ($self, $client, $json, $callback) = @_;
+
+    # ensure we are authenticated
+    if ( ! $self->_is_authenticated($client) ) {
+        die JSONRPC_NSMF_BAD_REQUEST;
+    }
+
+    $callback->( $modules );
+}
+
+sub get_available_methods {
+    my ($self, $client, $json, $callback) = @_;
+
+    # ensure we are authenticated
+    if ( ! $self->_is_authenticated($client) ) {
+        die JSONRPC_NSMF_BAD_REQUEST;
+    }
+
+    $callback->( keys( %{ $self->{methods} } ) );
+}
 
 sub ping {
-    my ($kernel, $heap, $json) = @_[KERNEL, HEAP, ARG0];
-    my $self = shift;
+    my ($self, $client, $json, $callback) = @_;
 
-    $logger->debug("  <- Got PING");
+    # ensure we are authenticated
+    if ( ! $self->_is_authenticated($client) ) {
+        die JSONRPC_NSMF_BAD_REQUEST;
+    }
 
-    $kernel->post(transfer_mngr => 'queue_status');
+    $logger->debug('  <- Got PING');
+
+#   $kernel->post(transfer_mngr => 'queue_status');
+
     eval {
         json_validate($json, ['$timestamp']);
     };
 
     if ( ref $@ ) {
-      $logger->error('Incomplete PING request. ' . $@->{message});
-      $heap->{client}->put($@->{object});
-      return;
+        $logger->error('Incomplete PING request. ' . $@->{message});
+        die $@;
     }
 
     my $ping_time = $json->{params}{timestamp};
 
-    $heap->{ping_recv} = $ping_time if $ping_time;
-
-    if ( $heap->{status} ne 'EST' || ! $heap->{session_key}) {
-        $heap->{client}->put(json_error_create($json, JSONRPC_NSMF_UNAUTHORIZED));
-        return;
-    }
+    $client->{ping_recv} = $ping_time if $ping_time;
 
     $logger->debug('  -> Sending PONG');
 
-    my $response = json_result_create($json, {
-        "timestamp" => time()
-    });
-
-    $heap->{client}->put($response);
+    $callback->( { timestamp => time() } );
 }
 
-#sub child_output {
-#    my ($kernel, $heap, $output) = @_[KERNEL, HEAP, ARG0];
-#    $logger->debug(Dumper($output));
-#}
 
-#sub child_error {
-#    $logger->error("Child Error: $_[ARG0]");
-#}
-
-#sub child_signal {
-#    my $heap = $_[HEAP];
-#    #$logger->debug("   * PID: $_[ARG1] exited with status $_[ARG2]");
-#    my $child = delete $heap->{children_by_pid}{$_[ARG1]};
-
-#    return if ( ! defined($child) );
-
-#    delete $heap->{children_by_wid}{$child->ID};
-#}
-
-#sub child_close {
-#    my ($heap, $wid) = @_[HEAP, ARG0];
-#    my $child = delete $heap->{children_by_wid}{$wid};
-
-#    if ( ! defined($child) ) {
-#    #    $logger->debug("Wheel Id: $wid closed");
+#sub get {
+#    my ($self, $client, $json) = @_;
+#
+#    if ( $heap->{status} ne 'EST' || ! $heap->{session_key}) {
+#        $heap->{client}->put(json_result_create($json, 'Bad request'));
 #        return;
 #    }
-
-#    #$logger->debug("   * PID: " .$child->PID. " closed");
-#    delete $heap->{children_by_pid}{$child->PID};
+#
+#    eval {
+#        my ($ret, $response) = json_validate($json, ['$type', '$jobid', '%data']);
+#    };
+#
+#    if ( ref($@) ) {
+#      $logger->error('Incomplete GET request. ' . $@->{message});
+#      $heap->{client}->put($@->{object});
+#      return;
+#    }
+#
+#    my $module_type = $json->{params}{type};
+#
+#    $logger->debug('This is a GET for ' . $module_type);
+#
+#    my $modules_allowed = ["core", @{ $modules }];
+#
+#    if ( $module_type ~~ @{ $modules_allowed } ) {
+#        # dyamically load module as required
+#        if ( ! defined($heap->{module}{$module_type}) ) {
+#            $logger->debug("-> " .uc($module_type). " supported!");
+#
+#            eval {
+#                $heap->{module}{$module_type} = NSMF::Server::ModMngr->load(uc($module_type), $heap->{acl});
+#            };
+#
+#            if ($@) {
+#                $logger->error('Could not load module type: ' . $module_type);
+#                $logger->debug($@);
+#                $heap->{client}->put(json_error_create($json, JSONRPC_NSMF_GET_UNSUPPORTED));
+#                return;
+#            }
+#        }
+#
+#        if ( defined($heap->{module}{$module_type}) ) {
+#            $logger->debug("Module Called");
+#
+#            my $ret = undef;
+#
+#            eval {
+#                $ret = $heap->{module}{$module_type}->get( $json->{params}{data}, sub { 
+#                    my $ret = shift;
+#                    my $response = json_result_create($json, $ret);
+#
+#                    # don't reply with empty strings
+#                    if ( $response ne '' ) {
+#                        $heap->{client}->put($response);
+#                    }
+#                });
+#            };
+#
+#            if ( $@ ) {
+#                $logger->error($@);
+#                my $response = json_error_create($json, {
+#                    message => $@->{message},
+#                    code => $@->{code}
+#                });
+#
+#                # don't reply with empty strings
+#                if ( $response ne '' ) {
+#                    $heap->{client}->put($response);
+#                }
+#            }
+#        }
+#    }
+#    # module is not supported
+#    else {
+#        $heap->{client}->put(json_error_create($json, JSONRPC_NSMF_GET_UNSUPPORTED));
+#    }
 #}
-
-sub post {
-    my ($kernel, $heap, $json) = @_[KERNEL, HEAP, ARG0];
-    my $self = shift;
-
-    if ( $heap->{status} ne 'EST' || ! $heap->{session_key}) {
-        $heap->{client}->put(json_result_create($json, 'Bad request'));
-        return;
-    }
-
-    eval {
-        my ($ret, $response) = json_validate($json, ['$type', '$jobid', '%data']);
-    };
-
-    if ( ref($@) ) {
-      $logger->error('Incomplete POST request. ' . $@->{message});
-      $heap->{client}->put($@->{object});
-      return;
-    }
-
-    $logger->debug('This is a POST for ' . $heap->{name});
-
-    my $module = $heap->{module};
-
-    my $ret = undef;
-
-    eval {
-        $ret = $module->process( $json->{params} );
-    };
-
-    my $response = '';
-
-    if ( $@ ) {
-        $logger->error($@);
-        $response = json_error_create($json, {
-            message => $@->{message},
-            code => $@->{code}
-        });
-    }
-    else {
-        $response = json_result_create($json, $ret);
-    }
-
-    # don't reply with empty strings
-    if ( $response ne '' ) {
-        $heap->{client}->put($response);
-    }
-}
-
-sub get {
-    my ($kernel, $heap, $json) = @_[KERNEL, HEAP, ARG0];
-    my $self = shift;
-
-    if ( $heap->{status} ne 'EST' || ! $heap->{session_key}) {
-        $heap->{client}->put(json_result_create($json, 'Bad request'));
-        return;
-    }
-
-    eval {
-        my ($ret, $response) = json_validate($json, ['$type', '$jobid', '%data']);
-    };
-
-    if ( ref($@) ) {
-      $logger->error('Incomplete GET request. ' . $@->{message});
-      $heap->{client}->put($@->{object});
-      return;
-    }
-
-    my $module_type = $json->{params}{type};
-
-    $logger->debug('This is a GET for ' . $module_type);
-
-    my $modules_allowed = ["core", @{ $modules }];
-
-    if ( $module_type ~~ @{ $modules_allowed } ) {
-        # dyamically load module as required
-        if ( ! defined($heap->{module}{$module_type}) ) {
-            $logger->debug("-> " .uc($module_type). " supported!");
-
-            eval {
-                $heap->{module}{$module_type} = NSMF::Server::ModMngr->load(uc($module_type), $heap->{acl});
-            };
-
-            if ($@) {
-                $logger->error('Could not load module type: ' . $module_type);
-                $logger->debug($@);
-                $heap->{client}->put(json_error_create($json, JSONRPC_NSMF_GET_UNSUPPORTED));
-                return;
-            }
-        }
-
-        if ( defined($heap->{module}{$module_type}) ) {
-            $logger->debug("Module Called");
-
-            my $ret = undef;
-
-            eval {
-                $ret = $heap->{module}{$module_type}->get( $json->{params}{data}, sub { 
-                    my $ret = shift;
-                    my $response = json_result_create($json, $ret);
-
-                    # don't reply with empty strings
-                    if ( $response ne '' ) {
-                        $heap->{client}->put($response);
-                    }
-                });
-            };
-
-            if ( $@ ) {
-                $logger->error($@);
-                my $response = json_error_create($json, {
-                    message => $@->{message},
-                    code => $@->{code}
-                });
-
-                # don't reply with empty strings
-                if ( $response ne '' ) {
-                    $heap->{client}->put($response);
-                }
-            }
-        }
-    }
-    # module is not supported
-    else {
-        $heap->{client}->put(json_error_create($json, JSONRPC_NSMF_GET_UNSUPPORTED));
-    }
-}
-
-sub _is_authenticated {
-    my $heap = shift;
-    return 1 unless ( $heap->{status} ne 'EST' || ! $heap->{session_key});
-}
 
 1;

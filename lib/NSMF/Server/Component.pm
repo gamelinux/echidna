@@ -49,116 +49,23 @@ sub new {
     my $class = shift;
 
     my $obj = bless {
-        _acl              => 0,
-        _commands_all     => {},
-        _commands_allowed => [],
     }, $class;
 
     return $obj->init(@_);
 }
 
 sub init {
-    my ($self, $acl) = @_;
-
-    $self->{_acl} = $acl // 0;
-
-    $self->command_get_add({
-        "commands_available" => {
-          "exec" => \&get_commands_available,
-          "acl" => 0,
-        },
-    });
-
-    $self->{_commands_allowed} = [ grep { $self->{_commands_all}{$_}{acl} <= $acl } sort( keys( %{ $self->{_commands_all} } ) ) ];
+    my ($self) = @_;
 
     return $self;
 }
 
-sub command_get_add
-{
-    my ( $self, $commands ) = @_;
-
-    # ensure we have a command hash
-    if ( ref($commands) ne 'HASH' ) {
-        $logger->error('Command(s) not a HASH description.');
-        return;
-    }
-
-    # add all contained keys
-    foreach my $c ( keys ( %{ $commands } ) ) {
-        if ( defined($self->{_commands_all}{$c} ) ) {
-            $logger->warn('Ignoring duplicate command definition: ' . $c);
-            continue;
-        }
-
-        my $command = $commands->{$c};
-
-        # ensure sane defaults
-        $command->{acl}   //= 127;
-        $command->{exec}  //= sub {};
-
-        # add the command to the stack
-        $self->{_commands_all}{$c} = $command;
-    }
-}
-
-
-#
-# POST
-# TODO: RENAME process
-#
-sub process {
+sub get_registered_methods {
     my ($self) = @_;
 
-    $logger->warn('Base PROCESS needs to be overridden.');
+    $logger->warn('Base GET_REGISTERED_METHODS needs to be overridden.');
 
-    return 1;
-}
-
-#
-# GET
-#
-sub get {
-    my ($self, $data, $callback) = @_;
-
-    my $command = undef;
-    my $params = undef;
-
-    # TODO: apply some structure here
-    if( ref($data) ne 'HASH' ) {
-        $command = $data;
-    }
-    else {
-      my @c = keys(%{ $data });
-      $command = $c[0];
-      $params = $data->{$command};
-    }
-
-    given( $command ) {
-        when( $self->{_commands_allowed} ) {
-            # we pass $self due to exec being an function pointer
-            return $self->{_commands_all}{$command}{exec}->($self, $params, $callback);
-        }
-        default {
-            $logger->debug($self->{_commands_available});
-            die {
-                message => 'Unknown module command: ' . $command,
-                code => -10000
-            };
-        }
-    }
-
-    return 0;
-}
-
-
-sub get_commands_available
-{
-    my ($self, $params, $callback) = @_;
-
-    if( ref($callback) eq 'CODE' ) {
-        $callback->($self->{_commands_allowed});
-    }
+    return [];
 }
 
 sub logger {

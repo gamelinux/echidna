@@ -319,10 +319,10 @@ sub json_response_create
     my ($type, $json, $data) = @_;
 
     # no response should occur if not of type result or error
-    return '' if ( ! ($type ~~ ['result', 'error']) );
+    return undef if ( ! ($type ~~ ['result', 'error']) );
 
     # no response should occur if no id was specified (ie. notification)
-    return '' if ( ! defined($json) || ! exists($json->{id}) );
+    return undef if ( ! defined($json) || ! exists($json->{id}) );
 
     my $result = {
         jsonrpc => '2.0',
@@ -330,7 +330,7 @@ sub json_response_create
         $type => $data // {}
     };
 
-    return encode_json($result);
+    return $result;
 }
 
 sub json_result_create

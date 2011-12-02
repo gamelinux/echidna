@@ -107,7 +107,7 @@ sub insert {
     $data->{net_dst_flags}         //=  0;
 
 
-    my $sql = 'INSERT INTO session (id, timestamp, time_start, time_end, time_duration, node_id, net_version, net_protocol, net_src_ip, net_src_port, net_src_total_packets, net_src_total_bytes, net_src_flags, net_dst_ip, net_dst_port, net_dst_total_packets, net_dst_total_bytes, net_dst_flags, data_filename, data_offset, data_length) VALUES (' .
+    my $sql = 'INSERT INTO session (id, timestamp, time_start, time_end, time_duration, node_id, net_version, net_protocol, net_src_ip, net_src_port, net_src_total_packets, net_src_total_bytes, net_src_flags, net_dst_ip, net_dst_port, net_dst_total_packets, net_dst_total_bytes, net_dst_flags, data_filename_start, data_offset_start, data_filename_end, data_offset_end) VALUES (' .
         join(",", (
             $data->{id},
             '"'.$data->{timestamp}.'"',
@@ -127,9 +127,10 @@ sub insert {
             $data->{net_dst_total_packets},
             $data->{net_dst_total_bytes},
             $data->{net_dst_flags},
-            '"'.$data->{data_filename}.'"',
-            $data->{data_offset},
-            $data->{data_length}
+            '"'.$data->{data_filename_start}.'"',
+            $data->{data_offset_start},
+            '"'.$data->{data_filename_end}.'"',
+            $data->{data_offset_end}
         )). ')';
 
     $logger->debug("SQL: $sql");
@@ -143,7 +144,7 @@ sub insert {
 sub search {
     my ($self, $filter) = @_;
 
-    my $sql = 'SELECT id, timestamp, time_start, time_end, time_duration, node_id, net_version, net_protocol, INET_NTOP(net_src_ip) AS net_src_ip, net_src_port, net_src_total_packets, net_src_total_bytes, net_src_flags, INET_NTOP(net_dst_ip) AS net_dst_ip, net_dst_port, net_dst_total_packets, net_dst_total_bytes, net_dst_flags, data_filename, data_offset, data_length FROM session ' . $self->create_filter($filter);
+    my $sql = 'SELECT id, timestamp, time_start, time_end, time_duration, node_id, net_version, net_protocol, INET_NTOP(net_src_ip) AS net_src_ip, net_src_port, net_src_total_packets, net_src_total_bytes, net_src_flags, INET_NTOP(net_dst_ip) AS net_dst_ip, net_dst_port, net_dst_total_packets, net_dst_total_bytes, net_dst_flags, data_filename_start, data_offset_start, data_filename_end, data_offset_end FROM session ' . $self->create_filter($filter);
 
     $logger->debug("SQL: $sql");
 
@@ -201,9 +202,10 @@ CREATE TABLE session (
    net_dst_total_packets  BIGINT UNSIGNED    NOT NULL ,
    net_dst_total_bytes    BIGINT UNSIGNED    NOT NULL ,
    net_dst_flags          TINYINT UNSIGNED   NOT NULL ,
-   data_filename          TEXT               NOT NULL ,
-   data_offset            BIGINT UNSIGNED    NOT NULL ,
-   data_length            BIGINT UNSIGNED    NOT NULL ,
+   data_filename_start    TEXT               NOT NULL ,
+   data_offset_start      BIGINT UNSIGNED    NOT NULL ,
+   data_filename_end      TEXT               NOT NULL ,
+   data_offset_end        BIGINT UNSIGNED    NOT NULL ,
    meta                   TEXT,
    PRIMARY KEY (id),
    INDEX node_ix (node_id)

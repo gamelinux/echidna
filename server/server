@@ -32,7 +32,11 @@ use v5.10;
 #
 # PERL INCLUDES
 #
-use POE qw(Component::Server::TCP);
+use AnyEvent;
+use AnyEvent::Handle;
+use AnyEvent::Socket;
+use Carp;
+use Data::Dumper;
 
 #
 # NSMF INCLUDES
@@ -41,12 +45,9 @@ use NSMF::Common::Logger;
 use NSMF::Common::Registry;
 
 use NSMF::Server;
-use NSMF::Server::Action;
+#use NSMF::Server::Action;
 use NSMF::Server::ConfigMngr;
 use NSMF::Server::WebSocket qw(websocket_handshake);
-
-use Carp;
-use Data::Dumper;
 
 #
 # GLOBALS
@@ -66,142 +67,244 @@ $NSMF::Common::Logger::LOG_DIR = $NSMF::Server::BASE_PATH . '/logs';
 
 my $logger = NSMF::Common::Logger->load($config->{config}{log});
 my $reg    = NSMF::Common::Registry->new;
+
 $reg->set( 'log'    => $logger );
 $reg->set( 'config' => $config );
 
+my $exit = AnyEvent->condvar();
+
 my $echidna       = NSMF::Server->new();
+
 my $proto_nodes   = $echidna->proto('node');
 my $proto_clients = $echidna->proto('client');
 
 # service node connections
-my $nodes = POE::Component::Server::TCP->new(
-    Alias              => "node_listener",
-    Address            => $config->node_host(),
-    Port               => $config->node_port(),
-    ClientConnected    => \&node_connected,
-    ClientDisconnected => \&node_disconnected,
-    ClientInput => sub {
-        my ($kernel, $heap, $input) = @_[KERNEL, HEAP, ARG0];
-        $kernel->yield('dispatcher', $input);
-    },
-    ClientFilter => "POE::Filter::Line",
-    ObjectStates => [ $proto_nodes => $proto_nodes->states() ],
-    Started => sub {
-        $logger->info('Listening for nodes on ' . $config->node_host() . ':' . $config->node_port());
-    },
-);
+my $node_listener = tcp_server(
+    $config->node_host(), $config->node_port(),
+    sub { node_accept(@_); },
+    sub { node_prepare(@_); }
+  );
+
 
 # service client connections
-my $clients = POE::Component::Server::TCP->new(
-    Alias              => "client_listener",
-    Address            => $config->client_host(),
-    Port               => $config->client_port(),
-    ClientConnected    => \&client_connected,
-    ClientDisconnected => \&client_disconnected,
-    ClientInput => sub {
-        my ($kernel, $heap, $input) = @_[KERNEL, HEAP, ARG0];
-
-        # 
-        $kernel->yield('handshake', $input);
-    },
-    ClientFilter => "POE::Filter::Line",
-    ObjectStates => [ $proto_clients => $proto_clients->states() ],
-    InlineStates => {
-        handshake => sub {
-            my ($kernel, $heap, $input) = @_[KERNEL, HEAP, ARG0];
-
-            # TODO: make this a tidier check for WebSocket handshake
-            if ( $input =~ /WebSocket-/ ) {
-                $logger->debug("HANDSHAKE");
-                websocket_handshake($heap->{client}, $input);
-            }
-            else {
-                # no special handshakes here, should've gone to the dispatcher
-                $kernel->yield('dispatcher', $input);
-            }
-
-            # from here on direct all input straight to the dispatcher
-            $kernel->state('tcp_server_got_input' => sub {
-                return if ( $_[HEAP]->{shutdown} );
-                $_[KERNEL]->yield('dispatcher', $_[ARG0]);
-            });
-        },
-    },
-    Started => sub {
-        $logger->info('Listening for clients on ' . $config->client_host() . ':' . $config->client_port());
-    },
-);
-
-my $transfer_queue = {};
-my $transfer_mngr = POE::Session->create(
-    inline_states => {
-        _start => sub {
-            $_[KERNEL]->alias_set('transfer_mngr');
-        },
-        catch => sub {
-            my ($json) = $_[ARG0];
-
-            $transfer_queue->{$json->{id}} =  NSMF::Server::Action->file_catcher({
-                transfer_id => $json->{id},
-                checksum    => $json->{result}{checksum},
-            });
-
-            if (defined $transfer_queue->{$json->{id}}) {
-                $logger->debug("Action file_catcher added to TransferQueue with job id " .$json->{id});
-            }
-        },
-        queue_remove => sub {
-            my ($job_id) = $_[ARG0];
-            $logger->debug("Removing job id $job_id from TransferQueue");
-            delete $transfer_queue->{$job_id};
-        },
-        queue_status => sub {
-            $logger->debug("The Transfer queue has " . scalar(keys %$transfer_queue). " jobs");
-            $logger->debug('Job Ids: ('. keys(%$transfer_queue).')');
-        }
-    },
-);
-
-sub node_connected {
-    my ($session, $heap) = @_[SESSION, HEAP];
-
-    $logger->debug('Node connected from ' . $heap->{remote_ip} . ':' . $heap->{remote_port});
-
-    # node heap initialization
-    $heap->{type}       = 'NODE';
-    $heap->{status}     = 'REQ';
-    $heap->{nodename}   = undef;
-    $heap->{session_id} = undef;
-    $heap->{netgroup}   = undef;
-}
-
-sub node_disconnected {
-    my ($kernel, $session, $heap) = @_[KERNEL, SESSION, HEAP];
-    $logger->debug('Node with ' . $session->ID . ' disconnected');
-
-    $kernel->call($session, 'node_unregistered');
-}
-
-sub client_connected {
-    my ($session, $heap) = @_[SESSION, HEAP];
-
-    $logger->debug('Client connected from ' . $heap->{remote_ip} . ':' . $heap->{remote_port});
-
-    # client heap initialization
-    $heap->{type}       = 'CLIENT';
-    $heap->{status}     = 'REQ';
-    $heap->{clientname} = undef;
-    $heap->{session_id} = undef;
-    $heap->{netgroup}   = undef;
-}
-
-sub client_disconnected {
-    my ($kernel, $session, $heap) = @_[KERNEL, SESSION, HEAP];
-    $logger->debug('Client with ' . $session->ID . ' disconnected');
-
-    $kernel->call($session, 'client_unregistered');
-}
+my $client_listener = tcp_server(
+    $config->client_host(), $config->client_port(),
+    sub { client_accept(@_); },
+    sub { client_prepare(@_); }
+  );
+#
 
 $logger->info('Server Initialized ...');
-POE::Kernel->run();
+
+$exit->recv();
+
 exit(0);
+
+
+#my $clients = POE::Component::Server::TCP->new(
+#    ClientInput => sub {
+#        my ($kernel, $heap, $input) = @_[KERNEL, HEAP, ARG0];
+#
+#        # 
+#        $kernel->yield('handshake', $input);
+#    },
+#    ClientFilter => "POE::Filter::Line",
+#    ObjectStates => [ $proto_clients => $proto_clients->states() ],
+#    InlineStates => {
+#        handshake => sub {
+#            my ($kernel, $heap, $input) = @_[KERNEL, HEAP, ARG0];
+#
+#            # TODO: make this a tidier check for WebSocket handshake
+#            if ( $input =~ /WebSocket-/ ) {
+#                $logger->debug("HANDSHAKE");
+#                websocket_handshake($heap->{client}, $input);
+#            }
+#            else {
+#                # no special handshakes here, should've gone to the dispatcher
+#                $kernel->yield('dispatcher', $input);
+#            }
+#
+#            # from here on direct all input straight to the dispatcher
+#            $kernel->state('tcp_server_got_input' => sub {
+#                return if ( $_[HEAP]->{shutdown} );
+#                $_[KERNEL]->yield('dispatcher', $_[ARG0]);
+#            });
+#        },
+#    },
+#    Started => sub {
+#        $logger->info('Listening for clients on ' . $config->client_host() . ':' . $config->client_port());
+#    },
+#);
+#
+#my $transfer_queue = {};
+#my $transfer_mngr = POE::Session->create(
+#    inline_states => {
+#        _start => sub {
+#            $_[KERNEL]->alias_set('transfer_mngr');
+#        },
+#        catch => sub {
+#            my ($json) = $_[ARG0];
+#
+#            $transfer_queue->{$json->{id}} =  NSMF::Server::Action->file_catcher({
+#                transfer_id => $json->{id},
+#                checksum    => $json->{result}{checksum},
+#            });
+#
+#            if (defined $transfer_queue->{$json->{id}}) {
+#                $logger->debug("Action file_catcher added to TransferQueue with job id " .$json->{id});
+#            }
+#        },
+#        queue_remove => sub {
+#            my ($job_id) = $_[ARG0];
+#            $logger->debug("Removing job id $job_id from TransferQueue");
+#            delete $transfer_queue->{$job_id};
+#        },
+#        queue_status => sub {
+#            $logger->debug("The Transfer queue has " . scalar(keys %$transfer_queue). " jobs");
+#            $logger->debug('Job Ids: ('. keys(%$transfer_queue).')');
+#        }
+#    },
+#);
+
+
+#
+# NODE HANDLERS
+#
+
+sub node_prepare {
+    my ($handle, $listen_host, $listen_port) = @_;
+
+    $logger->info('Listening for client connections on ' . $listen_host . ':' . $listen_port);
+}
+
+sub node_accept {
+    my ($handle, $remote_host, $remote_port) = @_;
+
+    my $h = AnyEvent::Handle->new(
+        fh => $handle,
+        on_error => sub { node_error(@_); },
+        on_read  => sub { $proto_nodes->read(@_); },
+        on_eof   => sub { node_closed(@_); }
+    );
+
+    my @keyspace = ('a'..'z', 'A'..'Z', 0..9);
+
+    my $node = {
+        handle      => $h,
+        remote      => [ $remote_host, $remote_port ],
+        status      => 'REQ',
+        name        => undef,
+        group       => undef,
+        session_id  => join('', map $keyspace[rand @keyspace], 0..32)
+    };
+
+    # store the node (and watcher) with reference to the file handle
+    my $nodes = NSMF::Server->instance()->nodes();
+
+    $nodes->{ fileno($handle) } = $node;
+
+    $logger->debug('Node instance connection initiated from: ' . $remote_host . ':' . $remote_port);
+}
+
+sub node_error {
+    my ($handle, $message) = @_;
+
+    $logger->debug('Node terminated');
+
+    node_unregister($handle);
+}
+
+sub node_closed {
+    my ($handle) = @_;
+
+    $logger->debug('Node disconnected');
+
+    node_unregister($handle);
+}
+
+sub node_unregister {
+    my ($handle) = @_;
+
+    my $nodes = NSMF::Server->instance()->nodes();
+    my $node = delete($nodes->{ fileno($handle->{fh}) });
+
+    if ( defined($node) &&
+         defined($node->{node_details}{id}) ) {
+        my $db = NSMF::Server->database();
+        $db->update({ node => { state => 0 } }, { id => $node->{node_details}{id} });
+    }
+
+    $logger->debug('Node ' . $node->{session_id} . ' disconnected');
+}
+
+#
+#  CLIENT HANDLERS
+#
+#
+
+
+sub client_prepare {
+    my ($handle, $listen_host, $listen_port) = @_;
+
+    $logger->info('Listening for client connections on ' . $listen_host . ':' . $listen_port);
+}
+
+sub client_accept {
+    my ($handle, $remote_host, $remote_port) = @_;
+
+    my $h = AnyEvent::Handle->new(
+        fh => $handle,
+        on_error => sub { client_error(@_); },
+        on_read  => sub { $proto_clients->read(@_); },
+        on_eof   => sub { client_closed(@_); }
+    );
+
+    my @keyspace = ('a'..'z', 'A'..'Z', 0..9);
+
+    my $client = {
+        handle      => $h,
+        remote      => [ $remote_host, $remote_port ],
+        status      => 'REQ',
+        name        => undef,
+        group       => undef,
+        session_id  => join('', map $keyspace[rand @keyspace], 0..32)
+    };
+
+    # store the client (and watcher) with reference to the file handle
+    my $clients = NSMF::Server->instance()->clients();
+
+    $clients->{ fileno($handle) } = $client;
+
+    $logger->debug('Client instance connection initiated from: ' . $remote_host . ':' . $remote_port);
+}
+
+sub client_error {
+    my ($handle, $message) = @_;
+
+    $logger->debug('Client terminated');
+
+    client_unregister($handle);
+}
+
+sub client_closed {
+    my ($handle) = @_;
+
+    $logger->debug('Client disconnected');
+
+    client_unregister($handle);
+}
+
+sub client_unregister {
+    my ($handle) = @_;
+
+    my $clients = NSMF::Server->instance()->clients();
+    my $client = delete($clients->{ fileno($handle->{fh}) });
+
+    if ( defined($client) &&
+         defined($client->{client_details}{id}) ) {
+#        my $db = NSMF::Server->database();
+#        $db->update({ client => { state => 0 } }, { id => $client->{client_details}{id} });
+    }
+
+    $logger->debug('Client ' . $client->{session_id} . ' disconnected');
+}

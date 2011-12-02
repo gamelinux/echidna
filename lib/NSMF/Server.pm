@@ -83,7 +83,7 @@ sub instance {
             $node_proto   = NSMF::Server::ProtoMngr->create('node', $config->protocol('node'));
             $client_proto = NSMF::Server::ProtoMngr->create('client', $config->protocol('client'));
         }; 
-        
+
         if ( $@ ) {
             $logger->fatal(Dumper($@));
         }

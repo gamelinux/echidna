@@ -183,8 +183,6 @@ sub insert {
             next;
         }
 
-        $logger->debug('Adding entry');
-
         eval {
             $ret |= $type_map->{$type}->insert($entry);
         };
@@ -275,8 +273,6 @@ sub update {
             $logger->warn('Ignoring entry due to unknown format: ' . ref($entry));
             next;
         }
-
-        $logger->debug('Adding entry');
 
         eval {
             $ret |= $type_map->{$type}->update($entry, $filter);

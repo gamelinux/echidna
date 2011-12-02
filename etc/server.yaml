@@ -68,5 +68,6 @@ database:
 #   - daemonlogger
 #
 modules:
+    - core
     - cxtracker
     - barnyard2

@@ -50,101 +50,40 @@ my $logger = NSMF::Common::Registry->get('log')
 # MEMBERS
 #
 
-sub init {
-    my ($self, $acl) = @_;
+sub get_registered_methods {
+    my ($self) = @_;
 
-    # init the base class first
-    $self->SUPER::init($acl);
-
-    $self->command_get_add({
-        "search_event" => {
-            "help" => "Search for events..",
-            "exec" => \&search_event,
-            "acl" => 0,
+    return [
+        {
+            method => 'barnyard2.save',
+            acl    => 0,
+            func   => sub{ $self->save(@_); }
         },
-    });
-
-    $self->{_commands_allowed} = [ grep { $self->{_commands_all}{$_}{acl} <= $acl } sort( keys( %{ $self->{_commands_all} } ) ) ];
-
-    return $self;
-}
-
-
-sub hello {
-    $logger->debug("Hello World from BARNYARD2 server component!!");
-    my $self = shift;
-    $_->hello for $self->plugins;
+        {
+            method => 'barnyard2.get_max_eid',
+            acl    => 0,
+            func   => sub{ $self->node_max_eid_get(@_); }
+        }
+    ];
 }
 
 sub node_max_eid_get
 {
-    my ($self, $node_id) = @_;
+    my ($self, $node, $json) = @_;
 
     my $db = NSMF::Server->database();
 
-    my $max_eid = $db->custom("event", "event_id_max", {
-        "node_id" => $node_id
+    my $max_eid = $db->custom('event', 'event_id_max', {
+        node_id => $node->{details}{id}
     });
 
     return $max_eid;
 }
 
-
-sub process {
-    my ($self, $data) = @_;
-
-    if ( ! defined($data->{action}) ) {
-        return undef;
-    }
-
-    given($data->{action})
-    {
-        when("node_max_eid_get") {
-            my $max_eid = $self->node_max_eid_get($data->{parameters}{node_id});
-
-            return $max_eid;
-        }
-        when("event_alert") {
-            return $self->save($data->{parameters});
-        }
-    }
-
-    return undef;
-}
-
-sub validate {
-    my ($self, $event) = @_;
-
-    my $db = NSMF::Server->database();
-
-    # verify number of elements
-    my $event_fields = @{ $event };
-
-    if ( @{ $event } < 25 )
-    {
-        $logger->debug('Insufficient fields in EVENT line. Got ' . $event_fields . ' and expected 25.');
-        return 0;
-    }
-
-    # verify duplicate in db
-    my $dup = $db->search({
-        event => {
-            id => $event->[1]+0,
-        }
-    });
-
-    # already exists confirm it's there already
-    if ( @{ $dup } )
-    {
-        $logger->debug('Event already stored.');
-        return 2;
-    }
-
-    return 1;
-}
-
 sub save {
-    my ($self, $event) = @_;
+    my ($self, $node, $json) = @_;
+
+    my $event = $json->{params};
 
     # validation the event data received
     my $validation = $self->validate( $event );
@@ -155,7 +94,7 @@ sub save {
     return $event_id if ($validation == 2);
 
     my $db = NSMF::Server->database();
-#2011-09-01 20:11:40 [D] {"params":{"parameters":["1","376631","21","2011-09-01 22:07:30.308857","1","30100000","1","Snort Alert [1:30100000:0]","3","not-suspicious","4","85.19.221.250","8","8.8.4.4","0","1","4","5","0","84","0","2","0","64","64399","","","","","","","","","","","","","","02E65F4E4FB6040008090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F202122232425262728292A2B2C2D2E2F3031323334353637"],"action":"event_alert"},"jsonrpc":"2.0","id":"33612","method":"post"}
+#2011-09-01 20:11:40 [D] {"params":["1","376631","21","2011-09-01 22:07:30.308857","1","30100000","1","Snort Alert [1:30100000:0]","3","not-suspicious","4","85.19.221.250","8","8.8.4.4","0","1","4","5","0","84","0","2","0","64","64399","","","","","","","","","","","","","","02E65F4E4FB6040008090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F202122232425262728292A2B2C2D2E2F3031323334353637"],"jsonrpc":"2.0","id":"33612","method":"barnyard2.save"}
 
     my $ret = $db->insert({
         event => {
@@ -189,21 +128,35 @@ sub save {
     return -1;
 }
 
-
-#
-# GET
-#
-
-sub search_event {
-    my ($self, $params) = @_;
+sub validate {
+    my ($self, $event) = @_;
 
     my $db = NSMF::Server->database();
 
-    $logger->debug($params);
+    # verify number of elements
+    my $event_fields = @{ $event };
 
-    # TODO validate, process the params and return the result
+    if ( @{ $event } < 25 )
+    {
+        $logger->debug('Insufficient fields in EVENT line. Got ' . $event_fields . ' and expected 25.');
+        return 0;
+    }
 
-    return 0;
+    # verify duplicate in db
+    my $dup = $db->search({
+        event => {
+            id => $event->[1]+0,
+        }
+    });
+
+    # already exists confirm it's there already
+    if ( @{ $dup } )
+    {
+        $logger->debug('Event already stored.');
+        return 2;
+    }
+
+    return 1;
 }
 
 1;
