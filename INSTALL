@@ -12,22 +12,21 @@ UBUNTU INSTALL:
 
 
 FEDORA INSTALL
-  # sudo yum install perl-POE perl-YAML-Tiny perl-TimeDate perl-JSON perl-Digest-SHA perl-Log-Dispatch
+  # sudo yum install perl-POE perl-YAML-Tiny perl-TimeDate perl-JSON perl-Digest-SHA perl-Log-Dispatch perl-AnyEvent
 
 
 FREEBSD INSTALL (v8.2 with "Minimal" base install)
   # pkg_add -r perl p5-POE p5-YAML-Tiny p5-Module-Pluggable p5-JSON p5-Log-Dispatch p5-DBI p5-DBD-mysql55 mysql55-client mysql55-server
 
    (Optional if using GIT for install): # pkg_add -r git
-  
+
   # rehash
-  
+
   If you want to run the client
   # pkg_add -r p5-Term-ReadKey
-  
+
   Date::Format Perl module is not in ports or packages
   # cpan Date::Format
-==
 
 
 NOTES:
@@ -76,7 +75,7 @@ CXTRACKER:
 SNORT:
 ...
 
-BARNYARD:
+BARNYARD2:
 ...
 
 
