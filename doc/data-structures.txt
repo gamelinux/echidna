@@ -385,7 +385,10 @@ TBD
 ------------------------------------------------------------------------------
 
 The policy and control data types are broken down in to the following types:
-  * Signature,
+  * Signature
+  * Policy
+  * Grouping
+  * Variable
 
 The data types are described below.
 
@@ -394,38 +397,49 @@ The data types are described below.
  3.1. SIGNATURE
 ------------------------------------------------------------------------------
 
+The type + hash uniquely identifies a signature.
+
 "signature" => {
   "type" => 1
+  "hash" => "4ea664c1b887d7fbf734a1a5e07a4dbfbe40056a"
+  "signature" => "alert tcp $EXTERNAL_NET any -> any any (msg:"Test signature");" 
+
   "id" => 527,
+  "parent_id" => 541,
   "revision" => 8,
-  "message" => "DELETED BAD ALERT Unknown Traffic."
-  "priority" => 2,
   "category" => "bad-unknown",
-  "rule" => "alert tcp $EXTERNAL_NET any -> any any (msg:"Test signature");"
-  "meta_snort_gid" => 3,
-  "meta_snort_sid" => 12355,
-  "meta_snort_revision" => 1,
+  "priority" => 2,
+  "message" => "DELETED BAD ALERT Unknown Traffic."
 }
 
 The field descriptions are:
   * type
-    - The type ID of the signature (eg. Snort rule = 1, PRADS rule = 2)
+    - The type ID of the signature (eg. Snort rule = 1, PRADS rule = 2, BRO rule = 3)
+
+  * hash
+    - The cryptographic hash value of 'signature' to distinctively identify a signature in 
+      HEXADECIMAL format using SHA-256.
+
+  * signature
+    - The raw/complete signature/rule used by the IDS (eg. the contents of one Snort Rule)
 
   * id
-    - The unique ID for this type of signature (eg. Snort SID)
+    - The unique ID for this type of signature (eg. content of Snort SID)
 
+  * parent_id
+    - The OPTIONAL unique ID for this signatures's parent signature, if any.
+ 
   * revision
-    - The revision number of this signature (eg. Snort SID-REV)
-
-  * message
-    - An OPTIONAL succinct message that describes the signature's purpose
-
-  * priority
-    - The specific priority associated with this type of signature
+    - The OPTIONAL revision number of this signature (eg. content of Snort SID-REV)
 
   * category
-    - A general universal category that this signature belows to (eg.
-      Snort classification such as "bad-unknown")
+    - A OPTIONAL general universal category that this signature belows to (eg. Snort classification such as "bad-unknown")
+
+  * priority
+    - The OPTIONAL specific priority associated with this type of signature
+
+  * message
+    - An OPTIONAL succinct message that describes the signature's purpose (e.g. Snort Message or Bro Event)
 
   * meta_*
     - An extendible object that defines any additional, vendor specific
@@ -433,8 +447,8 @@ The field descriptions are:
 
       For example:
 
-      * snort
-        - A snort vendor object representing a raw snort signature
+      * Snort/Suricata
+        - A snort/suricata vendor object representing a raw snort signature
 
           * gid
             - The Generator ID of the snort rule
@@ -445,8 +459,110 @@ The field descriptions are:
           * revision
             - The Revision of the snort rule
 
-          * rule
-            - The complete snort rule
+      * Bro
+        - A snort/suricata vendor object representing a raw Bro signature
 
+          * id
+            - The ID of the bro rule (unique label)
+
+          * attribute_*
+            - An extendible object that define additional information for this Bro signature.
+
+      * "Other" IDS
+        - A "Other" IDS vendor object representing a raw "Other" IDS signature
+
+          ...
+
+
+------------------------------------------------------------------------------
+ 3.2. POLICY
+------------------------------------------------------------------------------
+
+"policy" => {
+  "type" => 1
+  "id" => 528,
+  "parent_id" => 0,
+  "name" => "MySQL Servers",
+  "desc" => "A policy to cover my MySQL Servers.",
+
+  "group_signatures" => [666,512]
+  "group_nodes" => [1,231]
+  "group_variables" => [22,33]
+}
+
+The field descriptions are:
+  * type
+    - The type ID of the policy (eg. GLOBAL POLICY = 1, LOCAL POLICY = 2)
+
+  * id
+    - The unique ID for this type of policy (eg. Auto-increment)
+
+  * parent_id
+    - The OPTIONAL unique ID for this policy's parent policy, if any.
+ 
+  * name
+    - The name of this policy (eg. Apache 2.2.14 Signatures) 
+
+  * desc
+    - The description of this policy (eg. More meat-on-the-bone as to what it's purpose is.)
+
+  * group_signatures
+    - The ID's of the groups of signatures to attach this policy to. (e.g. To signature groups 666 and 512)
+
+  * group_nodes
+    - The ID's of the groups of signatures to attach this policy to. (e.g. Two node groups containing Snort Nodes )
+
+  * group_variables
+    - The ID's of the groups of variables to attach this policy to.
+
+
+------------------------------------------------------------------------------
+ 3.3 GROUPING
+------------------------------------------------------------------------------
+
+"grouping" => {
+  "id" => 666,
+  "type" => 1,
+  "name" => "Snort Nodes",
+  "desc" => "My Snort Sensors!"
+  "objects" => [1,2,3,4]
+}
+
+The field descriptions are:
+  * id
+    - The unique ID for this node group (eg. Auto-increment)
+
+  * type
+    - The type ID of the this group (eg. 1 = nodes, 2 = signatures, 3 = variables)
+ 
+  * name
+    - A describing name of this node group (eg. Snort Sensors or MySQL Servers )
+
+  * desc
+    - The description of this node group (eg. These are my X sensors! )
+ 
+  * objects
+    - The linked objects attached to this group (eg. Node 1 and Node 2, or Signature 4231 or Signature 132331)
+
+
+------------------------------------------------------------------------------
+ 3.4 VARIABLE
+------------------------------------------------------------------------------
+
+"variable" => {
+  "id" => 1,
+  "key" => "snort::interface",
+  "value" => "eth0"
+}
+
+The field descriptions are:
+  * id
+    - The unique ID for this variable (eg. Auto-Increment )
+
+  * key
+    - The key (name) of this variable (eg. update interval)
+ 
+  * value
+    - The generic value of this variable key. (eg. 300 <- this being the update interval )
 
 
