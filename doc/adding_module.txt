@@ -1,0 +1,36 @@
+# Some notes on adding a module into Echidna
+
+# IF you _CAN'T_ reuse one if the DB tables already there....
+1. Make the DB part: lib/NSMF/Server/DB/MYSQL/<Generic-Module>.pm 
+   * The DB should be generic - pick generic names!
+   ** Think that it should be usable for other similar "node" software,
+      so try to look at other possible sources, and what could be
+      expected from those.
+      Example - Event, should handle Snort/Suricata events, but also events
+      from other sources, like OSSEC, mod_security, etc.
+   * 
+
+# This could be unique
+2. Make the handler: lib/NSMF/Server/Component/<Module>.pm
+   * This will handle the data that comes from the node into the server.
+     Say you want to use sancp instead of cxtracker, the DB-table might
+     be the same, but you dont want it to be called cxtracker, and you
+     want some extra data into the "meta" field. If you can extend the
+     current handler and still have a clean way of co-existing - c00l.
+   * You should look at other <Modules> that uses the same DB-table
+     and maybe use them as templates for creating your own.
+
+# This is unique
+3. Make the node
+   * You should be able to recode a node from say perl, into python or
+     ruby, C, OCaml, tcl, or whatever.
+   ** You can reuse handlers -> DB-tables
+   * If you made a new handler, and you have a new type of node, you need
+     to make sure the node speaks with the handler OK.
+   * The node can be in any language you prefere :)
+   ** We encourage people to code in the main language of the framework
+      just for easy reuse of the libs/ already made and the additions you
+      may bring, that can help others. But this is not a limitation, so
+      again, you are free to code in the language of choice :)
+
+
