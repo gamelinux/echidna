@@ -185,16 +185,13 @@ extended to more backends in future stages).
 
 4. Run the server.
 
-# cd server
-# sudo ./server
+ # ./server/server
 
 
 5. Run the nodes.
 
-# cd nodes
-# ./barnyard2
-# ./cxtracker
-
+ # ./nodes/barnyard2
+ # ./nodes/cxtracker
 
 6. Run the feeders.
 

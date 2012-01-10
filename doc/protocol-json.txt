@@ -1,4 +1,22 @@
 #
+# SERVER
+#
+
+method: authenticate
+method: identify
+method: ping
+
+
+method: cxtracker.save
+
+method: barnyard2.save
+
+
+#
+# EXAMPLES
+#
+
+#
 # NODE <-> SERVER
 #
 
