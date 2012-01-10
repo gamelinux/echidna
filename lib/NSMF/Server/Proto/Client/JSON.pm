@@ -1,7 +1,7 @@
 #
 # This file is part of the NSM framework
 #
-# Copyright (C) 2010-2011, Edward Fjellskål <edwardfjellskaal@gmail.com>
+# Copyright (C) 2010-2012, Edward Fjellskål <edwardfjellskaal@gmail.com>
 #                          Eduardo Urias    <windkaiser@gmail.com>
 #                          Ian Firns        <firnsy@securixlive.com>
 #
@@ -124,8 +124,8 @@ sub dispatcher {
     if ( defined($action->{callback}) ) {
         return $action->{callback}($self, $client, $json);
     }
-
-    if ( exists($json->{method}) ) {
+    # otherwise check if the requeseted method exists
+    elsif ( exists($json->{method}) ) {
         my $ret;
 
         eval {
@@ -136,6 +136,7 @@ sub dispatcher {
             $self->write($handle, json_error_create($json, $@));
         }
     }
+    # otherwise, bail
     else {
         $self->write($handle, json_error_create($json, JSONRPC_NSMF_BAD_REQUEST));
     }

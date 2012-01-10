@@ -1,7 +1,7 @@
 #
 # This file is part of the NSM framework
 #
-# Copyright (C) 2010-2011, Edward Fjellskål <edwardfjellskaal@gmail.com>
+# Copyright (C) 2010-2012, Edward Fjellskål <edwardfjellskaal@gmail.com>
 #                          Eduardo Urias    <windkaiser@gmail.com>
 #                          Ian Firns        <firnsy@securixlive.com>
 #
