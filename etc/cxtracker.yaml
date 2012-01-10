@@ -10,7 +10,7 @@ server:
     port: 10101
 
 settings:
-    cxtdir: '/var/lib/cxtracker/'
+    cxtdir: '/var/log/cxtracker/'
 
 #
 # LOG
@@ -19,7 +19,7 @@ settings:
 #
 log:
     default:
-        level: info
+        level: debug
         timestamp: 1
 #       timestamp_format: "%Y-%m-%d %H:%M:%S"
         logfile: stdout

@@ -5,10 +5,10 @@
 #
 network:
     node:
-        host: localhost
+        host: 127.0.0.1
         port: 10101
     client:
-        host: localhost
+        host: 127.0.0.1
         port: 10201
 
 #
@@ -18,14 +18,10 @@ network:
 #
 log:
     default:
-        level: info
+        level: debug
         timestamp: 1
         logfile: stdout
         warn_is_fatal: 1
-    debug:
-        level: debug
-        timestamp: 1
-        logfile: 'server-debug.log'
 
 #
 # PROTOCOL
