@@ -36,6 +36,8 @@ use Carp;
 #
 use NSMF::Server;
 use NSMF::Common::Registry;
+use NSMF::Model::Agent;
+use NSMF::Model::Node;
 
 #
 # GLOBALS
@@ -46,17 +48,19 @@ my $logger = NSMF::Common::Registry->get('log')
 sub authenticate_agent {
     my ($self, $name, $key) = @_;
 
-    my $database = NSMF::Server->database();
+    my $db = NSMF::Server->database();
 
-    my $agent = $database->search({
-        agent => {
-            name => $name,
-            #version => [gt, 1],
-        },
+
+    $logger->debug("Preparing search");
+
+    my $agent = $db->search(agent => {
+        name => $name,
+        #version => [gt, 1],
     });
 
+
     if ( @{ $agent } == 1 &&
-         $agent->[0]->{password} eq $key ) {
+         $agent->[0]->password() eq $key ) {
         return $agent->[0];
     }
     else {
@@ -67,15 +71,12 @@ sub authenticate_agent {
 sub authenticate_node {
     my ($self, $name, $type) = @_;
 
-    my $database = NSMF::Server->database();
+    my $db = NSMF::Server->database();
 
-    my $node = $database->search({
-        node => {
-            name => $name,
-            type => $type,
-            #version => [gt, 1],
-        },
-    });
+    my $node = $db->search(node => {
+        name => $name,
+        type => $type,
+    })->recv();
 
     if ( @{ $node } == 1 ) {
         return $node->[0];
@@ -88,17 +89,14 @@ sub authenticate_node {
 sub authenticate_client {
     my ($self, $name, $key) = @_;
 
-    my $database = NSMF::Server->database();
+    my $db = NSMF::Server->database();
 
-    my $client = $database->search({
-        client => {
-            name => $name,
-            #version => [gt, 1],
-        },
-    });
+    my $client = $db->search(client => {
+        name => $name,
+    })->recv();
 
     if ( @{ $client } == 1 &&
-         $client->[0]->{password} eq $key ) {
+         $client->[0]->password() eq $key ) {
       return $client->[0];
     }
     else {

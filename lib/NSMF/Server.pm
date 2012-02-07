@@ -36,14 +36,14 @@ use Module::Pluggable search_path => 'NSMF::Server::Component', sub_name => 'mod
 use Module::Pluggable search_path => 'NSMF::Server::Worker', sub_name => 'workers';
 use Module::Pluggable search_path => 'NSMF::Server::Proto::Node', sub_name => 'node_protocols';
 use Module::Pluggable search_path => 'NSMF::Server::Proto::Client', sub_name => 'client_protocols';
-use Module::Pluggable search_path => 'NSMF::Server::DB', sub_name => 'databases';
+#use Module::Pluggable search_path => 'NSMF::Server::DB', sub_name => 'databases';
 
 #
 # NSMF INCLUDES
 #
 use NSMF::Common::Registry;
 
-use NSMF::Server::DBMngr;
+use NSMF::Service::Database;
 use NSMF::Server::ProtoMngr;
 use NSMF::Server::ConfigMngr;
 
@@ -79,7 +79,9 @@ sub instance {
 
         my ($node_proto, $client_proto, $database);
         eval {
-            $database     = NSMF::Server::DBMngr->create($config->database());
+            # TODO: hardcoded to DBI databases currently
+            $database     = NSMF::Service::Database->new(dbi => $config->database());
+
             $node_proto   = NSMF::Server::ProtoMngr->create('node', $config->protocol('node'));
             $client_proto = NSMF::Server::ProtoMngr->create('client', $config->protocol('client'));
         }; 

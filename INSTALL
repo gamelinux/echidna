@@ -1,6 +1,6 @@
 DEPENDENCIES:
 
-  - Perl POE
+  - Perl Class::Accessor
   - Perl YAML::Tiny
   - Perl Module::Pluggable
   - Perl JSON
@@ -12,7 +12,7 @@ UBUNTU INSTALL:
 
 
 FEDORA INSTALL
-  # sudo yum install perl-POE perl-YAML-Tiny perl-TimeDate perl-JSON perl-Digest-SHA perl-Log-Dispatch perl-AnyEvent
+  # sudo yum install perl-Class-Accessor perl-YAML-Tiny perl-TimeDate perl-JSON perl-Digest-SHA perl-Log-Dispatch perl-AnyEvent
 
 
 FREEBSD INSTALL (v8.2 with "Minimal" base install)

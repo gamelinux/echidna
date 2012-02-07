@@ -51,6 +51,7 @@ database:
     pass: passw0rd.
     host: localhost
     port: 3306
+    pool: 10
 
 #
 # MODULES

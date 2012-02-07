@@ -174,7 +174,7 @@ exit(0);
 sub node_prepare {
     my ($handle, $listen_host, $listen_port) = @_;
 
-    $logger->info('Listening for client connections on ' . $listen_host . ':' . $listen_port);
+    $logger->info('Listening for node connections on ' . $listen_host . ':' . $listen_port);
 }
 
 sub node_accept {
