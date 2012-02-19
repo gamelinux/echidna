@@ -3,14 +3,14 @@ package NSMF::Service::Database;
 use strict;
 use 5.010;
 use Carp;
-use Module::Pluggable 
-    search_path => 'NSMF::Service::Database', 
-    sub_name => 'drivers', 
+use Module::Pluggable
+    search_path => 'NSMF::Service::Database',
+    sub_name => 'drivers',
     except => qr/Base/;
 
 sub new {
     my ($class, $handler, $settings) = @_;
-    
+
     my $driver_package = __PACKAGE__ .'::'. uc $handler;
 
     croak "Database driver not supported" 

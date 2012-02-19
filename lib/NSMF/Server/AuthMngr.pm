@@ -46,62 +46,60 @@ my $logger = NSMF::Common::Registry->get('log')
     // carp 'Got an empty config object from Registry';
 
 sub authenticate_agent {
-    my ($self, $name, $key) = @_;
+    my ($self, $name, $key, $cb_success, $cb_error) = @_;
 
     my $db = NSMF::Server->database();
 
+    $db->search(agent => { name => $name }, sub {
+        my $agent = shift;
 
-    $logger->debug("Preparing search");
-
-    my $agent = $db->search(agent => {
-        name => $name,
-        #version => [gt, 1],
+        if ( @{ $agent } == 1 &&
+             $agent->[0]->{'password'} eq $key ) {
+            $cb_success->( $agent->[0] );
+        }
+        else {
+            $cb_error->( {status => 'error', message => 'Unknown agent or secret.'} );
+        }
     });
-
-
-    if ( @{ $agent } == 1 &&
-         $agent->[0]->password() eq $key ) {
-        return $agent->[0];
-    }
-    else {
-        croak {status => 'error', message => 'Unknown agent or secret.'};
-    }
 }
 
 sub authenticate_node {
-    my ($self, $name, $type) = @_;
+    my ($self, $name, $type, $cb_success, $cb_error) = @_;
 
     my $db = NSMF::Server->database();
 
-    my $node = $db->search(node => {
+    $db->search(node => {
         name => $name,
         type => $type,
-    })->recv();
+    }, sub {
+        my $node = shift;
 
-    if ( @{ $node } == 1 ) {
-        return $node->[0];
-    }
-    else {
-        croak {status => 'error', message => 'Unknown node.'};
-    }
+        if ( @{ $node } == 1 ) {
+            $cb_success->( $node->[0] );
+        }
+        else {
+            $cb_error->( {status => 'error', message => 'Unknown node.'} );
+        }
+    });
+
 }
 
 sub authenticate_client {
-    my ($self, $name, $key) = @_;
+    my ($self, $name, $key, $cb_success, $cb_error) = @_;
 
     my $db = NSMF::Server->database();
 
-    my $client = $db->search(client => {
-        name => $name,
-    })->recv();
+    $db->search(client => { name => $name }, sub {
+        my $client = shift;
 
-    if ( @{ $client } == 1 &&
-         $client->[0]->password() eq $key ) {
-      return $client->[0];
-    }
-    else {
-      croak { status => 'error', message => 'Unkown client or secret.' };
-    }
+        if ( @{ $client } == 1 &&
+            $client->[0]->password() eq $key ) {
+            $cb_success->( $client->[0] );
+        }
+        else {
+          $cb_error->( { status => 'error', message => 'Unkown client or secret.' } );
+        }
+    });
 }
 
 

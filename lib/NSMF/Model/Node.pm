@@ -10,7 +10,6 @@ __PACKAGE__->set_properties({
     name        => ['text'],
     type        => ['text'],
     agent_id    => ['int'],
-    password    => ['text'],
     network     => ['text'],
     state       => ['text'],
     updated     => ['text'],

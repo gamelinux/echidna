@@ -128,20 +128,25 @@ sub dispatcher {
     elsif ( exists($json->{method}) ) {
         my $ret;
 
-        eval {
-            $ret = json_result_create($json, $self->_execute_method($json->{method}, $node, $json));
-        };
+        $self->_execute_method($json->{method}, $node, $json,
+        sub { # on_success callback
+            my ($json, $result) = @_;
+            my $ret = json_result_create($json, $result);
+            if( defined($ret) ) {
+                $self->write($handle, $ret);
+            }
+        },
+        sub { #on_error callback
+            my ($json, $error) = @_;
+            my  $ret = json_error_create($json, $error);
 
-        if ( ref($@) ) {
-            $ret = json_error_create($json, $@->{object});
-        }
-
-        if( defined($ret) ) {
-            $self->write($handle, $ret);
-        }
+            if( defined($ret) ) {
+                $self->write($handle, $ret);
+            }
+        });
     }
-    # otherwise
-    else {
+    # otherwise respond in error as appropriate
+    elsif ( exists($json->{id}) ) {
         $self->write($handle, json_error_create($json, JSONRPC_NSMF_BAD_REQUEST));
     }
 }
@@ -175,26 +180,26 @@ sub _register_methods {
 }
 
 sub _execute_method {
-    my ($self, $method, $node, $json) = @_;
+    my ($self, $method, $node, $json, $cb_success, $cb_error) = @_;
 
     # ensure the method is defined
     if ( ! defined($self->{methods}{ $method }) )
     {
-        die JSONRPC_NSMF_BAD_REQUEST;
+        return $cb_error->($json, JSONRPC_NSMF_BAD_REQUEST);
     }
 
     # ensure the caller has sufficient privilege
     if ( $self->{methods}{ $method }{acl} ) {
         if ( $node->{details}{acl} < $self->{methods}{$method}{acl} ) {
             #TODO: insufficient privileges
-            die JSONRPC_NSMF_BAD_REQUEST;
+            return $cb_error->($json, JSONRPC_NSMF_BAD_REQUEST);
         }
     }
 
     $logger->debug('Calling: ' . $method);
 
     # finally call the method now
-    return $self->{methods}{ $method }{func}->($node, $json);
+    $self->{methods}{ $method }{func}->($node, $json, $cb_success, $cb_error);
 }
 
 sub _is_authenticated {
@@ -209,10 +214,10 @@ sub _is_authenticated {
 #
 
 sub authenticate {
-    my ($self, $node, $json) = @_;
+    my ($self, $node, $json, $cb_success, $cb_error) = @_;
 
     if ( $node->{status} ne 'REQ' ) {
-        die { object => JSONRPC_NSMF_UNAUTHORIZED };
+        return $cb_error->($json, JSONRPC_NSMF_UNAUTHORIZED);
     }
 
     $logger->debug('Authentication Request');
@@ -224,51 +229,51 @@ sub authenticate {
 
     if ( ref($@) ) {
         $logger->error('Incomplete JSON AUTH request. ' . $@->{message});
-        die $@;
+        return $cb_error->($json, $@);
     }
 
     my $agent  = $json->{params}{agent};
     my $secret = $json->{params}{secret};
 
-    my $agent_details = {};
+    # TODO: weaken $node, $logger ?
+    NSMF::Server::AuthMngr->authenticate_agent($agent, $secret,
+      sub {
+        my $agent_details = shift;
 
-    eval {
-        $agent_details = NSMF::Server::AuthMngr->authenticate_agent($agent, $secret);
-    };
+        $node->{agent} = $agent;
+        $node->{status} = 'ID';
+        $node->{agent_details} = $agent_details;
 
-    if ($@) {
+        $logger->debug('Agent authenticated: ' . $agent);
+
+        $cb_success->($json, $agent_details);
+      },
+      sub {
         $logger->error('Agent authentication unsupported: ', $@);
-        die { object => JSONRPC_NSMF_AUTH_UNSUPPORTED };
-    }
-
-    $node->{agent} = $agent;
-    $node->{status} = 'ID';
-    $node->{agent_details} = $agent_details;
-
-    $logger->debug('Agent authenticated: ' . $agent);
-
-    return $agent_details;
+        $cb_error->($json, { object => JSONRPC_NSMF_AUTH_UNSUPPORTED });
+      }
+    );
 }
 
 sub identify {
-    my ($self, $node, $json) = @_;
+    my ($self, $node, $json, $cb_success, $cb_error) = @_;
 
     if ( $node->{status} ne 'ID' ) {
-        die { object => JSONRPC_NSMF_UNAUTHORIZED };
+        return $cb_error->($json, { object => JSONRPC_NSMF_UNAUTHORIZED });
     }
 
     eval {
         json_validate($json, ['$module', '$netgroup']);
     };
 
-    if ( ref $@ ) {
+    if ( ref($@) ) {
         $logger->error('Incomplete JSON ID request. ' . $@->{message});
-        die $@;
+        return $cb_error->($json, $@);
     }
 
     # if we have a session ID we are already registered
     if ($node->{session_key}) {
-        $self->write($node->{handle}, json_error_create($json, JSONRPC_NSMF_IDENT_REGISTERED));
+        $cb_error->($json, JSONRPC_NSMF_IDENT_REGISTERED);
         return;
     }
 
@@ -276,56 +281,55 @@ sub identify {
     my $node_type = trim(lc($json->{params}{type}));
     my $netgroup = trim(lc($json->{params}{netgroup}));
 
-    my $node_details = {};
+    if ( ! ($node_type ~~ @$modules) ) {
+        return $cb_error->($json, { object => JSONRPC_NSMF_IDENT_UNSUPPORTED });
+    }
 
     # grab the node/module details
-    eval {
-        $node_details = NSMF::Server::AuthMngr->authenticate_node($node_name, $node_type);
-    };
+    NSMF::Server::AuthMngr->authenticate_node($node_name, $node_type,
+      sub {
+        my $node_details = shift;
+        $logger->debug('-> ' . uc($node_type) . ' supported!');
 
-    if ( $@ ) {
+        $node->{name} = $node_name;
+
+        # generate the session key
+        my @keyspace = ('a'..'z', 'A'..'Z', 0..9);
+        $node->{session_key} = join('', map $keyspace[rand @keyspace], 0..32);
+
+        $node->{status} = 'EST';
+        $node->{details} = $node_details;
+
+        eval {
+            $node->{instance} = NSMF::Server::ModMngr->load(uc($node_type));
+
+            $self->_register_methods( $node->{instance}->get_registered_methods() );
+        };
+
+        if ( ref($@) ) {
+            $logger->error('Could not load node type: ' . $node_type);
+            return $cb_error->($json, $@);
+        }
+
+        my $db = NSMF::Server->database();
+        $db->update(node => { state => 1 }, { id => $node->{details}{id} });
+
+        $cb_success->($json, $node_details);
+      },
+      sub {
+        my ($error) = @_;
         $logger->error('Unknown node name "'. $node_name . '" of type "' . $node_type . '"');
-        die { object => JSONRPC_NSMF_IDENT_INCONSISTENT };
-    }
-
-    if ( ! ($node_type ~~ @$modules) ) {
-        die { object=> JSONRPC_NSMF_IDENT_UNSUPPORTED };
-    }
-
-    $logger->debug('-> ' . uc($node_type) . ' supported!');
-
-    $node->{name} = $node_name;
-
-    # generate the session key
-    my @keyspace = ('a'..'z', 'A'..'Z', 0..9);
-    $node->{session_key} = join('', map $keyspace[rand @keyspace], 0..32);
-
-    $node->{status} = 'EST';
-    $node->{details} = $node_details;
-
-    eval {
-        $node->{instance} = NSMF::Server::ModMngr->load(uc($node_type));
-
-        $self->_register_methods( $node->{instance}->get_registered_methods() );
-    };
-
-    if ( ref($@) ) {
-        $logger->error('Could not load node type: ' . $node_type);
-        die $@;
-    }
-
-    my $db = NSMF::Server->database();
-    $db->update({ node => { state => 1 } }, { id => $node->{details}{id} });
-
-    return $node_details;
+        $cb_error->($json, { object => JSONRPC_NSMF_IDENT_INCONSISTENT });
+      }
+    );
 }
 
 sub ping {
-    my ($self, $node, $json) = @_;
+    my ($self, $node, $json, $cb_success, $cb_error) = @_;
 
     # ensure we are authenticated
     if ( ! $self->_is_authenticated($node) ) {
-        die JSONRPC_NSMF_BAD_REQUEST;
+        return $cb_error->($json, JSONRPC_NSMF_BAD_REQUEST);
     }
 
     $logger->debug('  <- Got PING');
@@ -338,7 +342,7 @@ sub ping {
 
     if ( ref $@ ) {
         $logger->error('Incomplete PING request. ' . $@->{message});
-        die $@;
+        return $cb_error->($json, $@);
     }
 
     my $ping_time = $json->{params}{timestamp};
@@ -347,7 +351,7 @@ sub ping {
 
     $logger->debug('  -> Sending PONG');
 
-    return { timestamp => time() };
+    $cb_success->($json, { timestamp => time() });
 }
 
 #sub has_pcap {
