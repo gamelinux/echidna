@@ -27,10 +27,10 @@ __PACKAGE__->set_properties({
     net_version         => 'int',
     net_src_flags       => 'int',
     net_dst_flags       => 'int',
-    data_filename_start => 'text',
-    data_offset_start   => 'int',
-    data_filename_end   => 'text',
-    data_offset_end     => 'int',
+    #data_filename_start => 'text',
+    #data_offset_start   => 'int',
+    #data_filename_end   => 'text',
+    #data_offset_end     => 'int',
     meta                => 'any',
 });
 

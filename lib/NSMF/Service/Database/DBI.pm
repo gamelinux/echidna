@@ -73,8 +73,16 @@ sub _setup {
                       $instance->{__password},
                       PrintError => 0,
                       on_error => sub {
-                          say "DBI Error: $@ at $_[1]:$_[2]";
+                          my ($dbh, $location, $line, $fatal) = @_;
+
+                          say "dbh is dead we need to take care of this" if $fatal;
+                          #$self->return_handle($dbh);
+                          carp "DBI Error: $@ at $location:$line";
+
                       };
+
+        # enabling mysql reconnect
+        $dbi->attr('mysql_auto_reconnect', 1, sub {});
 
         $instance->{__pool}->{$dbi->{child_pid}} = $dbi;
 
@@ -121,17 +129,10 @@ sub fetch {
            . " (".join(", ", (keys %{$self->{__running}})). ")";
     }
 
-    # pool is empty
-    my $dbh;
-    if (scalar @{ $self->{__idle} } < 1) {
-        my $pid = $self->_reuse_pid;
-        $dbh  = $self->{__pool}->{$pid};
-        $self->{__running}->{$pid} += 1;
-    } else {
-        my $pid = shift @{ $self->{__idle} };
-        $dbh    = $self->{__pool}->{$pid};
-        $self->{__running}->{$pid} += 1;
-    }
+    my $pid = shift @{ $self->{__idle} } // $self->_reuse_pid;
+    my $dbh = $self->{__pool}->{$pid};
+
+    $self->{__running}->{$pid} += 1;
 
     unless (ref $dbh eq 'AnyEvent::DBI') {
         if ($self->{__debug}) {
@@ -146,7 +147,6 @@ sub fetch {
         say "Selected PID: " .$dbh->{child_pid};
         say "Fetched:      " .ref $dbh;
         my @pids_current = @{ $self->{__idle} };
-        say "Now " .scalar @pids_current. " handlers available";
         say;
     }
 
@@ -167,59 +167,63 @@ sub _reuse_pid {
 }
 
 sub sleep {
-    my ($self, $interval, $cb) = @_;
-
-    die "TypeError - Expected integer value" 
-        unless defined $interval ~~ /\d+/;
-
-    $self->_exec_query("SELECT SLEEP($interval)", undef, $cb);
+#
 }
 
-sub _exec_query {
+sub _execute_query {
     my ($self, $sql, $model, $cb) = @_;
 
+    $self->execute($sql, sub {
+        my ($rs, $error) = @_;   
+
+        return $cb->(undef, $error) if defined $error;
+
+        my @result = map {
+            $self->_map_properties($model, $_)
+        } @$rs;
+
+        $cb->(\@result, undef);
+
+    });
+}
+
+sub execute {
+    my ($self, $sql, $cb) = @_;
+
     my $dbh = $self->fetch;
+    my $cv  = AE::cv;
 
-    my $cv = AE::cv;
-    if (ref $cb eq 'CODE') {
-        $cv->cb(sub {
-            my $cv = shift;
-            $cb->($cv->recv);
-        });
-    }
+    # execute callback if defined
+    $cv->cb(sub {
+        my ($rs, $error) = shift->recv;
 
-    say Dumper $self->{__running} if $self->{__debug};
-    say "SQL: $sql" if $self->{__debug};
+        $cb->($rs, $error);
+
+    }) if ref $cb eq 'CODE';
+
+    say "SQL: $sql";
+    # execute query
     $dbh->exec($sql, sub {
         my ($dbh, $rows, $rv) = @_;
-        $#_ or die "Internal Failure $@";
+
+        # on failure
+        $#_ or $cv->send($dbh, $@);
 
         $self->return_handle($dbh) 
             or die "Failed to return handler $@";
 
-        if (defined $model) {
-            my @result;
-            for my $row (@$rows) {
-                push @result, $self->_map_properties($model, $row);
-            }
-
-            $cv->send(\@result);
-        }
-        else {
-            $cv->send(@$rows);
-        }
+        $cv->send($rows);
     });
 
     $cv;
+
 }
 
 sub build_query {
     my ($self, $model_type, $criteria, $cb) = @_;
 
     my $model = $self->_load_model($model_type);
-    my $sql   = $self->_mk_query_select($model, $criteria);
-
-    return $sql;
+    $self->_mk_query_select($model, $criteria);
 }
 
 sub search {
@@ -231,7 +235,17 @@ sub search {
 
     my $sql = $self->_mk_query_select($model, $criteria);
 
-    $self->_exec_query($sql, $model, $cb);
+    $self->_execute_query($sql, $model, $cb);
+}
+
+sub do {
+    my ($self, $sql, $cb) = @_;
+
+    eval {
+        $self->_execute_query($sql, undef, $cb);
+    }; if ($@) {
+        say "Failed!";
+    }
 }
 
 sub count {
@@ -240,7 +254,7 @@ sub count {
     croak "ModelNotFound - The model requested does not exist" 
         unless 'NSMF::Model::' .ucfirst($model_type) ~~ [NSMF::Model->objects];
 
-    $self->_exec_query("SELECT COUNT(*) FROM $model_type", undef, $cb);
+    $self->_execute_query("SELECT COUNT(*) FROM $model_type", undef, $cb);
 }
 
 sub map_objects {
@@ -267,10 +281,18 @@ sub return_handle {
         $idx += 1;
     }
 
+    if ($self->{__running}->{$pid} < 1) {
+        warn "Handle $pid is already free";
+        return 1;
+    }
+
     $self->{__running}->{$pid} -= 1;
     if ($self->{__running}->{$pid} == 0) {
         push @{ $self->{__idle} }, $pid."";
     }
+
+    say "Handle $pid is back in the pool" if $self->{__debug};
+    say Dumper $self->{__running};
 
     1;
 }
@@ -288,15 +310,12 @@ sub window_size {
 sub search_iter {
     my ($self, $model_type, $criteria) = @_;
 
-    my $dbi   = $self->fetch;
     my $model = $self->_load_model($model_type);
-
-    $self->_validate_criteria($model, $criteria);
-
+    $criteria = $self->_validate_criteria($model, $criteria);
     my $sql   = $self->_mk_query_select($model, $criteria);
 
     my $limit_query = $sql. " LIMIT 0, " .$self->window_size;
-    my $result = $self->_exec_query($limit_query, $model, undef)->recv;
+    my $result = $self->_execute_query($limit_query, $model, undef)->recv;
 
     my $idx    = 0; # array index
     my $offset = 0; # limit offset 
@@ -307,7 +326,7 @@ sub search_iter {
             $limit_query = $sql. " LIMIT " .$offset. ", " .$self->window_size;
 
             splice @$result;
-            $result = $self->_exec_query($limit_query, $model, undef)->recv;
+            $result = $self->_execute_query($limit_query, $model, undef)->recv;
 
             $idx = 0;
             my $object = $result->[$idx];
@@ -328,7 +347,24 @@ sub _autoload_models {
 
     for my $model_path (NSMF::Model->objects) {
         $self->_require_model($model_path);
+
+        next;
+        my $table  = lc $1 if $model_path =~ /::(\w+)$/;
+        my $db_def = __PACKAGE__ .'::'.  ucfirst($table);
+        
+        (my $file_path = $db_def) =~ s/::/\//;
+        $file_path .= ".pm";
+
+        return 1 unless -f $file_path;
+
+        eval qq{require $db_def}; if ($@) {
+            throw 'SchemaDefError', $@;
+        }
+
+        my $create_sql = _$db_def->get_table_definition;
+        #$self->_execute_query($create_sql, undef, undef);
     }
+
 }
 
 sub _require_model {
@@ -354,6 +390,12 @@ sub _load_model {
     return $model_path;
 }
 
+# Clean Criteria
+#  
+#  Strip all key/values that doesn't match on the model attributes definition
+#  @param String $model
+#  @param Hashref $criteria
+#  @return Hashref
 sub _clean_criteria {
     my ($model, $criteria) = @_;
 
@@ -392,6 +434,10 @@ sub _mk_query_insert {
     my $model = ref $object;
     my $table = lc $1 if $model =~ /::(\w+)$/;
 
+    unless (scalar @fields > 0 and scalar @values > 0 and scalar @fields == scalar @values) {
+        throw "Insert query fail Fields:[@fields] Values [@values]";
+    }
+
     return "INSERT INTO " .lc $table. "(".join(", ", @fields). ") VALUES(" .join(", ", @values). ")";
 }
 
@@ -401,6 +447,10 @@ sub _mk_query_update {
     my $table = lc $1 if $model =~ /::(\w+)$/;
     my $data  = _clean_criteria($model, $data);
     $criteria = _clean_criteria($model, $criteria);
+
+    unless (ref $data eq 'HASH' and keys %$data > 0) {
+        throw "Expected non empty arguments as hashref on query update";
+    }
 
     my $query = "UPDATE $table SET ";
 
@@ -415,6 +465,8 @@ sub _mk_query_update {
 
 sub _map_properties {
     my ($self, $model, $row) = @_;
+
+    return $row unless $model;
 
     my $hash = {};
     $hash->{$_} = shift @$row for (@{ $model->attributes });
@@ -469,14 +521,14 @@ sub insert {
     }
 
     my $sql = $self->_mk_query_insert($data);
-    $self->_exec_query($sql, undef, $cb);
+    #$self->_execute_query($sql, undef, $cb);
+    $self->_execute_query($sql, undef, $cb);
 }
 
 sub update {
     my ($self, $model_type, $criteria, $data, $cb) = @_;
 
     my $model = $self->_load_model($model_type);
-    my $sql   = $self->_mk_query_update($model, $criteria, $data);
     $criteria = _clean_criteria($model, $criteria);
 
     eval {
@@ -487,7 +539,10 @@ sub update {
         throw $@->message;
     }
 
-    $self->_exec_query($sql, undef, $cb);
+    my $sql = $self->_mk_query_update($model, $criteria, $data);
+
+    $self->_execute_query($sql, undef, $cb);
+    #$self->_execute_query($sql, undef, $cb);
 }
 
 sub delete {

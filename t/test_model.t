@@ -25,8 +25,7 @@ ok( ref $sess->metadata eq 'HASH', 'Should return metadata');
 ok( ref $sess->attributes eq 'ARRAY', 'Should return attributes');;
 ok( ref $sess->required_properties eq 'ARRAY', 'Should return required properties');;
 
+ok( ref NSMF::Model::Session->new({ net_dst_port => '22' }) eq 'NSMF::Model::Session', 'Checking object type validation');
 
-my $session = NSMF::Model::Session->new({ net_dst_port => 'asd' });
-say Dumper $session;
 #my $sess2 = NSMF::Model->new('session');
 #my $sess3 = NSMF::Model->load(session => $id);
