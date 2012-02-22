@@ -46,7 +46,11 @@ sub create_definition {
             KEY `node_ix` (`node_id`)
         )
     };
-    $db->execute($sql, sub {});
+    $db->execute($sql, sub {
+        my ($rs, $err) = @_;
+
+        die "Failed to create table $err" if $err;
+    });
 }
 
 1;
