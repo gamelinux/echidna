@@ -91,8 +91,8 @@ sub _process {
 
     # there is no point sending if we're not connected to the server
     # we need a valid node_id to mark identify all our communications
-    return if( ! $self->connected() );
-    return if( $self->{__node_id} < 0 );
+    return unless $self->connected;
+    return if $self->{__node_id} < 0;
 
     return unless defined $file;
 
@@ -136,11 +136,15 @@ sub _get_sessions {
 
     $logger->debug('Session file found: ' . $sfile);
 
-    if ( open(FILE, $sfile) ) {
+    #if ( open(FILE, $sfile) ) {
+    if (open my $fh, $sfile) {
         my $cnt = 0;
+
         # verify the data in the session files
-        while (my $line = readline FILE) {
+        while (my $line = readline $fh) {
             chomp $line;
+
+            say Dumper $line;
             $line =~ /^\d{19}/;
             unless($line) {
                 $logger->error("Not valid session start format in: '$sfile'");
@@ -149,7 +153,7 @@ sub _get_sessions {
 
             my @elements = split(/\|/, $line);
 
-            unless(@elements == 19) {
+            unless(@elements == 15) {
                 $logger->error("Not valid number of session args format in: '$sfile'");
                 next;
             }
@@ -158,9 +162,11 @@ sub _get_sessions {
             push( @{ $sessions_data }, $line);
         }
 
-        close FILE;
+        close $fh;
 
         return $sessions_data;
+    } else {
+        $logger->error('Failed to open logfile on Cxtracker');
     }
 }
 

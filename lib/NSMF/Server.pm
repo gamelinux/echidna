@@ -80,7 +80,7 @@ sub instance {
         my ($node_proto, $client_proto, $database);
         eval {
             # TODO: hardcoded to DBI databases currently
-            $database     = NSMF::Service::Database->new(dbi => $config->database());
+            $database     = NSMF::Service::Database->new(mysql => $config->database());
 
             $node_proto   = NSMF::Server::ProtoMngr->create('node', $config->protocol('node'));
             $client_proto = NSMF::Server::ProtoMngr->create('client', $config->protocol('client'));

@@ -312,7 +312,7 @@ sub identify {
         }
 
         my $db = NSMF::Server->database();
-        $db->update(node => { state => 1 }, { id => $node->{details}{id} });
+        $db->update(node => { id => $node->{details}{id} }, { state => '1' });
 
         $cb_success->($json, $node_details);
       },
