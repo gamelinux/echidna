@@ -322,7 +322,7 @@ sub json_response_create
     return undef if ( ! ($type ~~ ['result', 'error']) );
 
     # no response should occur if no id was specified (ie. notification)
-    return undef if ( ! defined($json) || ! exists($json->{id}) );
+    return undef if ( (ref($json) ne 'HASH') || ! exists($json->{id}) );
 
     my $result = {
         jsonrpc => '2.0',

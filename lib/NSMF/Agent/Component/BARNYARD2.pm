@@ -188,8 +188,7 @@ sub barnyard2_dispatcher
         # alert event
         when(/^BY2_EVT|BY2_EVENT|EVENT/) {
             # forward to server
-            my @tmp_data = @data_tabs[1..$#data_tabs];
-            $self->{__proto}->post('barnyard2.save', \@tmp_data, sub {
+            $self->{__proto}->post('barnyard2.save', $data, sub {
                 my $json = shift;
 
                 $logger->debug($json, $self->{eid_max});

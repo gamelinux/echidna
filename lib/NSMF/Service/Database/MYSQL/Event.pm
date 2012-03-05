@@ -8,7 +8,14 @@ my $model = 'NSMF::Model::Event';
 sub get_max_id {
     my ($self, $db, $args, $cb) = @_;
 
-    $db->execute_query("SELECT * FROM event ORDER BY id LIMIT 1", $model, sub {
+    my $where = '';
+
+    if ( defined($args->{node_id} ) )
+    {
+      $where = ' WHERE node_id=' . $args->{node_id};
+    }
+
+    $db->execute_query("SELECT * FROM event" . $where . " ORDER BY id DESC LIMIT 1", $model, sub {
         $cb->(@_);
     });
 }

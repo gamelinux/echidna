@@ -153,7 +153,8 @@ sub _get_sessions {
 
             my @elements = split(/\|/, $line);
 
-            unless(@elements == 15) {
+            if( ( @elements != 15 ) &&
+                ( @elements != 19 ) ) {
                 $logger->error("Not valid number of session args format in: '$sfile'");
                 next;
             }

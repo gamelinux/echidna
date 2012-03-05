@@ -20,8 +20,8 @@ __PACKAGE__->set_properties({
     sig_id         => 'int',
     sig_revision   => 'int', 
     sig_priority   => 'int',
-    sig_message    => 'int',
-    sig_category   => 'int',
+    sig_message    => 'text',
+    sig_category   => 'text',
     meta           => 'text',
 });
 

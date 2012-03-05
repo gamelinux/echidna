@@ -37,6 +37,7 @@ use Carp;
 #
 # NSMF INCLUDES
 #
+use NSMF::Model::Event;
 use NSMF::Server;
 use NSMF::Common::Registry;
 
@@ -73,11 +74,21 @@ sub node_max_eid_get
 
     my $db = NSMF::Server->database();
 
-    my $max_eid = $db->custom('event', 'event_id_max', {
-        node_id => $node->{details}{id}
-    });
+    $db->call(event => 'get_max_id' => { node_id => $node->{details}{id} }, sub {
+        my ($rs, $err) = @_;
 
-    return $max_eid;
+        return $cb_error->($err) if $err;
+
+        $logger->debug($rs);
+
+        if( @$rs ) {
+          $cb_success->($json, $rs->[0]{id});
+        }
+        else {
+          $cb_success->($json, 0);
+        }
+
+    });
 }
 
 sub save {
@@ -85,10 +96,12 @@ sub save {
 
     my $event = $json->{params};
 
-    # validation the event data received
-    my $validation = $self->validate( $event );
+    my @event_fields = split(/\|/, $event);
 
-    my $event_id = $event->[1]+0;
+    # validation the event data received
+    my $validation = $self->validate( \@event_fields );
+
+    my $event_id = $event_fields[2]+0;
 
     if ($validation == 0) {
         return $cb_success->(0);
@@ -98,36 +111,36 @@ sub save {
     }
 
     my $db = NSMF::Server->database();
-#2011-09-01 20:11:40 [D] {"params":["1","376631","21","2011-09-01 22:07:30.308857","1","30100000","1","Snort Alert [1:30100000:0]","3","not-suspicious","4","85.19.221.250","8","8.8.4.4","0","1","4","5","0","84","0","2","0","64","64399","","","","","","","","","","","","","","02E65F4E4FB6040008090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F202122232425262728292A2B2C2D2E2F3031323334353637"],"jsonrpc":"2.0","id":"33612","method":"barnyard2.save"}
 
-    $db->insert(event => {
+    $event = NSMF::Model::Event->new({
         id => $event_id,
-        timestamp => $event->[3],
+        timestamp => $event_fields[4],
         classification => 0,
-        node_id => $event->[0]+0,
-        net_version => $event->[10]+0,
-        net_protocol => $event->[15]+0,
-        net_src_ip => $event->[11],
-        net_src_port => $event->[12]+0,
-        net_dst_ip => $event->[13],
-        net_dst_port => $event->[14]+0,
+        node_id => $event_fields[1]+0,
+        net_version => $event_fields[11]+0,
+        net_protocol => $event_fields[16]+0,
+        net_src_ip => $event_fields[12],
+        net_src_port => $event_fields[13]+0,
+        net_dst_ip => $event_fields[14],
+        net_dst_port => $event_fields[15]+0,
         sig_type => 1,
-        sig_id => $event->[5]+0,
-        sig_revision => $event->[6]+0,
-        sig_message => $event->[7],
-        sig_priority => $event->[8]+0,
-        sig_category => $event->[9],
-        meta => $event->[38],
-        meta_u2_event_id => $event->[2]+0,
-        meta_u2_filename => ''
-    }, sub {
+        sig_id => $event_fields[6]+0,
+        sig_revision => $event_fields[7]+0,
+        sig_message => $event_fields[8],
+        sig_priority => $event_fields[9]+0,
+        sig_category => $event_fields[10],
+    });
+
+    $event->meta($event_fields[39]) if ( @event_fields >= 40 );
+
+    $db->insert(event => $event, sub {
         my $ret = shift;
 
         if( $ret ) {
-           $cb_success->( $event_id );
+           $cb_success->($json, $event_id);
         }
         else {
-           $cb_success->( -1 );
+           $cb_success->($json, -1);
         }
     });
 }
@@ -140,24 +153,10 @@ sub validate {
     # verify number of elements
     my $event_fields = @{ $event };
 
-    if ( @{ $event } < 25 )
+    if ( @{ $event } < 16 )
     {
-        $logger->debug('Insufficient fields in EVENT line. Got ' . $event_fields . ' and expected 25.');
+        $logger->debug('Insufficient fields in EVENT line. Got ' . $event_fields . ' and expected 25.', $event);
         return 0;
-    }
-
-    # verify duplicate in db
-    my $dup = $db->search({
-        event => {
-            id => $event->[1]+0,
-        }
-    });
-
-    # already exists confirm it's there already
-    if ( @{ $dup } )
-    {
-        $logger->debug('Event already stored.');
-        return 2;
     }
 
     return 1;
