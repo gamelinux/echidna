@@ -1,4 +1,4 @@
-package NSMF::Service::Database::MYSQL::Session;
+package NSMF::Database::MYSQL::Session;
 
 use strict;
 use 5.010;

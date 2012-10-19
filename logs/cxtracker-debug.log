@@ -1,0 +1,371 @@
+2012-10-13 03:25:38 [D] Checking dir: /var/log/cxtracker/
+2012-10-13 03:25:38 [E] Could not open /var/log/cxtracker/
+2012-10-13 03:25:38 [W] Could not connect to server (127.0.0.1:10101)
+2012-10-13 03:25:38 [I] Attempting reconnect in 60s
+2012-10-13 03:25:41 [D] Checking dir: /var/log/cxtracker/
+2012-10-13 03:25:41 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:32:17 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:32:17 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:32:17 [I] [+] Connected to server (127.0.0.1:10101)...
+2012-10-19 07:32:20 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:32:20 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:32:23 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:32:23 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:32:26 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:32:26 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:32:29 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:32:29 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:32:32 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:32:32 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:32:35 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:32:35 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:32:38 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:32:38 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:32:41 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:32:41 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:32:44 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:32:44 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:32:47 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:32:47 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:32:50 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:32:50 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:32:53 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:32:53 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:32:56 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:32:56 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:32:59 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:32:59 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:33:02 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:33:02 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:33:05 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:33:05 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:33:08 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:33:08 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:33:11 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:33:11 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:33:14 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:33:14 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:33:18 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:33:18 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:33:18 [I] [+] Connected to server (127.0.0.1:10101)...
+2012-10-19 07:33:21 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:33:21 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:33:24 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:33:24 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:33:27 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:33:27 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:33:30 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:33:30 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:33:33 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:33:33 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:33:36 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:33:36 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:33:39 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:33:39 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:33:42 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:33:42 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:33:45 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:33:45 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:33:48 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:33:48 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:33:51 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:33:51 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:33:54 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:33:54 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:33:57 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:33:57 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:34:00 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:34:00 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:34:03 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:34:03 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:34:06 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:34:06 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:34:09 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:34:09 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:34:12 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:34:12 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:34:15 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:34:15 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:34:18 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:34:18 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:34:21 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:34:21 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:34:24 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:34:24 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:34:27 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:34:27 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:34:29 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:34:29 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:34:29 [I] [+] Connected to server (127.0.0.1:10101)...
+2012-10-19 07:34:32 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:34:32 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:34:35 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:34:35 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:34:38 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:34:38 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:34:41 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:34:41 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:34:44 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:34:44 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:34:47 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:34:47 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:34:50 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:34:50 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:34:53 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:34:53 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:34:56 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:34:56 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:34:59 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:34:59 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:35:02 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:35:02 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:35:05 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:35:05 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:35:08 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:35:08 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:35:11 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:35:11 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:35:14 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:35:14 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:35:17 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:35:17 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:35:20 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:35:20 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:35:23 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:35:23 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:35:26 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:35:26 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:35:29 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:35:29 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:35:32 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:35:32 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:35:35 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:35:35 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:35:38 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:35:38 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:35:41 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:35:41 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:35:44 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:35:44 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:35:47 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:35:47 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:35:50 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:35:50 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:35:53 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:35:53 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:35:56 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:35:56 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:35:59 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:35:59 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:36:02 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:36:02 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:36:05 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:36:05 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:36:08 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:36:08 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:36:11 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:36:11 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:36:14 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:36:14 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:36:17 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:36:17 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:36:20 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:36:20 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:36:23 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:36:23 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:36:26 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:36:26 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:36:29 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:36:29 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:36:32 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:36:32 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:36:35 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:36:35 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:36:38 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:36:38 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:36:40 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:36:40 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:36:40 [I] [+] Connected to server (127.0.0.1:10101)...
+2012-10-19 07:36:40 [D] Authentication NOT ACCEPTED!
+2012-10-19 07:36:43 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:36:43 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:36:46 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:36:46 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:36:49 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:36:49 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:36:52 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:36:52 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:36:53 [E] Connection error: Broken pipe
+2012-10-19 07:36:53 [I] Attempting reconnect in 60s
+2012-10-19 07:36:55 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:36:55 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:36:58 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:36:58 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:37:01 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:37:01 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:37:04 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:37:04 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:37:07 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:37:07 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:37:10 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:37:10 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:37:13 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:37:13 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:37:16 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:37:16 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:37:19 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:37:19 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:37:22 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:37:22 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:37:25 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:37:25 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:37:28 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:37:28 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:37:31 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:37:31 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:37:34 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:37:34 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:37:37 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:37:37 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:37:40 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:37:40 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:37:43 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:37:43 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:37:46 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:37:46 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:37:49 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:37:49 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:37:52 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:37:52 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:37:53 [W] Could not connect to server (127.0.0.1:10101)
+2012-10-19 07:37:53 [I] Attempting reconnect in 60s
+2012-10-19 07:37:55 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:37:55 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:37:58 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:37:58 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:38:01 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:38:01 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:38:04 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:38:04 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:38:07 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:38:07 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:38:10 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:38:10 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:38:13 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:38:13 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:38:16 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:38:16 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:38:19 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:38:19 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:38:22 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:38:22 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:38:25 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:38:25 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:38:28 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:38:28 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:38:31 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:38:31 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:38:34 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:38:34 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:38:37 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:38:37 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:38:40 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:38:40 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:38:43 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:38:43 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:38:46 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:38:46 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:38:49 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:38:49 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:38:52 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:38:52 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:38:53 [W] Could not connect to server (127.0.0.1:10101)
+2012-10-19 07:38:53 [I] Attempting reconnect in 60s
+2012-10-19 07:38:55 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:38:55 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:38:58 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:38:58 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:39:01 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:39:01 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:39:04 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:39:04 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:39:07 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:39:07 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:39:10 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:39:10 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:39:13 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:39:13 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:39:16 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:39:16 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:39:19 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:39:19 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:39:22 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:39:22 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:39:25 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:39:25 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:39:28 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:39:28 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:39:31 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:39:31 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:39:34 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:39:34 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:39:37 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:39:37 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:39:40 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:39:40 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:39:43 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:39:43 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:39:46 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:39:46 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:39:49 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:39:49 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:39:52 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:39:52 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:39:53 [W] Could not connect to server (127.0.0.1:10101)
+2012-10-19 07:39:53 [I] Attempting reconnect in 60s
+2012-10-19 07:39:55 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:39:55 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:39:58 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:39:58 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:40:01 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:40:01 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:40:04 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:40:04 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:40:07 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:40:07 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:40:10 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:40:10 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:40:13 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:40:13 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:40:16 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:40:16 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:40:19 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:40:19 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:40:22 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:40:22 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:40:25 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:40:25 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:40:28 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:40:28 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:40:31 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:40:31 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:40:34 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:40:34 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:40:37 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:40:37 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:40:40 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:40:40 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:40:43 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:40:43 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:40:46 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:40:46 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:40:49 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:40:49 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:40:52 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:40:52 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:40:53 [W] Could not connect to server (127.0.0.1:10101)
+2012-10-19 07:40:53 [I] Attempting reconnect in 60s
+2012-10-19 07:40:55 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:40:55 [E] Could not open /var/log/cxtracker/
+2012-10-19 07:40:58 [D] Checking dir: /var/log/cxtracker/
+2012-10-19 07:40:58 [E] Could not open /var/log/cxtracker/

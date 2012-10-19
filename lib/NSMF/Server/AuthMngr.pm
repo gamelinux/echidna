@@ -51,10 +51,9 @@ sub authenticate_agent {
     my $db = NSMF::Server->database();
 
     $db->search(agent => { name => $name }, sub {
-        my $agent = shift;
+        my $agent = shift // [];
 
-        if ( @{ $agent } == 1 &&
-             $agent->[0]->{'password'} eq $key ) {
+        if ( @{ $agent } == 1 && $agent->[0]->{'password'} eq $key ) {
             $cb_success->( $agent->[0] );
         }
         else {

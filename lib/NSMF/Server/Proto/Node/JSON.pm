@@ -33,6 +33,7 @@ use Carp;
 use Compress::Zlib;
 use Data::Dumper;
 use Date::Format;
+use Scalar::Util qw/weaken/;
 
 #
 # NSMF INCLUDES
@@ -95,13 +96,15 @@ sub node_from_handle {
 sub read {
     my ($self, $handle) = @_;
 
-    $handle->push_read( json => sub { $self->dispatcher(@_); } );
+    $handle->push_read( json => sub { 
+        $self->dispatcher(@_);
+    });
 }
 
 sub write {
     my ($self, $handle, $json) = @_;
 
-    return if ( ref($json) ne 'HASH' );
+    return if ref($json) ne 'HASH';
 
     $handle->push_write( json => $json );
     $handle->push_write( "\n" );
@@ -114,7 +117,7 @@ sub dispatcher {
 
     # obtain node from handle
     my $node = $self->node_from_handle($handle);
-    return if ( ! defined($node) );
+    return unless defined($node);
 
     # check if we should respond first
     if ( defined($action->{callback}) ) {
@@ -246,10 +249,14 @@ sub authenticate {
 
         $logger->debug('Agent authenticated: ' . $agent);
 
+        weaken($node);
+        weaken($logger);
+
         $cb_success->($json, $agent_details);
       },
       sub {
         $logger->error('Agent authentication unsupported: ', $@);
+        weaken($logger);
         $cb_error->($json, { object => JSONRPC_NSMF_AUTH_UNSUPPORTED });
       }
     );
@@ -313,6 +320,10 @@ sub identify {
 
         my $db = NSMF::Server->database();
         $db->update(node => { id => $node->{details}{id} }, { state => '1' });
+
+        weaken($logger);
+        weaken($node);
+        weaken($db);
 
         $cb_success->($json, $node_details);
       },

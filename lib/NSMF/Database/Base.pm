@@ -1,4 +1,4 @@
-package NSMF::Service::Database::Base;
+package NSMF::Database::Base;
 
 use strict;
 use 5.010;

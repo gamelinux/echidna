@@ -1,4 +1,4 @@
-package NSMF::Service::Database::MYSQL::Event;
+package NSMF::Database::MYSQL::Event;
 
 use strict;
 use 5.010;

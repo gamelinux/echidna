@@ -29,6 +29,8 @@ use warnings;
 use strict;
 use v5.10;
 
+#use Devel::Gladiator qw(walk_arena arena_ref_counts arena_table);
+
 #
 # PERL INCLUDES
 #
@@ -96,6 +98,13 @@ my $client_listener = tcp_server(
 
 $logger->info('Server Initialized ...');
 
+#my $all = walk_arena();
+
+#foreach my $sv ( @$all ) {
+#  warn "live object: $sv\n";
+#}
+
+#say Dumper arena_ref_counts();
 $exit->recv();
 
 exit(0);

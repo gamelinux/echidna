@@ -1,13 +1,9 @@
-package NSMF::Service::Database::MYSQL;
+package NSMF::Database::DBI;
 
 use strict;
 use 5.010;
 
-use base qw(NSMF::Service::Database::Base);
-use Module::Pluggable
-    search_path => 'NSMF::Service::Database::MYSQL',
-    sub_name => 'entities',
-    except => qr/Object$/;
+use base qw(NSMF::Database::Base);
 
 use AnyEvent;
 use AnyEvent::DBI;
@@ -17,7 +13,6 @@ use Data::Dumper;
 use NSMF::Model;
 use NSMF::Common::Util;
 use NSMF::Common::Error;
-use NSMF::Common::Registry;
 
 use constant {
     ModelNotFound => 'Failed to load module',
@@ -38,7 +33,6 @@ sub new {
             __window_size => 1000,
             __return_objects => 0,
             __loaded_models => [],
-            __logger  => NSMF::Common::Registry->get('log'),
         }, $class;
 
         $instance->_setup($args);
@@ -83,7 +77,7 @@ sub _setup {
 
                           say "dbh is dead we need to take care of this" if $fatal;
                           #$self->return_handle($dbh);
-                          $instance->log->error("DBI Error: $@ at $location:$line");
+                          carp "DBI Error: $@ at $location:$line";
 
                       };
 
@@ -104,28 +98,6 @@ sub _setup {
     $instance->{__running}->{$_} = 0 for @pids;
 
     $instance->_autoload_models();
-    $instance->_autoload_types();
-}
-
-sub log {
-    my $self = shift;
-
-    $self->{__logger};# // warn "No Logger Loaded";
-}
-
-sub call {
-    my ($self, $object, $method, $args, $cb) = @_;
-        
-    my $entity = 'NSMF::Service::Database::MYSQL::' .ucfirst $object;
-    eval qq{require $entity}; if ($@) {
-        throw "Failed to require $entity";
-    }
-
-    if ($entity->can($method)) {
-        $entity->$method($self, $args, $cb);
-    } else {
-        throw "Failed to call method $method on $entity";
-    }
 }
 
 sub pool_size {
@@ -133,8 +105,29 @@ sub pool_size {
     keys %{ $self->{__pool} } // die;
 }
 
+my $w;
+sub fire_watcher {
+    my ($self, $time) = @_;
+
+    return unless ref $self;
+
+    unless (defined $time ~~ /\A\d+\Z/) {
+        warn "Expected integer value on " .__PACKAGE__. '->fire_watcher';
+        return;
+    }
+
+    $w = AE::timer 1, $time, sub {
+       say  "Running: $self->{__running} " .(keys %{$self->{__running}}). " (".join(", ", (keys %{$self->{__running}})). ")";
+    };
+}
+
 sub fetch {
     my $self = shift;
+
+    if ($self->{__debug}) {
+        say  "Running: $self->{__running} " .(keys %{$self->{__running}})
+           . " (".join(", ", (keys %{$self->{__running}})). ")";
+    }
 
     my $pid = shift @{ $self->{__idle} } // $self->_reuse_pid;
     my $dbh = $self->{__pool}->{$pid};
@@ -142,7 +135,19 @@ sub fetch {
     $self->{__running}->{$pid} += 1;
 
     unless (ref $dbh eq 'AnyEvent::DBI') {
+        if ($self->{__debug}) {
+            say "Counter: " .$self->{__counter};
+            say Dumper "Idle: ", $self->{__idle};
+            say Dumper "Running: ", keys %{ $self->{__running} };
+        }
         die "HandleFetchError - Could not fetch valid handler";
+    }
+
+    if ($self->{__debug}) {
+        say "Selected PID: " .$dbh->{child_pid};
+        say "Fetched:      " .ref $dbh;
+        my @pids_current = @{ $self->{__idle} };
+        say;
     }
 
     return $dbh;
@@ -161,7 +166,11 @@ sub _reuse_pid {
     return $pid;
 }
 
-sub execute_query {
+sub sleep {
+#
+}
+
+sub _execute_query {
     my ($self, $sql, $model, $cb) = @_;
 
     $self->execute($sql, sub {
@@ -212,6 +221,13 @@ sub execute {
 
 }
 
+sub build_query {
+    my ($self, $model_type, $criteria, $cb) = @_;
+
+    my $model = $self->_load_model($model_type);
+    $self->_mk_query_select($model, $criteria);
+}
+
 sub search {
     my ($self, $model_type, $criteria, $cb) = @_;
 
@@ -221,14 +237,14 @@ sub search {
 
     my $sql = $self->_mk_query_select($model, $criteria);
 
-    $self->execute_query($sql, $model, $cb);
+    $self->_execute_query($sql, $model, $cb);
 }
 
 sub do {
     my ($self, $sql, $cb) = @_;
 
     eval {
-        $self->execute_query($sql, undef, $cb);
+        $self->_execute_query($sql, undef, $cb);
     }; if ($@) {
         say "Failed!";
     }
@@ -240,7 +256,7 @@ sub count {
     croak "ModelNotFound - The model requested does not exist" 
         unless 'NSMF::Model::' .ucfirst($model_type) ~~ [NSMF::Model->objects];
 
-    $self->execute_query("SELECT COUNT(*) FROM $model_type", undef, $cb);
+    $self->_execute_query("SELECT COUNT(*) FROM $model_type", undef, $cb);
 }
 
 sub map_objects {
@@ -300,7 +316,7 @@ sub search_iter {
     my $sql   = $self->_mk_query_select($model, $criteria);
 
     my $limit_query = $sql. " LIMIT 0, " .$self->window_size;
-    my $result = $self->execute_query($limit_query, $model, undef)->recv;
+    my $result = $self->_execute_query($limit_query, $model, undef)->recv;
 
     my $idx    = 0; # array index
     my $offset = 0; # limit offset 
@@ -311,7 +327,7 @@ sub search_iter {
             $limit_query = $sql. " LIMIT " .$offset. ", " .$self->window_size;
 
             splice @$result;
-            $result = $self->execute_query($limit_query, $model, undef)->recv;
+            $result = $self->_execute_query($limit_query, $model, undef)->recv;
 
             $idx = 0;
             my $object = $result->[$idx];
@@ -346,40 +362,16 @@ sub _autoload_models {
             throw 'SchemaDefError', $@;
         }
 
-        my $create_sql = $db_def->get_table_definition;
-        #$self->execute_query($create_sql, undef, undef);
+        my $create_sql = _$db_def->get_table_definition;
+        #$self->_execute_query($create_sql, undef, undef);
     }
 
-}
-
-sub _autoload_types {
-    my ($self) = @_;
-
-    for my $package (__PACKAGE__->entities) {
-        $self->_require($package) or croak "Failed to require $package";
-
-        $package->create_definition($self);
-    }
-}
-
-sub _require {
-    my ($self, $lib) = @_;
-    return unless $lib;
-
-    eval qq{require $lib}; if ($@) {
-        throw "Could not require $lib";
-    }
-
-    $lib;
 }
 
 sub _require_model {
     my ($self, $model_path) = @_;
 
-    eval { 
-        $self->_require($model_path); 
-
-    }; if ($@) {
+    eval qq{require $model_path}; if ($@) {
         throw 'ModelNotFound', $@;
     }
 
@@ -532,7 +524,7 @@ sub insert {
     }
 
     my $sql = $self->_mk_query_insert($data);
-    $self->execute_query($sql, undef, $cb);
+    $self->_execute_query($sql, undef, $cb);
 }
 
 sub update {
@@ -551,7 +543,7 @@ sub update {
 
     my $sql = $self->_mk_query_update($model, $criteria, $data);
 
-    $self->execute_query($sql, undef, $cb);
+    $self->_execute_query($sql, undef, $cb);
 }
 
 sub delete {

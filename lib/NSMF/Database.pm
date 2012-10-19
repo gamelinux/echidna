@@ -1,10 +1,10 @@
-package NSMF::Service::Database;
+package NSMF::Database;
 
 use strict;
 use 5.010;
 use Carp;
 use Module::Pluggable
-    search_path => 'NSMF::Service::Database',
+    search_path => 'NSMF::Database',
     sub_name => 'drivers',
     except => qr/Base/;
 
@@ -17,7 +17,7 @@ sub new {
         unless /$driver_package/i ~~ [__PACKAGE__->drivers];
         #unless $handler ~~ ['dbi', 'cassandra', 'mongodb'];
 
-    my $driver_path = "NSMF::Service::Database::" .uc($handler);
+    my $driver_path = "NSMF::Database::" .uc($handler);
     eval qq{require $driver_path}; if ($@) {
         croak "Failed to load $driver_path $@";
     }

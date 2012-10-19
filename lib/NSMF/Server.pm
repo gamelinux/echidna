@@ -43,7 +43,7 @@ use Module::Pluggable search_path => 'NSMF::Server::Proto::Client', sub_name => 
 #
 use NSMF::Common::Registry;
 
-use NSMF::Service::Database;
+use NSMF::Database;
 use NSMF::Server::ProtoMngr;
 use NSMF::Server::ConfigMngr;
 
@@ -80,7 +80,7 @@ sub instance {
         my ($node_proto, $client_proto, $database);
         eval {
             # TODO: hardcoded to DBI databases currently
-            $database     = NSMF::Service::Database->new(mysql => $config->database());
+            $database     = NSMF::Database->new(mysql => $config->database());
 
             $node_proto   = NSMF::Server::ProtoMngr->create('node', $config->protocol('node'));
             $client_proto = NSMF::Server::ProtoMngr->create('client', $config->protocol('client'));
